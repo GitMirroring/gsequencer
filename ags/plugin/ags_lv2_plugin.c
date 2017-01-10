@@ -76,6 +76,7 @@ void ags_lv2_plugin_load_plugin(AgsBasePlugin *base_plugin);
 enum{
   PROP_0,
   PROP_URI,
+  PROP_GUI_URI,
   PROP_MANIFEST,
   PROP_TURTLE,
 };
@@ -145,11 +146,27 @@ ags_lv2_plugin_class_init(AgsLv2PluginClass *lv2_plugin)
 				  param_spec);
 
   /**
+   * AgsLv2Plugin:gui-uri:
+   *
+   * The assigned gui-uri.
+   * 
+   * Since: 0.7.127
+   */
+  param_spec = g_param_spec_string("gui-uri\0",
+				   "GUI uri of the plugin\0",
+				   "The GUI uri this plugin is located in\0",
+				   NULL,
+				   G_PARAM_READABLE | G_PARAM_WRITABLE);
+  g_object_class_install_property(gobject,
+				  PROP_GUI_URI,
+				  param_spec);
+
+  /**
    * AgsLv2Plugin:manifest:
    *
    * The assigned manifest.
    * 
-   * Since: 1.0.0
+   * Since: 0.7.127
    */
   param_spec = g_param_spec_object("manifest\0",
 				   "manifest of the plugin\0",
@@ -197,6 +214,7 @@ ags_lv2_plugin_init(AgsLv2Plugin *lv2_plugin)
   lv2_plugin->flags = 0;
 
   lv2_plugin->uri = NULL;
+  lv2_plugin->gui_uri = NULL;
 
   lv2_plugin->manifest = NULL;
   lv2_plugin->turtle = NULL;
@@ -228,6 +246,23 @@ ags_lv2_plugin_set_property(GObject *gobject,
       }
 
       lv2_plugin->uri = g_strdup(uri);
+    }
+    break;
+  case PROP_GUI_URI:
+    {
+      gchar *gui_uri;
+
+      gui_uri = (gchar *) g_value_get_string(value);
+
+      if(lv2_plugin->gui_uri == gui_uri){
+	return;
+      }
+      
+      if(lv2_plugin->gui_uri != NULL){
+	g_free(lv2_plugin->gui_uri);
+      }
+
+      lv2_plugin->gui_uri = g_strdup(gui_uri);
     }
     break;
   case PROP_MANIFEST:
@@ -292,6 +327,11 @@ ags_lv2_plugin_get_property(GObject *gobject,
   case PROP_URI:
     {
       g_value_set_string(value, lv2_plugin->uri);
+    }
+    break;
+  case PROP_GUI_URI:
+    {
+      g_value_set_string(value, lv2_plugin->gui_uri);
     }
     break;
   case PROP_MANIFEST:

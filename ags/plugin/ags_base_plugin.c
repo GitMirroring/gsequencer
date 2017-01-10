@@ -371,6 +371,15 @@ ags_base_plugin_init(AgsBasePlugin *base_plugin)
   base_plugin->plugin_descriptor = NULL;
   base_plugin->plugin_handle = NULL;
 
+  /* UI */
+  base_plugin->ui_filename = NULL;
+  base_plugin->ui_effect = NULL;
+  
+  base_plugin->ui_effect_index = 0;
+  base_plugin->ui_plugin_so = NULL;
+  base_plugin->ui_plugin_descriptor = NULL;
+  base_plugin->ui_plugin_handle = NULL;
+
   base_plugin->ui_plugin = NULL;
 }
 

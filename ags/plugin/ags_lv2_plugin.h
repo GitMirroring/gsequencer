@@ -64,7 +64,8 @@ struct _AgsLv2Plugin
   guint flags;
   
   gchar *uri;
-
+  gchar *gui_uri;
+  
   AgsTurtle *manifest;
   AgsTurtle *turtle;
 
