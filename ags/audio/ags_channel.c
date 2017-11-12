@@ -165,6 +165,21 @@ void ags_channel_set_recycling_emit_changed(AgsChannel *channel, AgsChannel *inp
 					    AgsRecycling *first_recycling, AgsRecycling *last_recycling,
 					    AgsRecycling *old_first_recycling, AgsRecycling *old_last_recycling,
 					    AgsRecycling *changed_old_first_recycling, AgsRecycling *changed_old_last_recycling);
+void ags_channel_reset_recycling_context(AgsChannel *channel,
+					 AgsRecyclingContext *recycling_context, AgsRecyclingContext *old_recycling_context,
+					 GList *recall_id);
+void ags_channel_recursive_reset_recycling_context_up(AgsChannel *start, AgsChannel *channel,
+						      AgsRecyclingContext *recycling_context, AgsRecyclingContext *old_recycling_context);
+void ags_channel_recursive_reset_recycling_context_down_input(AgsChannel *start, AgsChannel *channel,
+							      AgsRecyclingContext *recycling_context, AgsRecyclingContext *old_recycling_context);
+void ags_channel_recursive_reset_recycling_context_down_output(AgsChannel *start, AgsChannel *channel,
+							       AgsRecyclingContext *recycling_context, AgsRecyclingContext *old_recycling_context);
+void ags_channel_recursive_set_property_set_property(AgsChannel *channel,
+						     GParameter *parameter, gint n_params);
+void ags_channel_recursive_set_property_down(AgsChannel *channel,
+					     GParameter *parameter, gint n_params);
+void ags_channel_recursive_set_property_down_input(AgsChannel *channel,
+						   GParameter *parameter, gint n_params);
 
 GList* ags_channel_add_ladspa_effect(AgsChannel *channel,
 				     gchar *filename,
@@ -6419,6 +6434,226 @@ ags_channel_set_recycling(AgsChannel *channel,
   }
 }
 
+void
+ags_channel_reset_recycling_context(AgsChannel *channel,
+				    AgsRecyclingContext *recycling_context, AgsRecyclingContext *old_recycling_context,
+				    GList *recall_id)
+{
+  while(recall_id != NULL){
+    if(AGS_RECALL_ID(recall_id->data)->recycling_context == old_recycling_context){
+      g_object_set(recall_id->data,
+		   "recycling-context", recycling_context,
+		   NULL);
+    }
+      
+    recall_id = recall_id->next;
+  }
+}
+
+void
+ags_channel_recursive_reset_recycling_context_up(AgsChannel *start, AgsChannel *channel,
+						 AgsRecyclingContext *recycling_context, AgsRecyclingContext *old_recycling_context)
+{
+  AgsAudio *audio;
+  AgsChannel *current, *output;
+
+  guint flags;
+  guint audio_channel, line;
+  gboolean is_output;
+    
+  if(channel == NULL){
+    return;
+  }
+
+  current = channel;
+
+  /* get audio and defaults */
+  audio_channel = channel->audio_channel;
+  line = channel->line;
+
+  audio = (AgsAudio *) channel->audio;
+
+  is_output = AGS_IS_OUTPUT(channel);
+
+  if(is_output){
+    /* reset recycling container */
+    flags = audio->flags;
+      
+    ags_channel_reset_recycling_context(current,
+					recycling_context, old_recycling_context,
+					audio->recall_id);
+
+    goto ags_channel_recursive_reset_recycling_context_up_OUTPUT;
+  }
+
+  /* reset current channel */
+  while(current != NULL){
+    audio = (AgsAudio *) current->audio;
+
+    audio_channel = current->audio_channel;
+    line = current->line;
+      
+    ags_channel_reset_recycling_context(current,
+					recycling_context, old_recycling_context,
+					current->recall_id);
+
+    /* reset recycling container */
+    flags = audio->flags;
+    output = audio->output;
+      
+    ags_channel_reset_recycling_context(current,
+					recycling_context, old_recycling_context,
+					audio->recall_id);
+
+    if((AGS_AUDIO_OUTPUT_HAS_RECYCLING & (flags)) != 0){
+      break;
+    }
+
+    current = ags_channel_nth(output,
+			      ((AGS_AUDIO_ASYNC & (flags)) ? audio_channel: line));
+      
+  ags_channel_recursive_reset_recycling_context_up_OUTPUT:
+
+    ags_channel_reset_recycling_context(current,
+					recycling_context, old_recycling_context,
+					current->recall_id);
+
+    /* iterate */
+    current = current->link;
+  }
+
+  /* update all in recycling context */
+  if(AGS_IS_INPUT(current) &&
+     (AGS_AUDIO_ASYNC & (flags)) != 0){
+    AgsChannel *input, *link;
+
+    input = audio->input;
+
+    input = ags_channel_nth(input,
+			    audio_channel);
+
+    while(input != NULL){
+      if(input != current){
+	link = input->link;
+	ags_channel_reset_recycling_context(input,
+					    recycling_context, old_recycling_context,
+					    input->recall_id);
+
+	/* traverse the tree */
+	ags_channel_recursive_reset_recycling_context_down_output(start, link,
+								  recycling_context, old_recycling_context);
+      }
+
+      /* iterate */
+      input = input->next_pad;
+    }
+  }
+}
+
+void
+ags_channel_recursive_reset_recycling_context_down_input(AgsChannel *start, AgsChannel *output,
+							 AgsRecyclingContext *recycling_context, AgsRecyclingContext *old_recycling_context)
+{
+  AgsAudio *audio;
+  AgsChannel *input;
+  AgsChannel *link;
+
+  guint flags;
+  guint audio_channel, line;
+
+  pthread_mutex_t *mutex;
+  pthread_mutex_t *audio_mutex, *input_mutex;
+    
+  if(output == NULL){
+    return;
+  }
+
+  /* get audio and defaults */
+  audio = (AgsAudio *) output->audio;
+
+  audio_channel = output->audio_channel;
+  line = output->line;
+
+  /* reset recycling container */
+  input = audio->input;
+
+  flags = audio->flags;
+
+  if((AGS_AUDIO_ASYNC & (flags)) != 0){
+    input = ags_channel_nth(input,
+			    audio_channel);
+
+    while(input != NULL){
+      /* reset recycling container */
+      link = input->link;
+	
+      ags_channel_reset_recycling_context(input,
+					  recycling_context, old_recycling_context,
+					  input->recall_id);
+
+      ags_channel_recursive_reset_recycling_context_down_output(start, link,
+								recycling_context, old_recycling_context);
+
+      /* iterate */
+      input = input->next_pad;
+    }
+  }else{
+    input = ags_channel_nth(input,
+			    line);
+
+    /* reset recycling container */
+    link = input->link;
+      
+    ags_channel_reset_recycling_context(input,
+					recycling_context, old_recycling_context,
+					input->recall_id);
+
+    ags_channel_recursive_reset_recycling_context_down_output(start, link,
+							      recycling_context, old_recycling_context);
+  }
+}
+
+void
+ags_channel_recursive_reset_recycling_context_down_output(AgsChannel *start, AgsChannel *output,
+							  AgsRecyclingContext *recycling_context, AgsRecyclingContext *old_recycling_context)
+{
+  AgsAudio *audio;
+
+  guint flags;
+    
+  pthread_mutex_t *mutex;
+  pthread_mutex_t *audio_mutex;
+
+  if(output == NULL){
+    return;
+  }
+
+  /* get audio and defaults */
+  audio = (AgsAudio *) output->audio;
+
+  /* check if still reset recycling container */
+  flags = audio->flags;
+
+  if(output != start &&
+     (AGS_AUDIO_OUTPUT_HAS_RECYCLING & (flags)) != 0){
+    return;
+  }
+
+  /* reset recycling container - output */
+  ags_channel_reset_recycling_context(output,
+				      recycling_context, old_recycling_context,
+				      output->recall_id);
+
+  /* reset recycling container - audio */
+  ags_channel_reset_recycling_context(output,
+				      recycling_context, old_recycling_context,
+				      audio->recall_id);
+
+  /* traverse the tree */
+  ags_channel_recursive_reset_recycling_context_down_input(start, output,
+							   recycling_context, old_recycling_context);
+}
+
 /**
  * ags_channel_recursive_reset_recycling_context:
  * @channel: the channel to reset
@@ -6434,196 +6669,7 @@ ags_channel_recursive_reset_recycling_context(AgsChannel *channel,
 					      AgsRecyclingContext *old_recycling_context,
 					      AgsRecyclingContext *recycling_context)
 {
-  AgsAudio *audio;
-
   gboolean is_output;
-
-  auto void ags_channel_reset_recycling_context(GList *recall_id);
-  auto void ags_channel_recursive_reset_recycling_context_up(AgsChannel *channel);
-  auto void ags_channel_recursive_reset_recycling_context_down_input(AgsChannel *channel);
-  auto void ags_channel_recursive_reset_recycling_context_down_output(AgsChannel *channel);
-
-  void ags_channel_reset_recycling_context(GList *recall_id){
-    while(recall_id != NULL){
-      if(AGS_RECALL_ID(recall_id->data)->recycling_context == old_recycling_context){
-	g_object_set(recall_id->data,
-		     "recycling-context", recycling_context,
-		     NULL);
-      }
-      
-      recall_id = recall_id->next;
-    }
-  }
-  void ags_channel_recursive_reset_recycling_context_up(AgsChannel *channel){
-    AgsAudio *audio;
-    AgsChannel *current, *output;
-
-    guint flags;
-    guint audio_channel, line;
-    gboolean is_output;
-    
-    if(channel == NULL){
-      return;
-    }
-
-    current = channel;
-
-    /* get audio and defaults */
-    audio_channel = channel->audio_channel;
-    line = channel->line;
-
-    audio = (AgsAudio *) channel->audio;
-
-    is_output = AGS_IS_OUTPUT(channel);
-
-    if(is_output){
-      /* reset recycling container */
-      flags = audio->flags;
-      
-      ags_channel_reset_recycling_context(audio->recall_id);
-
-      goto ags_channel_recursive_reset_recycling_context_up_OUTPUT;
-    }
-
-    /* reset current channel */
-    while(current != NULL){
-      audio = (AgsAudio *) current->audio;
-
-      audio_channel = current->audio_channel;
-      line = current->line;
-      
-      ags_channel_reset_recycling_context(current->recall_id);
-
-      /* reset recycling container */
-      flags = audio->flags;
-      output = audio->output;
-      
-      ags_channel_reset_recycling_context(audio->recall_id);
-
-      if((AGS_AUDIO_OUTPUT_HAS_RECYCLING & (flags)) != 0){
-	break;
-      }
-
-      current = ags_channel_nth(output,
-				((AGS_AUDIO_ASYNC & (flags)) ? audio_channel: line));
-      
-    ags_channel_recursive_reset_recycling_context_up_OUTPUT:
-
-      ags_channel_reset_recycling_context(current->recall_id);
-
-      /* iterate */
-      current = current->link;
-    }
-
-    /* update all in recycling context */
-    if(AGS_IS_INPUT(current) &&
-       (AGS_AUDIO_ASYNC & (flags)) != 0){
-      AgsChannel *input, *link;
-
-      input = audio->input;
-
-      input = ags_channel_nth(input,
-			      audio_channel);
-
-      while(input != NULL){
-	if(input != current){
-	  link = input->link;
-	  ags_channel_reset_recycling_context(input->recall_id);
-
-	  /* traverse the tree */
-	  ags_channel_recursive_reset_recycling_context_down_output(link);
-	}
-
-	/* iterate */
-	input = input->next_pad;
-      }
-    }
-  }
-  void ags_channel_recursive_reset_recycling_context_down_input(AgsChannel *output){
-    AgsAudio *audio;
-    AgsChannel *input;
-    AgsChannel *link;
-
-    guint flags;
-    guint audio_channel, line;
-
-    pthread_mutex_t *mutex;
-    pthread_mutex_t *audio_mutex, *input_mutex;
-    
-    if(output == NULL){
-      return;
-    }
-
-    /* get audio and defaults */
-    audio = (AgsAudio *) output->audio;
-
-    audio_channel = output->audio_channel;
-    line = output->line;
-
-    /* reset recycling container */
-    input = audio->input;
-
-    flags = audio->flags;
-
-    if((AGS_AUDIO_ASYNC & (flags)) != 0){
-      input = ags_channel_nth(input,
-			      audio_channel);
-
-      while(input != NULL){
-	/* reset recycling container */
-	link = input->link;
-	
-	ags_channel_reset_recycling_context(input->recall_id);
-
-	ags_channel_recursive_reset_recycling_context_down_output(link);
-
-	/* iterate */
-	input = input->next_pad;
-      }
-    }else{
-      input = ags_channel_nth(input,
-			      line);
-
-      /* reset recycling container */
-      link = input->link;
-      
-      ags_channel_reset_recycling_context(input->recall_id);
-
-      ags_channel_recursive_reset_recycling_context_down_output(link);
-    }
-  }
-  void ags_channel_recursive_reset_recycling_context_down_output(AgsChannel *output){
-    AgsAudio *audio;
-
-    guint flags;
-    
-    pthread_mutex_t *mutex;
-    pthread_mutex_t *audio_mutex;
-
-    if(output == NULL){
-      return;
-    }
-
-    /* get audio and defaults */
-    audio = (AgsAudio *) output->audio;
-
-    /* check if still reset recycling container */
-    flags = audio->flags;
-
-    if(output != channel &&
-       (AGS_AUDIO_OUTPUT_HAS_RECYCLING & (flags)) != 0){
-      return;
-    }
-
-    /* reset recycling container - output */
-    ags_channel_reset_recycling_context(output->recall_id);
-
-    /* reset recycling container - audio */
-    ags_channel_reset_recycling_context(audio->recall_id);
-
-    /* traverse the tree */
-    ags_channel_recursive_reset_recycling_context_down_input(output);
-  }
 
   /* entry point */
   if(channel == NULL){
@@ -6634,11 +6680,15 @@ ags_channel_recursive_reset_recycling_context(AgsChannel *channel,
   is_output = AGS_IS_OUTPUT(channel);
   
   if(!is_output){
-    ags_channel_recursive_reset_recycling_context_down_output(channel->link);
-    ags_channel_recursive_reset_recycling_context_up(channel);
+    ags_channel_recursive_reset_recycling_context_down_output(channel, channel->link,
+							      recycling_context, old_recycling_context);
+    ags_channel_recursive_reset_recycling_context_up(channel, channel,
+						     recycling_context, old_recycling_context);
   }else{
-    ags_channel_recursive_reset_recycling_context_down_output(channel);
-    ags_channel_recursive_reset_recycling_context_up(channel->link);
+    ags_channel_recursive_reset_recycling_context_down_output(channel, channel,
+							      recycling_context, old_recycling_context);
+    ags_channel_recursive_reset_recycling_context_up(channel, channel->link,
+						     recycling_context, old_recycling_context);
   }
 }
 
@@ -6685,6 +6735,64 @@ ags_channel_recycling_changed(AgsChannel *channel,
   g_object_unref(G_OBJECT(channel));
 }
 
+void
+ags_channel_recursive_set_property_set_property(AgsChannel *channel,
+						GParameter *parameter, gint n_params)
+{
+  guint i;
+
+  for(i = 0; i < n_params; i++){
+    g_object_set_property((GObject *) channel,
+			  parameter[i].name, &(parameter[i].value));
+  }
+}
+  
+void
+ags_channel_recursive_set_property_down(AgsChannel *channel,
+					GParameter *parameter, gint n_params)
+{
+  if(channel == NULL){
+    return;
+  }
+
+  ags_channel_recursive_set_property_set_property(channel,
+						  parameter, n_params);
+    
+  ags_channel_recursive_set_property_down_input(channel,
+						parameter, n_params);
+}
+    
+void
+ags_channel_recursive_set_property_down_input(AgsChannel *channel,
+					      GParameter *parameter, gint n_params)
+{
+  AgsAudio *audio;
+  AgsChannel *input;
+    
+  if(channel == NULL){
+    return;
+  }
+
+  audio = (AgsAudio *) channel->audio;
+
+  if(audio == NULL){
+    return;
+  }
+    
+  input = ags_channel_nth(audio->input,
+			  channel->audio_channel);
+
+  while(input != NULL){
+    ags_channel_recursive_set_property_set_property(input,
+						    parameter, n_params);
+      
+    ags_channel_recursive_set_property_down(input->link,
+					    parameter, n_params);
+
+    input = input->next;
+  }
+}
+
 /**
  * ags_channel_recursive_set_property:
  * @channel: the #AgsChannel
@@ -6698,73 +6806,14 @@ ags_channel_recycling_changed(AgsChannel *channel,
 void
 ags_channel_recursive_set_property(AgsChannel *channel,
 				   GParameter *parameter, gint n_params)
-{
-  auto void ags_channel_set_property(AgsChannel *channel,
-				     GParameter *parameter, gint n_params);
-  auto void ags_channel_recursive_set_property_down(AgsChannel *channel,
-						    GParameter *parameter, gint n_params);
-  auto void ags_channel_recursive_set_property_down_input(AgsChannel *channel,
-							  GParameter *parameter, gint n_params);
-
-  void ags_channel_set_property(AgsChannel *channel,
-				GParameter *parameter, gint n_params){
-    guint i;
-
-    for(i = 0; i < n_params; i++){
-      g_object_set_property((GObject *) channel,
-			    parameter[i].name, &(parameter[i].value));
-    }
-  }
-  
-  void ags_channel_recursive_set_property_down(AgsChannel *channel,
-					       GParameter *parameter, gint n_params){
-    if(channel == NULL){
-      return;
-    }
-
-    ags_channel_set_property(channel,
-			     parameter, n_params);
-    
-    ags_channel_recursive_set_property_down_input(channel,
-						  parameter, n_params);
-  }
-    
-  void ags_channel_recursive_set_property_down_input(AgsChannel *channel,
-						     GParameter *parameter, gint n_params){
-    AgsAudio *audio;
-    AgsChannel *input;
-    
-    if(channel == NULL){
-      return;
-    }
-
-    audio = (AgsAudio *) channel->audio;
-
-    if(audio == NULL){
-      return;
-    }
-    
-    input = ags_channel_nth(audio->input,
-			    channel->audio_channel);
-
-    while(input != NULL){
-      ags_channel_set_property(input,
-			       parameter, n_params);
-      
-      ags_channel_recursive_set_property_down(input->link,
-					      parameter, n_params);
-
-      input = input->next;
-    }
-  }
-  
+{  
   if(channel == NULL){
     return;
   }
   
   if(AGS_IS_INPUT(channel)){
-    ags_channel_set_property(channel,
-			     parameter, n_params);
+    ags_channel_recursive_set_property_set_property(channel,
+						    parameter, n_params);
     
     ags_channel_recursive_set_property_down(channel->link,
 					    parameter, n_params);
