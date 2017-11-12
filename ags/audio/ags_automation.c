@@ -61,6 +61,16 @@ void ags_automation_disconnect(AgsConnectable *connectable);
 void ags_automation_dispose(GObject *gobject);
 void ags_automation_finalize(GObject *gobject);
 
+gint ags_automation_add_acceleration_compare_function(gpointer a, gpointer b);
+gboolean ags_automation_merge_clipboard_find_acceleration(xmlNode *automation_node,
+							  xmlChar *x,
+							  xmlChar *y);
+void ags_automation_insert_from_clipboard_version_0_4_3(AgsAutomation *automation,
+							xmlNode *root_node, char *version,
+							char *x_boundary, char *y_boundary,
+							gboolean reset_x_offset, guint x_offset,
+							gboolean reset_y_offset, gdouble y_offset);
+
 void ags_automation_set_port(AgsPortlet *portlet, GObject *port);
 GObject* ags_automation_get_port(AgsPortlet *portlet);
 GList* ags_automation_list_safe_properties(AgsPortlet *portlet);
@@ -1010,6 +1020,19 @@ ags_automation_find_near_timestamp(GList *automation, guint line,
   return(NULL);
 }
 
+gint
+ags_automation_add_acceleration_compare_function(gpointer a, gpointer b){
+  if(AGS_ACCELERATION(a)->x == AGS_ACCELERATION(b)->x){
+    return(0);
+  }
+
+  if(AGS_ACCELERATION(a)->x < AGS_ACCELERATION(b)->x){
+    return(-1);
+  }else{
+    return(1);
+  }
+}
+
 /**
  * ags_automation_add_acceleration:
  * @automation: an #AgsAutomation
@@ -1026,20 +1049,6 @@ ags_automation_add_acceleration(AgsAutomation *automation,
 				gboolean use_selection_list)
 {
   GList *list, *list_new;
-
-  auto gint ags_automation_add_acceleration_compare_function(gpointer a, gpointer b);
-
-  gint ags_automation_add_acceleration_compare_function(gpointer a, gpointer b){
-    if(AGS_ACCELERATION(a)->x == AGS_ACCELERATION(b)->x){
-      return(0);
-    }
-
-    if(AGS_ACCELERATION(a)->x < AGS_ACCELERATION(b)->x){
-      return(-1);
-    }else{
-      return(1);
-    }
-  }
 
   if(acceleration == NULL){
     return;
@@ -1572,6 +1581,37 @@ ags_automation_cut_selection(AgsAutomation *automation)
   return(automation_node);
 }
 
+gboolean
+ags_automation_merge_clipboard_find_acceleration(xmlNode *automation_node,
+						 xmlChar *x,
+						 xmlChar *y)
+{
+  xmlNode *child;
+    
+  child = automation_node->children;
+  
+  while(child != NULL){
+    if(child->type == XML_ELEMENT_NODE){
+      if(!xmlStrncmp(child->name,
+		     "acceleration",
+		     13)){
+	if(!xmlStrcmp(xmlGetProp(child,
+				 "x"),
+		      x) &&
+	   !xmlStrcmp(xmlGetProp(child,
+				 "y"),
+		      y)){
+	  return(TRUE);
+	}
+      }
+    }
+
+    child = child->next;
+  }
+    
+  return(FALSE);
+}
+
 void
 ags_automation_merge_clipboard(xmlNode *audio_node,
 			       xmlNode *automation_node)
@@ -1579,39 +1619,6 @@ ags_automation_merge_clipboard(xmlNode *audio_node,
   xmlNode *find_automation;
   xmlNode *find_acceleration;
   xmlNode *child;
-
-  auto gboolean ags_automation_merge_clipboard_find_acceleration(xmlNode *automation_node,
-								 xmlChar *x,
-								 xmlChar *y);
-  
-  gboolean ags_automation_merge_clipboard_find_acceleration(xmlNode *automation_node,
-							    xmlChar *x,
-							    xmlChar *y){
-    xmlNode *child;
-    
-    child = automation_node->children;
-  
-    while(child != NULL){
-      if(child->type == XML_ELEMENT_NODE){
-	if(!xmlStrncmp(child->name,
-		       "acceleration",
-		       13)){
-	  if(!xmlStrcmp(xmlGetProp(child,
-				   "x"),
-			x) &&
-	     !xmlStrcmp(xmlGetProp(child,
-				   "y"),
-			y)){
-	    return(TRUE);
-	  }
-	}
-      }
-
-      child = child->next;
-    }
-    
-    return(FALSE);
-  }
   
   if(audio_node == NULL ||
      automation_node == NULL){
@@ -1673,6 +1680,165 @@ ags_automation_merge_clipboard(xmlNode *audio_node,
 }
 
 void
+ags_automation_insert_from_clipboard_version_0_4_3(AgsAutomation *automation,
+						   xmlNode *root_node, char *version,
+						   char *x_boundary, char *y_boundary,
+						   gboolean reset_x_offset, guint x_offset,
+						   gboolean reset_y_offset, gdouble y_offset)
+{
+  AgsAcceleration *acceleration;
+  xmlNode *node;
+  char *endptr;
+  guint x_boundary_val, y_boundary_val;
+  char *x, *y;
+  guint x_val;
+  gdouble y_val;
+  guint base_x_difference, base_y_difference;
+  gboolean subtract_x, subtract_y;
+
+  node = root_node->children;
+
+  /* retrieve x values for resetting */
+  if(reset_x_offset){
+    if(x_boundary != NULL){
+      errno = 0;
+      x_boundary_val = strtoul(x_boundary, &endptr, 10);
+
+      if(errno == ERANGE){
+	goto dont_reset_x_offset;
+      } 
+
+      if(x_boundary == endptr){
+	goto dont_reset_x_offset;
+      }
+
+      if(x_boundary_val < x_offset){
+	base_x_difference = x_offset - x_boundary_val;
+	subtract_x = FALSE;
+      }else{
+	base_x_difference = x_boundary_val - x_offset;
+	subtract_x = TRUE;
+      }
+    }else{
+    dont_reset_x_offset:
+      reset_x_offset = FALSE;
+    }
+  }
+
+  /* retrieve y values for resetting */
+  if(reset_y_offset){
+    if(y_boundary != NULL){
+      errno = 0;
+      y_boundary_val = strtoul(y_boundary, &endptr, 10);
+
+      if(errno == ERANGE){
+	goto dont_reset_y_offset;
+      } 
+
+      if(y_boundary == endptr){
+	goto dont_reset_y_offset;
+      }
+
+      if(y_boundary_val < y_offset){
+	base_y_difference = y_offset - y_boundary_val;
+	subtract_y = FALSE;
+      }else{
+	base_y_difference = y_boundary_val - y_offset;
+	subtract_y = TRUE;
+      }
+    }else{
+    dont_reset_y_offset:
+      reset_y_offset = FALSE;
+    }
+  }
+    
+  for(; node != NULL; node = node->next){
+    if(node->type == XML_ELEMENT_NODE && !xmlStrncmp("acceleration", node->name, 5)){
+      /* retrieve x0 offset */
+      x = xmlGetProp(node, "x");
+
+      if(x == NULL)
+	continue;
+
+      errno = 0;
+      x_val = strtoul(x, &endptr, 10);
+
+      if(errno == ERANGE){
+	continue;
+      } 
+
+      if(x == endptr){
+	continue;
+      }
+	
+      /* retrieve y offset */
+      y = xmlGetProp(node, "y");
+
+      if(y == NULL)
+	continue;
+
+      errno = 0;
+      y_val = strtod(y,
+		     &endptr);
+
+      if(errno == ERANGE){
+	continue;
+      } 
+
+      if(y == endptr){
+	continue;
+      }
+
+      /* calculate new offset */
+      if(reset_x_offset){
+	errno = 0;
+
+	if(subtract_x){
+	  x_val -= base_x_difference;
+
+	  if(errno != 0)
+	    continue;
+	}else{
+	  x_val += base_x_difference;
+
+	  if(errno != 0)
+	    continue;
+	}
+      }
+
+      if(reset_y_offset){
+	errno = 0;
+
+	if(subtract_y){
+	  y_val -= base_y_difference;
+	}else{
+	  y_val += base_y_difference;
+	}
+
+	if(errno != 0)
+	  continue;
+      }
+
+      /* add acceleration */
+      acceleration = ags_acceleration_new();
+
+      acceleration->x = x_val;
+      acceleration->y = y_val;
+
+#ifdef AGS_DEBUG
+      g_message("adding acceleration at: [%u|%f]\n", x_val, y_val);
+#endif
+	
+      ags_automation_add_acceleration(automation,
+				      acceleration,
+				      FALSE);
+    }
+  }
+
+
+}
+
+void
 ags_automation_insert_from_clipboard(AgsAutomation *automation,
 				     xmlNode *automation_node,
 				     gboolean reset_x_offset, guint x_offset,
@@ -1680,170 +1846,7 @@ ags_automation_insert_from_clipboard(AgsAutomation *automation,
 {
   char *program, *version, *type, *format;
   char *base_frequency;
-  char *x_boundary, *y_boundary;
-
-  auto void ags_automation_insert_from_clipboard_version_0_4_3(AgsAutomation *automation,
-							       xmlNode *root_node, char *version,
-							       char *x_boundary, char *y_boundary,
-							       gboolean reset_x_offset, guint x_offset,
-							       gboolean reset_y_offset, gdouble y_offset);
-  
-  void ags_automation_insert_from_clipboard_version_0_4_3(AgsAutomation *automation,
-							  xmlNode *root_node, char *version,
-							  char *x_boundary, char *y_boundary,
-							  gboolean reset_x_offset, guint x_offset,
-							  gboolean reset_y_offset, gdouble y_offset){
-    AgsAcceleration *acceleration;
-    xmlNode *node;
-    char *endptr;
-    guint x_boundary_val, y_boundary_val;
-    char *x, *y;
-    guint x_val;
-    gdouble y_val;
-    guint base_x_difference, base_y_difference;
-    gboolean subtract_x, subtract_y;
-
-    node = root_node->children;
-
-    /* retrieve x values for resetting */
-    if(reset_x_offset){
-      if(x_boundary != NULL){
-	errno = 0;
-	x_boundary_val = strtoul(x_boundary, &endptr, 10);
-
-	if(errno == ERANGE){
-	  goto dont_reset_x_offset;
-	} 
-
-	if(x_boundary == endptr){
-	  goto dont_reset_x_offset;
-	}
-
-	if(x_boundary_val < x_offset){
-	  base_x_difference = x_offset - x_boundary_val;
-	  subtract_x = FALSE;
-	}else{
-	  base_x_difference = x_boundary_val - x_offset;
-	  subtract_x = TRUE;
-	}
-      }else{
-      dont_reset_x_offset:
-	reset_x_offset = FALSE;
-      }
-    }
-
-    /* retrieve y values for resetting */
-    if(reset_y_offset){
-      if(y_boundary != NULL){
-	errno = 0;
-	y_boundary_val = strtoul(y_boundary, &endptr, 10);
-
-	if(errno == ERANGE){
-	  goto dont_reset_y_offset;
-	} 
-
-	if(y_boundary == endptr){
-	  goto dont_reset_y_offset;
-	}
-
-	if(y_boundary_val < y_offset){
-	  base_y_difference = y_offset - y_boundary_val;
-	  subtract_y = FALSE;
-	}else{
-	  base_y_difference = y_boundary_val - y_offset;
-	  subtract_y = TRUE;
-	}
-      }else{
-      dont_reset_y_offset:
-	reset_y_offset = FALSE;
-      }
-    }
-    
-    for(; node != NULL; node = node->next){
-      if(node->type == XML_ELEMENT_NODE && !xmlStrncmp("acceleration", node->name, 5)){
-	/* retrieve x0 offset */
-	x = xmlGetProp(node, "x");
-
-	if(x == NULL)
-	  continue;
-
-	errno = 0;
-	x_val = strtoul(x, &endptr, 10);
-
-	if(errno == ERANGE){
-	  continue;
-	} 
-
-	if(x == endptr){
-	  continue;
-	}
-	
-	/* retrieve y offset */
-	y = xmlGetProp(node, "y");
-
-	if(y == NULL)
-	  continue;
-
-	errno = 0;
-	y_val = strtod(y,
-		       &endptr);
-
-	if(errno == ERANGE){
-	  continue;
-	} 
-
-	if(y == endptr){
-	  continue;
-	}
-
-	/* calculate new offset */
-	if(reset_x_offset){
-	  errno = 0;
-
-	  if(subtract_x){
-	    x_val -= base_x_difference;
-
-	    if(errno != 0)
-	      continue;
-	  }else{
-	    x_val += base_x_difference;
-
-	    if(errno != 0)
-	      continue;
-	  }
-	}
-
-	if(reset_y_offset){
-	  errno = 0;
-
-	  if(subtract_y){
-	    y_val -= base_y_difference;
-	  }else{
-	    y_val += base_y_difference;
-	  }
-
-	  if(errno != 0)
-	    continue;
-	}
-
-	/* add acceleration */
-	acceleration = ags_acceleration_new();
-
-	acceleration->x = x_val;
-	acceleration->y = y_val;
-
-#ifdef AGS_DEBUG
-	g_message("adding acceleration at: [%u|%f]\n", x_val, y_val);
-#endif
-	
-	ags_automation_add_acceleration(automation,
-					acceleration,
-					FALSE);
-      }
-    }
-
-
-  }
+  char *x_boundary, *y_boundary;  
   
   while(automation_node != NULL){
     if(automation_node->type == XML_ELEMENT_NODE && !xmlStrncmp("automation", automation_node->name, 9))
