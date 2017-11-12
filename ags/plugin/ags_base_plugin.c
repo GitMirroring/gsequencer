@@ -39,6 +39,8 @@ void ags_base_plugin_get_property(GObject *gobject,
 void ags_base_plugin_dispose(GObject *gobject);
 void ags_base_plugin_finalize(GObject *gobject);
 
+gint ags_base_plugin_sort_compare_function(gpointer a, gpointer b);
+
 /**
  * SECTION:ags_base_plugin
  * @short_description: The base plugin class
@@ -777,6 +779,14 @@ ags_base_plugin_find_ui_effect_index(GList *base_plugin, gchar *ui_filename, gui
   return(NULL);
 }
 
+gint
+ags_base_plugin_sort_compare_function(gpointer a, gpointer b)
+{
+  return(strcmp(AGS_BASE_PLUGIN(a)->effect,
+		AGS_BASE_PLUGIN(b)->effect));
+}
+
+
 /**
  * ags_base_plugin_sort:
  * @base_plugin: the #GList-struct containing #AgsBasePlugin
@@ -792,13 +802,6 @@ ags_base_plugin_sort(GList *base_plugin)
 {  
   GList *start;
   
-  auto gint ags_base_plugin_sort_compare_function(gpointer a, gpointer b);
-
-  gint ags_base_plugin_sort_compare_function(gpointer a, gpointer b){
-    return(strcmp(AGS_BASE_PLUGIN(a)->effect,
-		  AGS_BASE_PLUGIN(b)->effect));
-  }
-
   if(base_plugin == NULL){
     return(NULL);
   }

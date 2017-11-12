@@ -49,6 +49,14 @@ void ags_envelope_audio_signal_connect_dynamic(AgsDynamicConnectable *dynamic_co
 void ags_envelope_audio_signal_disconnect_dynamic(AgsDynamicConnectable *dynamic_connectable);
 void ags_envelope_audio_signal_finalize(GObject *gobject);
 
+gdouble ags_envelope_audio_signal_run_inter_get_ratio(AgsEnvelopeAudioSignal *envelope_audio_signal,
+						      guint x0, gdouble y0,
+						      guint x1, gdouble y1);
+gdouble ags_envelope_audio_signal_run_inter_get_volume(AgsEnvelopeAudioSignal *envelope_audio_signal,
+						       gdouble volume, gdouble ratio,
+						       guint start_x, guint current_x,
+						       guint length);
+
 void ags_envelope_audio_signal_run_init_pre(AgsRecall *recall);
 void ags_envelope_audio_signal_run_inter(AgsRecall *recall);
 AgsRecall* ags_envelope_audio_signal_duplicate(AgsRecall *recall,
@@ -302,6 +310,31 @@ ags_envelope_audio_signal_run_init_pre(AgsRecall *recall)
   }
 }
 
+gdouble
+ags_envelope_audio_signal_run_inter_get_ratio(AgsEnvelopeAudioSignal *envelope_audio_signal,
+					      guint x0, gdouble y0,
+					      guint x1, gdouble y1)
+{
+  if(x1 - x0 == 0){
+    return(1.0);
+  }else{
+    return((y1 - y0) / (x1 - x0));
+  }
+}
+
+gdouble
+ags_envelope_audio_signal_run_inter_get_volume(AgsEnvelopeAudioSignal *envelope_audio_signal,
+					       gdouble volume, gdouble ratio,
+					       guint start_x, guint current_x,
+					       guint length)
+{
+  if(current_x - start_x == 0){
+    return(volume);
+  }else{
+    return(volume + ratio * (length / (current_x - start_x)));
+  }
+}
+
 void
 ags_envelope_audio_signal_run_inter(AgsRecall *recall)
 {
@@ -327,31 +360,6 @@ ags_envelope_audio_signal_run_inter(AgsRecall *recall)
 
   GValue audio_value = {0,};
   GValue channel_value = {0,};
-
-  auto gdouble ags_envelope_audio_signal_run_inter_get_ratio(guint x0, gdouble y0,
-							     guint x1, gdouble y1);
-  auto gdouble ags_envelope_audio_signal_run_inter_get_volume(gdouble volume, gdouble ratio,
-							      guint start_x, guint current_x,
-							      guint length);
-    
-  gdouble ags_envelope_audio_signal_run_inter_get_ratio(guint x0, gdouble y0,
-							guint x1, gdouble y1){
-    if(x1 - x0 == 0){
-      return(1.0);
-    }else{
-      return((y1 - y0) / (x1 - x0));
-    }
-  }
-
-  gdouble ags_envelope_audio_signal_run_inter_get_volume(gdouble volume, gdouble ratio,
-							 guint start_x, guint current_x,
-							 guint length){
-    if(current_x - start_x == 0){
-      return(volume);
-    }else{
-      return(volume + ratio * (length / (current_x - start_x)));
-    }
-  }
 
   AGS_RECALL_CLASS(ags_envelope_audio_signal_parent_class)->run_inter(recall);
 
@@ -422,9 +430,11 @@ ags_envelope_audio_signal_run_inter(AgsRecall *recall)
 	}
       }
       
-      current_ratio = ags_envelope_audio_signal_run_inter_get_ratio(0, y0,
+      current_ratio = ags_envelope_audio_signal_run_inter_get_ratio(envelope_audio_signal,
+								    0, y0,
 								    x1 * frame_count, y1);
-      current_volume = ags_envelope_audio_signal_run_inter_get_volume(y0, current_ratio,
+      current_volume = ags_envelope_audio_signal_run_inter_get_volume(envelope_audio_signal,
+								      y0, current_ratio,
 								      0, start_frame,
 								      x1 * frame_count);
       ags_audio_buffer_util_envelope(stream_source->data + current_frame, 1,
@@ -458,9 +468,11 @@ ags_envelope_audio_signal_run_inter(AgsRecall *recall)
 	}
       }
       
-      current_ratio = ags_envelope_audio_signal_run_inter_get_ratio(0, y0,
+      current_ratio = ags_envelope_audio_signal_run_inter_get_ratio(envelope_audio_signal,
+								    0, y0,
 								    x1 * frame_count, y1);
-      current_volume = ags_envelope_audio_signal_run_inter_get_volume(y0, current_ratio,
+      current_volume = ags_envelope_audio_signal_run_inter_get_volume(envelope_audio_signal,
+								      y0, current_ratio,
 								      0, prev_offset + current_frame,
 								      x1 * frame_count);
       ags_audio_buffer_util_envelope(stream_source->data + current_frame, 1,
@@ -494,9 +506,11 @@ ags_envelope_audio_signal_run_inter(AgsRecall *recall)
 	}
       }
       
-      current_ratio = ags_envelope_audio_signal_run_inter_get_ratio(0, y0,
+      current_ratio = ags_envelope_audio_signal_run_inter_get_ratio(envelope_audio_signal,
+								    0, y0,
 								    x1 * frame_count, y1);
-      current_volume = ags_envelope_audio_signal_run_inter_get_volume(y0, current_ratio,
+      current_volume = ags_envelope_audio_signal_run_inter_get_volume(envelope_audio_signal,
+								      y0, current_ratio,
 								      0, prev_offset + current_frame,
 								      x1 * frame_count);
       ags_audio_buffer_util_envelope(stream_source->data + current_frame, 1,
@@ -530,9 +544,11 @@ ags_envelope_audio_signal_run_inter(AgsRecall *recall)
 	}
       }
       
-      current_ratio = ags_envelope_audio_signal_run_inter_get_ratio(0, y0,
+      current_ratio = ags_envelope_audio_signal_run_inter_get_ratio(envelope_audio_signal,
+								    0, y0,
 								    x1 * frame_count, y1);
-      current_volume = ags_envelope_audio_signal_run_inter_get_volume(y0, current_ratio,
+      current_volume = ags_envelope_audio_signal_run_inter_get_volume(envelope_audio_signal,
+								      y0, current_ratio,
 								      0, prev_offset + current_frame,
 								      x1 * frame_count);
       ags_audio_buffer_util_envelope(stream_source->data + current_frame, 1,
