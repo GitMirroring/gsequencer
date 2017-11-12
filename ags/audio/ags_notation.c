@@ -54,6 +54,13 @@ void ags_notation_disconnect(AgsConnectable *connectable);
 void ags_notation_dispose(GObject *gobject);
 void ags_notation_finalize(GObject *gobject);
 
+void ags_notation_insert_native_piano_from_clipboard_version_0_3_12(AgsNotation *notation,
+								    xmlNode *root_node, char *version,
+								    char *base_frequency,
+								    char *x_boundary, char *y_boundary,
+								    gboolean reset_x_offset, guint x_offset,
+								    gboolean reset_y_offset, guint y_offset);
+
 void ags_notation_change_bpm(AgsTactable *tactable, gdouble new_bpm, gdouble old_bpm);
 
 void ags_notation_set_port(AgsPortlet *portlet, GObject *port);
@@ -1557,6 +1564,230 @@ ags_notation_cut_selection(AgsNotation *notation)
   return(notation_node);
 }
 
+void
+ags_notation_insert_native_piano_from_clipboard_version_0_3_12(AgsNotation *notation,
+							       xmlNode *root_node, char *version,
+							       char *base_frequency,
+							       char *x_boundary, char *y_boundary,
+							       gboolean reset_x_offset, guint x_offset,
+							       gboolean reset_y_offset, guint y_offset)
+{
+  AgsNote *note;
+  xmlNode *node;
+  char *endptr;
+  guint x_boundary_val, y_boundary_val;
+  char *x0, *x1, *y;
+  guint x0_val, x1_val, y_val;
+  guint base_x_difference, base_y_difference;
+  gboolean subtract_x, subtract_y;
+
+  node = root_node->children;
+
+  /* retrieve x values for resetting */
+  if(reset_x_offset){
+    if(x_boundary != NULL){
+      errno = 0;
+      x_boundary_val = strtoul(x_boundary, &endptr, 10);
+
+      if(errno == ERANGE){
+	goto dont_reset_x_offset;
+      } 
+	
+      if(x_boundary == endptr){
+	goto dont_reset_x_offset;
+      }
+
+      if(x_boundary_val < x_offset){
+	base_x_difference = x_offset - x_boundary_val;
+	subtract_x = FALSE;
+      }else{
+	base_x_difference = x_boundary_val - x_offset;
+	subtract_x = TRUE;
+      }
+    }else{
+    dont_reset_x_offset:
+      reset_x_offset = FALSE;
+    }
+  }
+
+  /* retrieve y values for resetting */
+  if(reset_y_offset){
+    if(y_boundary != NULL){
+      errno = 0;
+      y_boundary_val = strtoul(y_boundary, &endptr, 10);
+
+      if(errno == ERANGE){
+	goto dont_reset_y_offset;
+      } 
+
+      if(y_boundary == endptr){
+	goto dont_reset_y_offset;
+      }
+
+      if(y_boundary_val < y_offset){
+	base_y_difference = y_offset - y_boundary_val;
+	subtract_y = FALSE;
+      }else{
+	base_y_difference = y_boundary_val - y_offset;
+	subtract_y = TRUE;
+      }
+    }else{
+    dont_reset_y_offset:
+      reset_y_offset = FALSE;
+    }
+  }
+    
+  for(; node != NULL; ){
+    if(node->type == XML_ELEMENT_NODE && !xmlStrncmp("note", node->name, 5)){
+      /* retrieve x0 offset */
+      x0 = xmlGetProp(node, "x");
+
+      if(x0 == NULL){
+	node = node->next;
+	  
+	continue;
+      }
+
+      errno = 0;
+      x0_val = strtoul(x0, &endptr, 10);
+
+      if(errno == ERANGE){
+	node = node->next;
+	  
+	continue;
+      } 
+
+      if(x0 == endptr){
+	node = node->next;
+	  
+	continue;
+      }
+
+      /* retrieve x1 offset */
+      x1 = xmlGetProp(node, "x1");
+
+      if(x1 == NULL){
+	node = node->next;
+	  
+	continue;
+      }
+
+      errno = 0;
+      x1_val = strtoul(x1, &endptr, 10);
+
+      if(errno == ERANGE){
+	node = node->next;
+	  
+	continue;
+      } 
+
+      if(x1 == endptr){
+	node = node->next;
+	  
+	continue;
+      }
+
+      /* retrieve y offset */
+      y = xmlGetProp(node, "y");
+
+      if(y == NULL){
+	node = node->next;
+	  
+	continue;
+      }
+
+      errno = 0;
+      y_val = strtoul(y, &endptr, 10);
+
+      if(errno == ERANGE){
+	node = node->next;
+	  
+	continue;
+      } 
+
+      if(y == endptr){
+	node = node->next;
+	  
+	continue;
+      }
+
+      /* switch x values if necessary */
+      if(x0_val > x1_val){
+	guint tmp;
+
+	tmp = x0_val;
+	x0_val = x1_val;
+	x1_val = tmp;
+      }
+
+      /* calculate new offset */
+      if(reset_x_offset){
+	errno = 0;
+
+	if(subtract_x){
+	  x0_val -= base_x_difference;
+
+	  if(errno != 0){
+	    node = node->next;
+	      
+	    continue;
+	  }
+
+	  x1_val -= base_x_difference;
+	}else{
+	  x0_val += base_x_difference;
+	  x1_val += base_x_difference;
+
+	  if(errno != 0){
+	    node = node->next;
+	      
+	    continue;
+	  }
+	}
+      }
+
+      if(reset_y_offset){
+	errno = 0;
+
+	if(subtract_y){
+	  y_val -= base_y_difference;
+	}else{
+	  y_val += base_y_difference;
+	}
+
+	if(errno != 0){
+	  node = node->next;
+	    
+	  continue;
+	}
+      }
+
+      /* check if max length wasn't exceeded */
+      if(x1_val - x0_val > notation->maximum_note_length){
+	node = node->next;
+	  
+	continue;
+      }
+
+      /* add note */
+      note = ags_note_new();
+
+      note->x[0] = x0_val;
+      note->x[1] = x1_val;
+
+      note->y = y_val;
+
+      g_message("adding note at: [%u,%u|%u]\n", x0_val, x1_val, y_val);
+
+      ags_notation_add_note(notation,
+			    note,
+			    FALSE);
+    }
+
+    node = node->next;
+  }
+}
+
 /**
  * ags_notation_insert_native_piano_from_clipboard:
  * @notation: an #AgsNotation
@@ -1576,234 +1807,28 @@ ags_notation_cut_selection(AgsNotation *notation)
  */
 void
 ags_notation_insert_native_piano_from_clipboard(AgsNotation *notation,
-						xmlNodePtr root_node, char *version,
+						xmlNode *root_node, char *version,
 						char *base_frequency,
 						char *x_boundary, char *y_boundary,
 						gboolean reset_x_offset, guint x_offset,
 						gboolean reset_y_offset, guint y_offset)
 {
-  void ags_notation_insert_native_piano_from_clipboard_version_0_3_12(){
-    AgsNote *note;
-    xmlNodePtr node;
-    char *endptr;
-    guint x_boundary_val, y_boundary_val;
-    char *x0, *x1, *y;
-    guint x0_val, x1_val, y_val;
-    guint base_x_difference, base_y_difference;
-    gboolean subtract_x, subtract_y;
-
-    node = root_node->children;
-
-    /* retrieve x values for resetting */
-    if(reset_x_offset){
-      if(x_boundary != NULL){
-	errno = 0;
-	x_boundary_val = strtoul(x_boundary, &endptr, 10);
-
-	if(errno == ERANGE){
-	  goto dont_reset_x_offset;
-	} 
-	
-	if(x_boundary == endptr){
-	  goto dont_reset_x_offset;
-	}
-
-	if(x_boundary_val < x_offset){
-	  base_x_difference = x_offset - x_boundary_val;
-	  subtract_x = FALSE;
-	}else{
-	  base_x_difference = x_boundary_val - x_offset;
-	  subtract_x = TRUE;
-	}
-      }else{
-      dont_reset_x_offset:
-	reset_x_offset = FALSE;
-      }
-    }
-
-    /* retrieve y values for resetting */
-    if(reset_y_offset){
-      if(y_boundary != NULL){
-	errno = 0;
-	y_boundary_val = strtoul(y_boundary, &endptr, 10);
-
-	if(errno == ERANGE){
-	  goto dont_reset_y_offset;
-	} 
-
-	if(y_boundary == endptr){
-	  goto dont_reset_y_offset;
-	}
-
-	if(y_boundary_val < y_offset){
-	  base_y_difference = y_offset - y_boundary_val;
-	  subtract_y = FALSE;
-	}else{
-	  base_y_difference = y_boundary_val - y_offset;
-	  subtract_y = TRUE;
-	}
-      }else{
-      dont_reset_y_offset:
-	reset_y_offset = FALSE;
-      }
-    }
-    
-    for(; node != NULL; ){
-      if(node->type == XML_ELEMENT_NODE && !xmlStrncmp("note", node->name, 5)){
-	/* retrieve x0 offset */
-	x0 = xmlGetProp(node, "x");
-
-	if(x0 == NULL){
-	  node = node->next;
-	  
-	  continue;
-	}
-
-	errno = 0;
-	x0_val = strtoul(x0, &endptr, 10);
-
-	if(errno == ERANGE){
-	  node = node->next;
-	  
-	  continue;
-	} 
-
-	if(x0 == endptr){
-	  node = node->next;
-	  
-	  continue;
-	}
-
-	/* retrieve x1 offset */
-	x1 = xmlGetProp(node, "x1");
-
-	if(x1 == NULL){
-	  node = node->next;
-	  
-	  continue;
-	}
-
-	errno = 0;
-	x1_val = strtoul(x1, &endptr, 10);
-
-	if(errno == ERANGE){
-	  node = node->next;
-	  
-	  continue;
-	} 
-
-	if(x1 == endptr){
-	  node = node->next;
-	  
-	  continue;
-	}
-
-	/* retrieve y offset */
-	y = xmlGetProp(node, "y");
-
-	if(y == NULL){
-	  node = node->next;
-	  
-	  continue;
-	}
-
-	errno = 0;
-	y_val = strtoul(y, &endptr, 10);
-
-	if(errno == ERANGE){
-	  node = node->next;
-	  
-	  continue;
-	} 
-
-	if(y == endptr){
-	  node = node->next;
-	  
-	  continue;
-	}
-
-	/* switch x values if necessary */
-	if(x0_val > x1_val){
-	  guint tmp;
-
-	  tmp = x0_val;
-	  x0_val = x1_val;
-	  x1_val = tmp;
-	}
-
-	/* calculate new offset */
-	if(reset_x_offset){
-	  errno = 0;
-
-	  if(subtract_x){
-	    x0_val -= base_x_difference;
-
-	    if(errno != 0){
-	      node = node->next;
-	      
-	      continue;
-	    }
-
-	    x1_val -= base_x_difference;
-	  }else{
-	    x0_val += base_x_difference;
-	    x1_val += base_x_difference;
-
-	    if(errno != 0){
-	      node = node->next;
-	      
-	      continue;
-	    }
-	  }
-	}
-
-	if(reset_y_offset){
-	  errno = 0;
-
-	  if(subtract_y){
-	    y_val -= base_y_difference;
-	  }else{
-	    y_val += base_y_difference;
-	  }
-
-	  if(errno != 0){
-	    node = node->next;
-	    
-	    continue;
-	  }
-	}
-
-	/* check if max length wasn't exceeded */
-	if(x1_val - x0_val > notation->maximum_note_length){
-	  node = node->next;
-	  
-	  continue;
-	}
-
-	/* add note */
-	note = ags_note_new();
-
-	note->x[0] = x0_val;
-	note->x[1] = x1_val;
-
-	note->y = y_val;
-
-	g_message("adding note at: [%u,%u|%u]\n", x0_val, x1_val, y_val);
-
-	ags_notation_add_note(notation,
-			      note,
-			      FALSE);
-      }
-
-      node = node->next;
-    }
-  }
 
   if(!xmlStrncmp("0.3.12", version, 7)){
-    ags_notation_insert_native_piano_from_clipboard_version_0_3_12();
+    ags_notation_insert_native_piano_from_clipboard_version_0_3_12(notation,
+								   root_node, version,
+								   base_frequency,
+								   x_boundary, y_boundary,
+								   reset_x_offset, x_offset,
+								   reset_y_offset, y_offset);
   }else if(!xmlStrncmp("0.4.2", version, 7)){
     /* changes contain only for UI relevant new informations */
-    ags_notation_insert_native_piano_from_clipboard_version_0_3_12();
+    ags_notation_insert_native_piano_from_clipboard_version_0_3_12(notation,
+								   root_node, version,
+								   base_frequency,
+								   x_boundary, y_boundary,
+								   reset_x_offset, x_offset,
+								   reset_y_offset, y_offset);
   }
 }
 

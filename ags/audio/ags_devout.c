@@ -83,6 +83,15 @@ pthread_mutex_t* ags_devout_get_parent_lock(AgsConcurrentTree *concurrent_tree);
 void ags_devout_dispose(GObject *gobject);
 void ags_devout_finalize(GObject *gobject);
 
+void ags_devout_oss_play_fill_ring_buffer(AgsDevout *devout,
+					  void *buffer, guint ags_format,
+					  unsigned char *ring_buffer,
+					  guint channels, guint buffer_size);
+void ags_devout_alsa_play_fill_ring_buffer(AgsDevout *devout,
+					   void *buffer, guint ags_format,
+					   unsigned char *ring_buffer,
+					   guint channels, guint buffer_size);
+
 void ags_devout_set_application_context(AgsSoundcard *soundcard,
 					AgsApplicationContext *application_context);
 AgsApplicationContext* ags_devout_get_application_context(AgsSoundcard *soundcard);
@@ -2306,6 +2315,92 @@ ags_devout_oss_init(AgsSoundcard *soundcard,
 }
 
 void
+ags_devout_oss_play_fill_ring_buffer(AgsDevout *devout,
+				     void *buffer, guint ags_format,
+				     unsigned char *ring_buffer,
+				     guint channels, guint buffer_size)
+{
+  int format_bits;
+  guint word_size;
+
+  int bps;
+  int res;
+  guint chn;
+  guint count, i;
+    
+  switch(ags_format){
+  case AGS_SOUNDCARD_SIGNED_8_BIT:
+    {
+      word_size = sizeof(char);
+      bps = 1;
+    }
+    break;
+  case AGS_SOUNDCARD_SIGNED_16_BIT:
+    {
+      word_size = sizeof(short);
+      bps = 2;
+    }
+    break;
+  case AGS_SOUNDCARD_SIGNED_24_BIT:
+    {
+      word_size = sizeof(long);
+      bps = 3;
+    }
+    break;
+  case AGS_SOUNDCARD_SIGNED_32_BIT:
+    {
+      word_size = sizeof(long);
+      bps = 4;
+    }
+    break;
+  default:
+    g_warning("ags_devout_oss_play(): unsupported word size");
+    return;
+  }
+
+  /* fill the channel areas */
+  for(count = 0; count < buffer_size; count++){
+    for(chn = 0; chn < channels; chn++){
+      switch(ags_format){
+      case AGS_SOUNDCARD_SIGNED_8_BIT:
+	{
+	  res = (int) ((signed char *) buffer)[count * channels + chn];
+	}
+	break;
+      case AGS_SOUNDCARD_SIGNED_16_BIT:
+	{
+	  res = (int) ((signed short *) buffer)[count * channels + chn];
+	}
+	break;
+      case AGS_SOUNDCARD_SIGNED_24_BIT:
+	{
+	  res = (int) ((signed long *) buffer)[count * channels + chn];
+	}
+	break;
+      case AGS_SOUNDCARD_SIGNED_32_BIT:
+	{
+	  res = (int) ((signed long *) buffer)[count * channels + chn];
+	}
+	break;
+      }
+	
+      /* Generate data in native endian format */
+      if(is_bigendian()){
+	for(i = 0; i < bps; i++){
+	  *(ring_buffer + chn * bps + word_size - 1 - i) = (res >> i * 8) & 0xff;
+	}
+      }else{
+	for(i = 0; i < bps; i++){
+	  *(ring_buffer + chn * bps + i) = (res >>  i * 8) & 0xff;
+	}
+      }	
+    }
+
+    ring_buffer += channels * bps;
+  }
+}
+
+void
 ags_devout_oss_play(AgsSoundcard *soundcard,
 		    GError **error)
 {
@@ -2337,90 +2432,7 @@ ags_devout_oss_play(AgsSoundcard *soundcard,
   static const struct timespec poll_interval = {
     0,
     250,
-  };
-  
-  auto void ags_devout_oss_play_fill_ring_buffer(void *buffer, guint ags_format, unsigned char *ring_buffer, guint channels, guint buffer_size);
-
-  void ags_devout_oss_play_fill_ring_buffer(void *buffer, guint ags_format, unsigned char *ring_buffer, guint channels, guint buffer_size){
-    int format_bits;
-    guint word_size;
-
-    int bps;
-    int res;
-    guint chn;
-    guint count, i;
-    
-    switch(ags_format){
-    case AGS_SOUNDCARD_SIGNED_8_BIT:
-      {
-	word_size = sizeof(char);
-	bps = 1;
-      }
-      break;
-    case AGS_SOUNDCARD_SIGNED_16_BIT:
-      {
-	word_size = sizeof(short);
-	bps = 2;
-      }
-      break;
-    case AGS_SOUNDCARD_SIGNED_24_BIT:
-      {
-	word_size = sizeof(long);
-	bps = 3;
-      }
-      break;
-    case AGS_SOUNDCARD_SIGNED_32_BIT:
-      {
-	word_size = sizeof(long);
-	bps = 4;
-      }
-      break;
-    default:
-      g_warning("ags_devout_oss_play(): unsupported word size");
-      return;
-    }
-
-    /* fill the channel areas */
-    for(count = 0; count < buffer_size; count++){
-      for(chn = 0; chn < channels; chn++){
-	switch(ags_format){
-	case AGS_SOUNDCARD_SIGNED_8_BIT:
-	  {
-	    res = (int) ((signed char *) buffer)[count * channels + chn];
-	  }
-	  break;
-	case AGS_SOUNDCARD_SIGNED_16_BIT:
-	  {
-	    res = (int) ((signed short *) buffer)[count * channels + chn];
-	  }
-	  break;
-	case AGS_SOUNDCARD_SIGNED_24_BIT:
-	  {
-	    res = (int) ((signed long *) buffer)[count * channels + chn];
-	  }
-	  break;
-	case AGS_SOUNDCARD_SIGNED_32_BIT:
-	  {
-	    res = (int) ((signed long *) buffer)[count * channels + chn];
-	  }
-	  break;
-	}
-	
-	/* Generate data in native endian format */
-	if(is_bigendian()){
-	  for(i = 0; i < bps; i++){
-	    *(ring_buffer + chn * bps + word_size - 1 - i) = (res >> i * 8) & 0xff;
-	  }
-	}else{
-	  for(i = 0; i < bps; i++){
-	    *(ring_buffer + chn * bps + i) = (res >>  i * 8) & 0xff;
-	  }
-	}	
-      }
-
-      ring_buffer += channels * bps;
-    }
-  }
+  };  
   
   devout = AGS_DEVOUT(soundcard);
 
@@ -2507,11 +2519,10 @@ ags_devout_oss_play(AgsSoundcard *soundcard,
 
 #ifdef AGS_WITH_OSS    
   /* fill ring buffer */
-  ags_devout_oss_play_fill_ring_buffer(devout->buffer[nth_buffer],
-				       devout->format,
+  ags_devout_oss_play_fill_ring_buffer(devout,
+				       devout->buffer[nth_buffer], devout->format,
 				       devout->ring_buffer[devout->nth_ring_buffer],
-				       devout->pcm_channels,
-				       devout->buffer_size);
+				       devout->pcm_channels, devout->buffer_size);
 
   /* wait until available */
   list = ags_soundcard_get_poll_fd(soundcard);
@@ -3132,6 +3143,111 @@ ags_devout_alsa_init(AgsSoundcard *soundcard,
 }
 
 void
+ags_devout_alsa_play_fill_ring_buffer(AgsDevout *devout,
+				      void *buffer, guint ags_format,
+				      unsigned char *ring_buffer,
+				      guint channels, guint buffer_size){
+#ifdef AGS_WITH_ALSA
+  snd_pcm_format_t format;
+
+  int format_bits;
+
+  unsigned int max_val;
+    
+  int bps; /* bytes per sample */
+  int phys_bps;
+
+  int big_endian;
+  int to_unsigned;
+
+  int res;
+
+  gint count;
+  guint i, chn;
+    
+  switch(ags_format){
+  case AGS_SOUNDCARD_SIGNED_8_BIT:
+    {
+      format = SND_PCM_FORMAT_S8;
+    }
+    break;
+  case AGS_SOUNDCARD_SIGNED_16_BIT:
+    {
+      format = SND_PCM_FORMAT_S16;
+    }
+    break;
+  case AGS_SOUNDCARD_SIGNED_24_BIT:
+    {
+      format = SND_PCM_FORMAT_S24;
+    }
+    break;
+  case AGS_SOUNDCARD_SIGNED_32_BIT:
+    {
+      format = SND_PCM_FORMAT_S32;
+    }
+    break;
+  default:
+    g_warning("ags_devout_alsa_play(): unsupported word size");
+    return;
+  }
+
+  count = buffer_size;
+  format_bits = snd_pcm_format_width(format);
+
+  max_val = (1 << (format_bits - 1)) - 1;
+
+  bps = format_bits / 8;
+  phys_bps = snd_pcm_format_physical_width(format) / 8;
+    
+  big_endian = snd_pcm_format_big_endian(format) == 1;
+  to_unsigned = snd_pcm_format_unsigned(format) == 1;
+
+  /* fill the channel areas */
+  for(count = 0; count < buffer_size; count++){
+    for(chn = 0; chn < channels; chn++){
+      switch(ags_format){
+      case AGS_SOUNDCARD_SIGNED_8_BIT:
+	{
+	  res = (int) ((signed char *) buffer)[count * channels + chn];
+	}
+	break;
+      case AGS_SOUNDCARD_SIGNED_16_BIT:
+	{
+	  res = (int) ((signed short *) buffer)[count * channels + chn];
+	}
+	break;
+      case AGS_SOUNDCARD_SIGNED_24_BIT:
+	{
+	  res = (int) ((signed long *) buffer)[count * channels + chn];
+	}
+	break;
+      case AGS_SOUNDCARD_SIGNED_32_BIT:
+	{
+	  res = (int) ((signed long *) buffer)[count * channels + chn];
+	}
+	break;
+      }
+
+      if(to_unsigned){
+	res ^= 1U << (format_bits - 1);
+      }
+	
+      /* Generate data in native endian format */
+      if (big_endian) {
+	for (i = 0; i < bps; i++)
+	  *(ring_buffer + chn * bps + phys_bps - 1 - i) = (res >> i * 8) & 0xff;
+      } else {
+	for (i = 0; i < bps; i++)
+	  *(ring_buffer + chn * bps + i) = (res >>  i * 8) & 0xff;
+      }	
+    }
+
+    ring_buffer += channels * bps;
+  }
+#endif
+}
+
+void
 ags_devout_alsa_play(AgsSoundcard *soundcard,
 		     GError **error)
 {
@@ -3161,110 +3277,7 @@ ags_devout_alsa_play(AgsSoundcard *soundcard,
   static const struct timespec poll_interval = {
     0,
     250,
-  };
-  
-#ifdef AGS_WITH_ALSA
-  auto void ags_devout_alsa_play_fill_ring_buffer(void *buffer, guint ags_format, unsigned char *ring_buffer, guint channels, guint buffer_size);
-
-  void ags_devout_alsa_play_fill_ring_buffer(void *buffer, guint ags_format, unsigned char *ring_buffer, guint channels, guint buffer_size){
-    snd_pcm_format_t format;
-
-    int format_bits;
-
-    unsigned int max_val;
-    
-    int bps; /* bytes per sample */
-    int phys_bps;
-
-    int big_endian;
-    int to_unsigned;
-
-    int res;
-
-    gint count;
-    guint i, chn;
-    
-    switch(ags_format){
-    case AGS_SOUNDCARD_SIGNED_8_BIT:
-      {
-	format = SND_PCM_FORMAT_S8;
-      }
-      break;
-    case AGS_SOUNDCARD_SIGNED_16_BIT:
-      {
-	format = SND_PCM_FORMAT_S16;
-      }
-      break;
-    case AGS_SOUNDCARD_SIGNED_24_BIT:
-      {
-	format = SND_PCM_FORMAT_S24;
-      }
-      break;
-    case AGS_SOUNDCARD_SIGNED_32_BIT:
-      {
-	format = SND_PCM_FORMAT_S32;
-      }
-      break;
-    default:
-      g_warning("ags_devout_alsa_play(): unsupported word size");
-      return;
-    }
-
-    count = buffer_size;
-    format_bits = snd_pcm_format_width(format);
-
-    max_val = (1 << (format_bits - 1)) - 1;
-
-    bps = format_bits / 8;
-    phys_bps = snd_pcm_format_physical_width(format) / 8;
-    
-    big_endian = snd_pcm_format_big_endian(format) == 1;
-    to_unsigned = snd_pcm_format_unsigned(format) == 1;
-
-    /* fill the channel areas */
-    for(count = 0; count < buffer_size; count++){
-      for(chn = 0; chn < channels; chn++){
-	switch(ags_format){
-	case AGS_SOUNDCARD_SIGNED_8_BIT:
-	  {
-	    res = (int) ((signed char *) buffer)[count * channels + chn];
-	  }
-	  break;
-	case AGS_SOUNDCARD_SIGNED_16_BIT:
-	  {
-	    res = (int) ((signed short *) buffer)[count * channels + chn];
-	  }
-	  break;
-	case AGS_SOUNDCARD_SIGNED_24_BIT:
-	  {
-	    res = (int) ((signed long *) buffer)[count * channels + chn];
-	  }
-	  break;
-	case AGS_SOUNDCARD_SIGNED_32_BIT:
-	  {
-	    res = (int) ((signed long *) buffer)[count * channels + chn];
-	  }
-	  break;
-	}
-
-	if(to_unsigned){
-	  res ^= 1U << (format_bits - 1);
-	}
-	
-	/* Generate data in native endian format */
-	if (big_endian) {
-	  for (i = 0; i < bps; i++)
-	    *(ring_buffer + chn * bps + phys_bps - 1 - i) = (res >> i * 8) & 0xff;
-	} else {
-	  for (i = 0; i < bps; i++)
-	    *(ring_buffer + chn * bps + i) = (res >>  i * 8) & 0xff;
-	}	
-      }
-
-      ring_buffer += channels * bps;
-    }
-  }
-#endif
+  };  
   
   devout = AGS_DEVOUT(soundcard);
 
@@ -3360,7 +3373,8 @@ ags_devout_alsa_play(AgsSoundcard *soundcard,
 #ifdef AGS_WITH_ALSA
 
   /* fill ring buffer */
-  ags_devout_alsa_play_fill_ring_buffer(devout->buffer[nth_buffer], devout->format,
+  ags_devout_alsa_play_fill_ring_buffer(devout,
+					devout->buffer[nth_buffer], devout->format,
 					devout->ring_buffer[devout->nth_ring_buffer],
 					devout->pcm_channels, devout->buffer_size);
 

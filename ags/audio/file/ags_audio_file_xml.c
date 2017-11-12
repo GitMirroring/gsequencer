@@ -49,6 +49,14 @@
 
 #define AGS_FILE_READ_PORT_LIST_PORT_RESOLVED_COUNTER "ags-file-read-port-list-port-resolved-counter"
 
+GParameter* ags_file_write_recall_container_parameter(AgsFile *file,
+						      GList *list,
+						      GParameter *parameter,
+						      gchar *prop,
+						      gint *n_params);
+void ags_file_read_stream_list_sort(AgsFile *file,
+				    GList **stream, guint *index);
+
 void ags_file_read_audio_resolve_soundcard(AgsFileLookup *file_lookup,
 					   AgsAudio *audio);
 void ags_file_write_audio_resolve_soundcard(AgsFileLookup *file_lookup,
@@ -2151,56 +2159,63 @@ ags_file_read_recall_container_resolve_value(AgsFileLookup *file_lookup,
   }
 }
 
+GParameter*
+ags_file_write_recall_container_parameter(AgsFile *file,
+					  GList *list,
+					  GParameter *parameter,
+					  gchar *prop,
+					  gint *n_params)
+{
+  gint i;
+
+  if(n_params == NULL){
+    i = 0;
+  }else{
+    i = *n_params;
+  }
+
+  while(list != NULL){
+    if((AGS_RECALL_TEMPLATE & (AGS_RECALL(list->data)->flags)) == 0){
+      list = list->next;
+      continue;
+    }
+
+    if(parameter == NULL){
+      parameter = (GParameter *) malloc(sizeof(GParameter));
+    }else{
+      parameter = (GParameter *) realloc(parameter,
+					 (i + 1) * sizeof(GParameter));
+    }
+
+    parameter[i].name = prop;
+
+    memset(&(parameter[i].value), 0, sizeof(GValue));
+    g_value_init(&(parameter[i].value), G_TYPE_OBJECT);
+    g_value_set_object(&(parameter[i].value),
+		       G_OBJECT(list->data));
+
+    list = list->next;
+    i++;
+  }
+
+  if(n_params != NULL){
+    *n_params = i;
+  }
+
+  return(parameter);
+}
+
 xmlNode*
 ags_file_write_recall_container(AgsFile *file, xmlNode *parent, AgsRecallContainer *recall_container)
 {
   xmlNode *node;
+
   GParameter *parameter;
   GList *list;
+
   gchar *id;
+
   gint n_params;
-
-  auto GParameter* ags_file_write_recall_container_parameter(GList *list, GParameter *parameter, gchar *prop, gint *n_params);
-
-  GParameter* ags_file_write_recall_container_parameter(GList *list, GParameter *parameter, gchar *prop, gint *n_params){
-    gint i;
-
-    if(n_params == NULL){
-      i = 0;
-    }else{
-      i = *n_params;
-    }
-
-    while(list != NULL){
-      if((AGS_RECALL_TEMPLATE & (AGS_RECALL(list->data)->flags)) == 0){
-	list = list->next;
-	continue;
-      }
-
-      if(parameter == NULL){
-	parameter = (GParameter *) malloc(sizeof(GParameter));
-      }else{
-	parameter = (GParameter *) realloc(parameter,
-					   (i + 1) * sizeof(GParameter));
-      }
-
-      parameter[i].name = prop;
-
-      memset(&(parameter[i].value), 0, sizeof(GValue));
-      g_value_init(&(parameter[i].value), G_TYPE_OBJECT);
-      g_value_set_object(&(parameter[i].value),
-			 G_OBJECT(list->data));
-
-      list = list->next;
-      i++;
-    }
-
-    if(n_params != NULL){
-      *n_params = i;
-    }
-
-    return(parameter);
-  }
 
   id = ags_id_generator_create_uuid();
 
@@ -2240,13 +2255,25 @@ ags_file_write_recall_container(AgsFile *file, xmlNode *parent, AgsRecallContain
   }
 
   list = ags_recall_container_get_recall_audio_run(recall_container);
-  parameter = ags_file_write_recall_container_parameter(list, parameter, "recall-audio-run", &n_params);
+  parameter = ags_file_write_recall_container_parameter(file,
+							list,
+							parameter,
+							"recall-audio-run",
+							&n_params);
 
   list = ags_recall_container_get_recall_channel(recall_container);
-  parameter = ags_file_write_recall_container_parameter(list, parameter, "recall-channel", &n_params);
+  parameter = ags_file_write_recall_container_parameter(file,
+							list,
+							parameter,
+							"recall-channel",
+							&n_params);
 
   list = ags_recall_container_get_recall_channel_run(recall_container);
-  parameter = ags_file_write_recall_container_parameter(list, parameter, "recall-channel-run", &n_params);
+  parameter = ags_file_write_recall_container_parameter(file,
+							list,
+							parameter,
+							"recall-channel-run",
+							&n_params);
 
   ags_file_util_write_parameter(file,
 				node,
@@ -3675,54 +3702,57 @@ ags_file_write_stream(AgsFile *file, xmlNode *parent,
 }
 
 void
+ags_file_read_stream_list_sort(AgsFile *file,
+			       GList **stream, guint *index)
+{
+  GList *start, *list;
+  GList *sorted;
+  guint stream_length;
+  guint i, i_stop;
+  guint j, k;
+
+  start =
+    list = *stream;
+
+  stream_length = 
+    i_stop = g_list_length(list);
+
+  sorted = NULL;
+
+  while(list != NULL){
+    j = index[stream_length - i_stop];
+
+    for(i = 0; i < stream_length - i_stop; i++){
+      if(j < index[i]){
+	break;
+      }
+    }
+      
+    sorted = g_list_insert(sorted,
+			   list->data,
+			   i);
+      
+    i_stop--;
+    list = list->next;
+  }
+
+  *stream = sorted;
+  g_list_free(start);
+}
+
+void
 ags_file_read_stream_list(AgsFile *file, xmlNode *node,
 			  GList **stream,
 			  guint buffer_size)
 {
   GList *current;
   xmlNode *child;
+
   GList *list;
+
   guint *index;
   guint i;
-
-  auto void ags_file_read_stream_list_sort(GList **stream, guint *index);
-
-  void ags_file_read_stream_list_sort(GList **stream, guint *index){
-    GList *start, *list;
-    GList *sorted;
-    guint stream_length;
-    guint i, i_stop;
-    guint j, k;
-
-    start =
-      list = *stream;
-
-    stream_length = 
-      i_stop = g_list_length(list);
-
-    sorted = NULL;
-
-    while(list != NULL){
-      j = index[stream_length - i_stop];
-
-      for(i = 0; i < stream_length - i_stop; i++){
-	if(j < index[i]){
-	  break;
-	}
-      }
-      
-      sorted = g_list_insert(sorted,
-			     list->data,
-			     i);
-      
-      i_stop--;
-      list = list->next;
-    }
-
-    *stream = sorted;
-    g_list_free(start);
-  }
-
+  
   child = node->children;
 
   list = NULL;
@@ -3755,7 +3785,8 @@ ags_file_read_stream_list(AgsFile *file, xmlNode *node,
   }
 
   list = g_list_reverse(list);
-  ags_file_read_stream_list_sort(&list, index);
+  ags_file_read_stream_list_sort(file,
+				 &list, index);
   *stream = list;
 
   ags_file_add_id_ref(file,
