@@ -137,10 +137,7 @@ AS_IF([test "x$enable_alsa" != xno],
        AC_MSG_NOTICE([ALSA enabled])],
       [AC_MSG_NOTICE([ALSA disabled])
        AC_CHECK_HEADERS([alsa/seq_event.h],
-			[AC_DEFINE([HAVE_ALSA_SEQ_EVENT_H], [1], [ALSA sequencer event available])]
-			[PKG_CHECK_MODULES([LIBASOUND2], [alsa >= 1.0.5])
-			AC_SUBST(LIBASOUND2_CFLAGS)
-			AC_SUBST(LIBASOUND2_LIBS)],
+			[AC_DEFINE([HAVE_ALSA_SEQ_EVENT_H], [1], [ALSA sequencer event available])],
 		  	[AC_MSG_NOTICE([ALSA sequencer event not available])],[
 #if HAVE_ALSA_SEQ_EVENT_H
 #  include <alsa/seq_event.h>
@@ -224,10 +221,6 @@ AS_IF([test "x$enable_libinstpatch" != xno],
       AC_SUBST(LIBINSTPATCH_LIBS)
       AC_DEFINE([AGS_WITH_LIBINSTPATCH], [1], [Disable if you don't want libinstpatch])],
       AC_MSG_NOTICE([libinstpatch disabled]))
-
-PKG_CHECK_MODULES([FONTCONFIG], [fontconfig >= 2.9.0])
-AC_SUBST(FONTCONFIG_CFLAGS)
-AC_SUBST(FONTCONFIG_LIBS)
 
 PKG_CHECK_MODULES([GDKPIXBUF], [gdk-pixbuf-2.0 >= 2.36.5])
 AC_SUBST(GDKPIXBUF_CFLAGS)

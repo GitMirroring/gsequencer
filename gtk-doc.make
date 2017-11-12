@@ -1,1 +1,1 @@
-/usr/share/gtk-doc/data/gtk-doc.make
+/Users/joelkrahemann/gtk/inst/share/gtk-doc/data/gtk-doc.notmpl.make

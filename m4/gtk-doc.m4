@@ -1,1 +1,1 @@
-/usr/share/aclocal/gtk-doc.m4
+/Users/joelkrahemann/gtk/inst/share/aclocal/gtk-doc.m4

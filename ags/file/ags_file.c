@@ -58,6 +58,7 @@ void ags_file_get_property(GObject *gobject,
 			   guint prop_id,
 			   GValue *value,
 			   GParamSpec *param_spec);
+void ags_file_destroy_node(xmlNode *node);
 void ags_file_finalize(GObject *gobject);
 
 void ags_file_real_open(AgsFile *file,
@@ -607,20 +608,24 @@ ags_file_get_property(GObject *gobject,
 }
 
 void
+ags_file_destroy_node(xmlNode *node)
+{
+  xmlNode *child;
+  
+  child = node->children;
+  
+  while(child != NULL){
+    ags_file_destroy_node(child);
+      
+    child = child->next;
+  }
+}
+
+void
 ags_file_finalize(GObject *gobject)
 {
   AgsFile *file;
-  void ags_file_destroy_node(xmlNodePtr node){
-    xmlNodePtr child;
-
-    child = node->children;
-
-    while(child != NULL){
-      ags_file_destroy_node(child);
-      
-      child = child->next;
-    }
-  }
+  
 
   file = (AgsFile *) gobject;
 

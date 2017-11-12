@@ -53,6 +53,22 @@ void ags_audio_signal_disconnect(AgsConnectable *connectable);
 void ags_audio_signal_dispose(GObject *gobject);
 void ags_audio_signal_finalize(GObject *gobject);
 
+void ags_audio_signal_scale_copy_8_bit(GList *source, GList *destination,
+				       guint soffset, guint doffset,
+				       guint dresolution);
+void ags_audio_signal_scale_copy_16_bit(GList *source, GList *destination,
+					guint soffset, guint doffset,
+					guint dresolution);
+void ags_audio_signal_scale_copy_24_bit(GList *source, GList *destination,
+					guint soffset, guint doffset,
+					guint dresolution);
+void ags_audio_signal_scale_copy_32_bit(GList *source, GList *destination,
+					guint soffset, guint doffset,
+					guint dresolution);
+void ags_audio_signal_scale_copy_64_bit(GList *source, GList *destination,
+					guint soffset, guint doffset,
+					guint dresolution);
+
 void ags_audio_signal_real_realloc_buffer_size(AgsAudioSignal *audio_signal, guint buffer_size);
 
 /**
@@ -1921,6 +1937,410 @@ ags_audio_signal_tile(AgsAudioSignal *audio_signal,
   audio_signal->stream_end = audio_signal_stream_end;
 }
 
+void
+ags_audio_signal_scale_copy_8_bit(GList *source, GList *destination,
+				  guint soffset, guint doffset,
+				  guint dresolution)
+{
+  gint8 *sbuffer;
+
+  sbuffer = (gint8 *) source->data;
+
+  switch(dresolution){
+  case AGS_SOUNDCARD_SIGNED_8_BIT:
+    {
+      gint8 *dbuffer;
+      gdouble scale;
+
+      dbuffer = (gint8 *) destination->data;
+
+      scale = 1.0;
+
+      dbuffer[doffset] = scale * sbuffer[soffset];
+    }
+    break;
+  case AGS_SOUNDCARD_SIGNED_16_BIT:
+    {
+      gint16 *dbuffer;
+      gdouble scale;
+
+      dbuffer = (gint16 *) destination->data;
+
+      scale = exp2(8.0);
+
+      dbuffer[doffset] = scale * sbuffer[soffset];
+    }
+    break;
+  case AGS_SOUNDCARD_SIGNED_24_BIT:
+    {
+      unsigned char *dbuffer;
+      gint16 value;
+      gdouble scale;
+      gint16 mask;
+
+      dbuffer = (unsigned char *) destination->data;
+
+      scale = exp2(16.0);
+
+      value = scale * sbuffer[soffset];
+      mask = 0xff;
+
+      dbuffer[doffset * 3] = mask & value;
+      dbuffer[doffset * 3 + 1] = (mask << 8) & value;
+	
+      if(sbuffer[soffset] < 0){
+	dbuffer[doffset * 3 + 1] &= (~0x80);
+	dbuffer[doffset * 3 + 2] = 0x80;
+      }else{
+	dbuffer[doffset * 3 + 2] = 0;
+      }
+    }
+    break;
+  case AGS_SOUNDCARD_SIGNED_32_BIT:
+    {
+      gint32 *dbuffer;
+      gdouble scale;
+
+      dbuffer = (gint32 *) destination->data;
+
+      scale = exp2(24.0);
+
+      dbuffer[doffset] = scale * sbuffer[soffset];
+    }
+    break;
+  case AGS_SOUNDCARD_SIGNED_64_BIT:
+    {
+      gint64 *dbuffer;
+      gdouble scale;
+
+      dbuffer = (gint64 *) destination->data;
+
+      scale = exp2(56.0);
+
+      dbuffer[doffset] = scale * sbuffer[soffset];
+    }
+    break;
+  }
+}
+
+void
+ags_audio_signal_scale_copy_16_bit(GList *source, GList *destination,
+				   guint soffset, guint doffset,
+				   guint dresolution)
+{
+  gint16 *sbuffer;
+
+  sbuffer = (gint16 *) source->data;
+
+  switch(dresolution){
+  case AGS_SOUNDCARD_SIGNED_8_BIT:
+    {
+      gint8 *dbuffer;
+      gdouble scale;
+
+      dbuffer = (gint8 *) destination->data;
+
+      scale = exp2(1.0 / 8.0);
+
+      dbuffer[doffset] = (gint8) floor(scale * sbuffer[soffset]);
+    }
+    break;
+  case AGS_SOUNDCARD_SIGNED_16_BIT:
+    {
+      gint16 *dbuffer;
+
+      dbuffer = (gint16 *) destination->data;
+
+      dbuffer[doffset] = sbuffer[soffset];
+    }
+    break;
+  case AGS_SOUNDCARD_SIGNED_24_BIT:
+    {
+      unsigned char *dbuffer;
+      gint32 value;
+      gdouble scale;
+      gint32 mask;
+
+      dbuffer = (unsigned char *) destination->data;
+
+      scale = exp2(8.0);
+      mask = 0xff;
+
+      value = scale * sbuffer[soffset];
+      
+      dbuffer[doffset * 3] = mask & value;
+      dbuffer[doffset * 3 + 1] = (mask << 8) & value;
+      dbuffer[doffset * 3 + 2] = (mask << 16) & value;
+	
+      if(sbuffer[soffset] < 0){
+	dbuffer[doffset * 3 + 2] |= 0x80;
+      }
+    }
+    break;
+  case AGS_SOUNDCARD_SIGNED_32_BIT:
+    {
+      gint32 *dbuffer;
+      gdouble scale;
+
+      dbuffer = (gint32 *) destination->data;
+
+      scale = exp2(16.0);
+	
+      dbuffer[doffset] = sbuffer[soffset];
+    }
+    break;
+  case AGS_SOUNDCARD_SIGNED_64_BIT:
+    {
+      gint64 *dbuffer;
+      gdouble scale;
+
+      dbuffer = (gint64 *) destination->data;
+
+      scale = exp2(48.0);
+	
+      dbuffer[doffset] = scale * sbuffer[soffset];
+    }
+    break;
+  }
+}
+
+void
+ags_audio_signal_scale_copy_24_bit(GList *source, GList *destination,
+				   guint soffset, guint doffset,
+				   guint dresolution)
+{
+  unsigned char *sbuffer;
+
+  sbuffer = (char *) source->data;
+
+  switch(dresolution){
+  case AGS_SOUNDCARD_SIGNED_8_BIT:
+    {
+      gint8 *dbuffer;
+      gdouble scale;
+      gint16 *mask;
+	
+      dbuffer = (gint8 *) destination->data;
+
+      scale = exp2(1.0 / 16.0);
+
+      dbuffer[doffset] = (gint8) round(scale * (double) sbuffer[soffset]);
+    }
+    break;
+  case AGS_SOUNDCARD_SIGNED_16_BIT:
+    {
+      gint16 *dbuffer;
+      gdouble scale;
+
+      dbuffer = (gint16 *) destination->data;
+
+      scale = exp2(1.0 / 8.0);
+
+      dbuffer[doffset] = (gint16) round(scale * (double) sbuffer[soffset]);
+    }
+    break;
+  case AGS_SOUNDCARD_SIGNED_24_BIT:
+    {
+      unsigned char *dbuffer;
+      gint16 mask;
+
+      dbuffer = (unsigned char *) destination->data;
+
+      dbuffer[doffset * 3] = sbuffer[soffset * 3];
+      dbuffer[doffset * 3 + 1] = sbuffer[soffset * 3 + 1];
+      dbuffer[doffset * 3 + 2] = sbuffer[soffset * 3 + 2];
+    }
+    break;
+  case AGS_SOUNDCARD_SIGNED_32_BIT:
+    {
+      gint32 *dbuffer;
+      gdouble scale;
+
+      dbuffer = (gint32 *) destination->data;
+
+      scale = exp2(8.0);
+
+      dbuffer[doffset] = scale * sbuffer[soffset];
+    }
+    break;
+  case AGS_SOUNDCARD_SIGNED_64_BIT:
+    {
+      gint64 *dbuffer;
+      gdouble scale;
+
+      dbuffer = (gint64 *) destination->data;
+
+      scale = exp2(40.0);
+
+      dbuffer[doffset] = scale * sbuffer[soffset];
+    }
+    break;
+  }
+}
+
+void
+ags_audio_signal_scale_copy_32_bit(GList *source, GList *destination,
+				   guint soffset, guint doffset,
+				   guint dresolution)
+{
+  gint32 *sbuffer;
+
+  sbuffer = (gint32 *) source->data;
+
+  switch(dresolution){
+  case AGS_SOUNDCARD_SIGNED_8_BIT:
+    {
+      gint8 *dbuffer;
+      gdouble scale;
+
+      dbuffer = (gint8 *) destination->data;
+
+      scale = exp2(1.0 / 24.0);
+
+      dbuffer[doffset] = scale * sbuffer[soffset];
+    }
+    break;
+  case AGS_SOUNDCARD_SIGNED_16_BIT:
+    {
+      gint16 *dbuffer;
+      gdouble scale;
+
+      dbuffer = (gint16 *) destination->data;
+
+      scale = exp2(1.0 / 16.0);
+
+      dbuffer[doffset] = scale * sbuffer[soffset];
+    }
+    break;
+  case AGS_SOUNDCARD_SIGNED_24_BIT:
+    {
+      unsigned char *dbuffer;
+      gint32 value;
+      gdouble scale;
+      gint32 mask;
+
+      dbuffer = (unsigned char *) destination->data;
+
+      scale = exp2(1.0 / 8.0);
+      mask = 0xff;
+
+      value = scale * sbuffer[soffset];
+      
+      dbuffer[doffset * 3] = mask & value;
+      dbuffer[doffset * 3 + 1] = (mask << 8) & value;
+      dbuffer[doffset * 3 + 2] = (mask << 16) & value;
+	
+      if(sbuffer[soffset] < 0){
+	dbuffer[doffset * 3 + 2] |= 0x80;
+      }
+    }
+    break;
+  case AGS_SOUNDCARD_SIGNED_32_BIT:
+    {
+      gint32 *dbuffer;
+
+      dbuffer = (gint32 *) destination->data;
+
+      dbuffer[doffset] = sbuffer[soffset];
+    }
+    break;
+  case AGS_SOUNDCARD_SIGNED_64_BIT:
+    {
+      gint64 *dbuffer;
+      gdouble scale;
+
+      dbuffer = (gint64 *) destination->data;
+
+      scale = exp2(32.0);
+
+      dbuffer[doffset] = scale * sbuffer[soffset];
+    }
+    break;
+  }
+}
+
+void
+ags_audio_signal_scale_copy_64_bit(GList *source, GList *destination,
+				   guint soffset, guint doffset,
+				   guint dresolution)
+{
+  gint64 *sbuffer;
+
+  sbuffer = (gint64 *) source->data;
+
+  switch(dresolution){
+  case AGS_SOUNDCARD_SIGNED_8_BIT:
+    {
+      gint8 *dbuffer;
+      gdouble scale;
+
+      dbuffer = (gint8 *) destination->data;
+
+      scale = exp2(1 / 56.0);
+
+      dbuffer[doffset] = scale * sbuffer[soffset];
+    }
+    break;
+  case AGS_SOUNDCARD_SIGNED_16_BIT:
+    {
+      gint16 *dbuffer;
+      gdouble scale;
+
+      dbuffer = (gint16 *) destination->data;
+
+      scale = exp2(1 / 48.0);
+
+      dbuffer[doffset] = scale * sbuffer[soffset];
+    }
+    break;
+  case AGS_SOUNDCARD_SIGNED_24_BIT:
+    {
+      unsigned char *dbuffer;
+      gint32 value;
+      gdouble scale;
+      gint32 mask;
+
+      dbuffer = (unsigned char *) destination->data;
+
+      scale = exp2(1.0 / 40.0);
+      mask = 0xff;
+
+      value = scale * sbuffer[soffset];
+      
+      dbuffer[doffset * 3] = mask & value;
+      dbuffer[doffset * 3 + 1] = (mask << 8) & value;
+      dbuffer[doffset * 3 + 2] = (mask << 16) & value;
+	
+      if(sbuffer[soffset] < 0){
+	dbuffer[doffset * 3 + 2] |= 0x80;
+      }
+    }
+    break;
+  case AGS_SOUNDCARD_SIGNED_32_BIT:
+    {
+      gint32 *dbuffer;
+      gdouble scale;
+
+      dbuffer = (gint32 *) destination->data;
+
+      scale = exp2(1 / 32.0);
+
+      dbuffer[doffset] = scale * sbuffer[soffset];
+    }
+    break;
+  case AGS_SOUNDCARD_SIGNED_64_BIT:
+    {
+      gint64 *dbuffer;
+
+      dbuffer = (gint64 *) destination->data;
+
+      dbuffer[doffset] = sbuffer[soffset];
+    }
+    break;
+  }
+}
+
+
 /**
  * ags_audio_signal_scale:
  * @audio_signal: an #AgsAudioSignal
@@ -1944,411 +2364,6 @@ ags_audio_signal_scale(AgsAudioSignal *audio_signal,
   guint i, j, j_stop;
   guint k, template_k;
   gboolean expand;
-
-  auto void ags_audio_signal_scale_copy_8_bit(GList *source, GList *destination,
-					      guint soffset, guint doffset,
-					      guint dresolution);
-  auto void ags_audio_signal_scale_copy_16_bit(GList *source, GList *destination,
-					       guint soffset, guint doffset,
-					       guint dresolution);
-  auto void ags_audio_signal_scale_copy_24_bit(GList *source, GList *destination,
-					       guint soffset, guint doffset,
-					       guint dresolution);
-  auto void ags_audio_signal_scale_copy_32_bit(GList *source, GList *destination,
-					       guint soffset, guint doffset,
-					       guint dresolution);
-  auto void ags_audio_signal_scale_copy_64_bit(GList *source, GList *destination,
-					       guint soffset, guint doffset,
-					       guint dresolution);
-
-  void ags_audio_signal_scale_copy_8_bit(GList *source, GList *destination,
-					 guint soffset, guint doffset,
-					 guint dresolution){
-    gint8 *sbuffer;
-
-    sbuffer = (gint8 *) source->data;
-
-    switch(dresolution){
-    case AGS_SOUNDCARD_SIGNED_8_BIT:
-      {
-	gint8 *dbuffer;
-	gdouble scale;
-
-	dbuffer = (gint8 *) destination->data;
-
-	scale = 1.0;
-
-	dbuffer[doffset] = scale * sbuffer[soffset];
-      }
-      break;
-    case AGS_SOUNDCARD_SIGNED_16_BIT:
-      {
-	gint16 *dbuffer;
-	gdouble scale;
-
-	dbuffer = (gint16 *) destination->data;
-
-	scale = exp2(8.0);
-
-	dbuffer[doffset] = scale * sbuffer[soffset];
-      }
-      break;
-    case AGS_SOUNDCARD_SIGNED_24_BIT:
-      {
-	unsigned char *dbuffer;
-	gint16 value;
-	gdouble scale;
-	gint16 mask;
-
-	dbuffer = (unsigned char *) destination->data;
-
-	scale = exp2(16.0);
-
-	value = scale * sbuffer[soffset];
-	mask = 0xff;
-
-	dbuffer[doffset * 3] = mask & value;
-	dbuffer[doffset * 3 + 1] = (mask << 8) & value;
-	
-	if(sbuffer[soffset] < 0){
-	  dbuffer[doffset * 3 + 1] &= (~0x80);
-	  dbuffer[doffset * 3 + 2] = 0x80;
-	}else{
-	  dbuffer[doffset * 3 + 2] = 0;
-	}
-      }
-      break;
-    case AGS_SOUNDCARD_SIGNED_32_BIT:
-      {
-	gint32 *dbuffer;
-	gdouble scale;
-
-	dbuffer = (gint32 *) destination->data;
-
-	scale = exp2(24.0);
-
-	dbuffer[doffset] = scale * sbuffer[soffset];
-      }
-      break;
-    case AGS_SOUNDCARD_SIGNED_64_BIT:
-      {
-	gint64 *dbuffer;
-	gdouble scale;
-
-	dbuffer = (gint64 *) destination->data;
-
-	scale = exp2(56.0);
-
-	dbuffer[doffset] = scale * sbuffer[soffset];
-      }
-      break;
-    }
-  }
-  void ags_audio_signal_scale_copy_16_bit(GList *source, GList *destination,
-					  guint soffset, guint doffset,
-					  guint dresolution){
-    gint16 *sbuffer;
-
-    sbuffer = (gint16 *) source->data;
-
-    switch(dresolution){
-    case AGS_SOUNDCARD_SIGNED_8_BIT:
-      {
-	gint8 *dbuffer;
-	gdouble scale;
-
-	dbuffer = (gint8 *) destination->data;
-
-	scale = exp2(1.0 / 8.0);
-
-	dbuffer[doffset] = (gint8) floor(scale * sbuffer[soffset]);
-      }
-      break;
-    case AGS_SOUNDCARD_SIGNED_16_BIT:
-      {
-	gint16 *dbuffer;
-
-	dbuffer = (gint16 *) destination->data;
-
-	dbuffer[doffset] = sbuffer[soffset];
-      }
-      break;
-    case AGS_SOUNDCARD_SIGNED_24_BIT:
-      {
-	unsigned char *dbuffer;
-	gint32 value;
-	gdouble scale;
-	gint32 mask;
-
-	dbuffer = (unsigned char *) destination->data;
-
-	scale = exp2(8.0);
-	mask = 0xff;
-
-	value = scale * sbuffer[soffset];
-      
-	dbuffer[doffset * 3] = mask & value;
-	dbuffer[doffset * 3 + 1] = (mask << 8) & value;
-	dbuffer[doffset * 3 + 2] = (mask << 16) & value;
-	
-	if(sbuffer[soffset] < 0){
-	  dbuffer[doffset * 3 + 2] |= 0x80;
-	}
-      }
-      break;
-    case AGS_SOUNDCARD_SIGNED_32_BIT:
-      {
-	gint32 *dbuffer;
-	gdouble scale;
-
-	dbuffer = (gint32 *) destination->data;
-
-	scale = exp2(16.0);
-	
-	dbuffer[doffset] = sbuffer[soffset];
-      }
-      break;
-    case AGS_SOUNDCARD_SIGNED_64_BIT:
-      {
-	gint64 *dbuffer;
-	gdouble scale;
-
-	dbuffer = (gint64 *) destination->data;
-
-	scale = exp2(48.0);
-	
-	dbuffer[doffset] = scale * sbuffer[soffset];
-      }
-      break;
-    }
-  }
-  void ags_audio_signal_scale_copy_24_bit(GList *source, GList *destination,
-					  guint soffset, guint doffset,
-					  guint dresolution){
-    unsigned char *sbuffer;
-
-    sbuffer = (char *) source->data;
-
-    switch(dresolution){
-    case AGS_SOUNDCARD_SIGNED_8_BIT:
-      {
-	gint8 *dbuffer;
-	gdouble scale;
-	gint16 *mask;
-	
-	dbuffer = (gint8 *) destination->data;
-
-	scale = exp2(1.0 / 16.0);
-
-	dbuffer[doffset] = (gint8) round(scale * (double) sbuffer[soffset]);
-      }
-      break;
-    case AGS_SOUNDCARD_SIGNED_16_BIT:
-      {
-	gint16 *dbuffer;
-	gdouble scale;
-
-	dbuffer = (gint16 *) destination->data;
-
-	scale = exp2(1.0 / 8.0);
-
-	dbuffer[doffset] = (gint16) round(scale * (double) sbuffer[soffset]);
-      }
-      break;
-    case AGS_SOUNDCARD_SIGNED_24_BIT:
-      {
-	unsigned char *dbuffer;
-	gint16 mask;
-
-	dbuffer = (unsigned char *) destination->data;
-
-	dbuffer[doffset * 3] = sbuffer[soffset * 3];
-	dbuffer[doffset * 3 + 1] = sbuffer[soffset * 3 + 1];
-	dbuffer[doffset * 3 + 2] = sbuffer[soffset * 3 + 2];
-      }
-      break;
-    case AGS_SOUNDCARD_SIGNED_32_BIT:
-      {
-	gint32 *dbuffer;
-	gdouble scale;
-
-	dbuffer = (gint32 *) destination->data;
-
-	scale = exp2(8.0);
-
-	dbuffer[doffset] = scale * sbuffer[soffset];
-      }
-      break;
-    case AGS_SOUNDCARD_SIGNED_64_BIT:
-      {
-	gint64 *dbuffer;
-	gdouble scale;
-
-	dbuffer = (gint64 *) destination->data;
-
-	scale = exp2(40.0);
-
-	dbuffer[doffset] = scale * sbuffer[soffset];
-      }
-      break;
-    }
-  }
-  void ags_audio_signal_scale_copy_32_bit(GList *source, GList *destination,
-					  guint soffset, guint doffset,
-					  guint dresolution){
-    gint32 *sbuffer;
-
-    sbuffer = (gint32 *) source->data;
-
-    switch(dresolution){
-    case AGS_SOUNDCARD_SIGNED_8_BIT:
-      {
-	gint8 *dbuffer;
-	gdouble scale;
-
-	dbuffer = (gint8 *) destination->data;
-
-	scale = exp2(1.0 / 24.0);
-
-	dbuffer[doffset] = scale * sbuffer[soffset];
-      }
-      break;
-    case AGS_SOUNDCARD_SIGNED_16_BIT:
-      {
-	gint16 *dbuffer;
-	gdouble scale;
-
-	dbuffer = (gint16 *) destination->data;
-
-	scale = exp2(1.0 / 16.0);
-
-	dbuffer[doffset] = scale * sbuffer[soffset];
-      }
-      break;
-    case AGS_SOUNDCARD_SIGNED_24_BIT:
-      {
-	unsigned char *dbuffer;
-	gint32 value;
-	gdouble scale;
-	gint32 mask;
-
-	dbuffer = (unsigned char *) destination->data;
-
-	scale = exp2(1.0 / 8.0);
-	mask = 0xff;
-
-	value = scale * sbuffer[soffset];
-      
-	dbuffer[doffset * 3] = mask & value;
-	dbuffer[doffset * 3 + 1] = (mask << 8) & value;
-	dbuffer[doffset * 3 + 2] = (mask << 16) & value;
-	
-	if(sbuffer[soffset] < 0){
-	  dbuffer[doffset * 3 + 2] |= 0x80;
-	}
-      }
-      break;
-    case AGS_SOUNDCARD_SIGNED_32_BIT:
-      {
-	gint32 *dbuffer;
-
-	dbuffer = (gint32 *) destination->data;
-
-	dbuffer[doffset] = sbuffer[soffset];
-      }
-      break;
-    case AGS_SOUNDCARD_SIGNED_64_BIT:
-      {
-	gint64 *dbuffer;
-	gdouble scale;
-
-	dbuffer = (gint64 *) destination->data;
-
-	scale = exp2(32.0);
-
-	dbuffer[doffset] = scale * sbuffer[soffset];
-      }
-      break;
-    }
-  }
-  void ags_audio_signal_scale_copy_64_bit(GList *source, GList *destination,
-					  guint soffset, guint doffset,
-					  guint dresolution){
-    gint64 *sbuffer;
-
-    sbuffer = (gint64 *) source->data;
-
-    switch(dresolution){
-    case AGS_SOUNDCARD_SIGNED_8_BIT:
-      {
-	gint8 *dbuffer;
-	gdouble scale;
-
-	dbuffer = (gint8 *) destination->data;
-
-	scale = exp2(1 / 56.0);
-
-	dbuffer[doffset] = scale * sbuffer[soffset];
-      }
-      break;
-    case AGS_SOUNDCARD_SIGNED_16_BIT:
-      {
-	gint16 *dbuffer;
-	gdouble scale;
-
-	dbuffer = (gint16 *) destination->data;
-
-	scale = exp2(1 / 48.0);
-
-	dbuffer[doffset] = scale * sbuffer[soffset];
-      }
-      break;
-    case AGS_SOUNDCARD_SIGNED_24_BIT:
-      {
-	unsigned char *dbuffer;
-	gint32 value;
-	gdouble scale;
-	gint32 mask;
-
-	dbuffer = (unsigned char *) destination->data;
-
-	scale = exp2(1.0 / 40.0);
-	mask = 0xff;
-
-	value = scale * sbuffer[soffset];
-      
-	dbuffer[doffset * 3] = mask & value;
-	dbuffer[doffset * 3 + 1] = (mask << 8) & value;
-	dbuffer[doffset * 3 + 2] = (mask << 16) & value;
-	
-	if(sbuffer[soffset] < 0){
-	  dbuffer[doffset * 3 + 2] |= 0x80;
-	}
-      }
-      break;
-    case AGS_SOUNDCARD_SIGNED_32_BIT:
-      {
-	gint32 *dbuffer;
-	gdouble scale;
-
-	dbuffer = (gint32 *) destination->data;
-
-	scale = exp2(1 / 32.0);
-
-	dbuffer[doffset] = scale * sbuffer[soffset];
-      }
-      break;
-    case AGS_SOUNDCARD_SIGNED_64_BIT:
-      {
-	gint64 *dbuffer;
-
-	dbuffer = (gint64 *) destination->data;
-
-	dbuffer[doffset] = sbuffer[soffset];
-      }
-      break;
-    }
-  }
 
   source = template->stream_beginning;
 
