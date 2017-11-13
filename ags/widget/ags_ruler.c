@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2015 Joël Krähemann
+ * Copyright (C) 2005-2017 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -38,6 +38,9 @@ void ags_ruler_get_property(GObject *gobject,
 			    GValue *value,
 			    GParamSpec *param_spec);
 void ags_ruler_show(GtkWidget *widget);
+
+void ags_ruler_draw_string(AgsRuler *rulre,
+			   cairo_t *cr, gchar *str);
 
 void ags_ruler_map(GtkWidget *widget);
 void ags_ruler_realize(GtkWidget *widget);
@@ -308,6 +311,28 @@ ags_ruler_expose(GtkWidget *widget,
   return(FALSE);
 }
 
+void
+ags_ruler_draw_string(AgsRuler *ruler,
+		      cairo_t *cr, gchar *str)
+{
+  PangoLayout *layout;
+  PangoFontDescription *desc;
+
+  layout = pango_cairo_create_layout(cr);
+  pango_layout_set_text(layout, str, -1);
+  desc = pango_font_description_copy_static(NULL); //pango_font_description_from_string("Georgia Bold 11");
+  pango_layout_set_font_description(layout, desc);
+  pango_font_description_free(desc);
+
+  pango_cairo_update_layout(cr, layout);
+  pango_cairo_show_layout(cr, layout);
+
+#ifndef __APPLE__
+  pango_fc_font_map_cache_clear(pango_cairo_font_map_get_default());
+#endif
+  g_object_unref(layout);
+}
+
 /**
  * ags_ruler_draw:
  * @ruler an #AgsRuler
@@ -331,27 +356,6 @@ ags_ruler_draw(AgsRuler *ruler)
   guint x0;
   guint z;
   guint i, i_stop;
-
-  auto void ags_ruler_draw_string(cairo_t *cr, gchar *str);
-
-  void ags_ruler_draw_string(cairo_t *cr, gchar *str){
-    PangoLayout *layout;
-    PangoFontDescription *desc;
-
-    layout = pango_cairo_create_layout(cr);
-    pango_layout_set_text(layout, str, -1);
-    desc = pango_font_description_copy_static(NULL); //pango_font_description_from_string("Georgia Bold 11");
-    pango_layout_set_font_description(layout, desc);
-    pango_font_description_free(desc);
-
-    pango_cairo_update_layout(cr, layout);
-    pango_cairo_show_layout(cr, layout);
-
-#ifndef __APPLE__
-    pango_fc_font_map_cache_clear(pango_cairo_font_map_get_default());
-#endif
-    g_object_unref(layout);
-  }
   
   widget = GTK_WIDGET(ruler);
 
@@ -409,7 +413,8 @@ ags_ruler_draw(AgsRuler *ruler)
       
       str = g_strdup_printf("%u\0",
 			    (guint) ((gdouble) z / tact));
-      ags_ruler_draw_string(cr, str);
+      ags_ruler_draw_string(ruler,
+			    cr, str);
       
       g_free(str);
     }else{
@@ -429,7 +434,8 @@ ags_ruler_draw(AgsRuler *ruler)
 
 	str = g_strdup_printf("%u\0",
 			      (guint) ((gdouble) z / tact));
-	ags_ruler_draw_string(cr, str);
+	ags_ruler_draw_string(ruler,
+			      cr, str);
       
 	g_free(str);
       }else{

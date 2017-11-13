@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2015 Joël Krähemann
+ * Copyright (C) 2005-2017 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -42,6 +42,22 @@ void ags_dial_get_property(GObject *gobject,
 			   GParamSpec *param_spec);
 AtkObject* ags_dial_get_accessible(GtkWidget *widget);
 void ags_dial_show(GtkWidget *widget);
+
+gboolean ags_dial_button_press_is_down_event(AgsDial *dial,
+					     GdkEventButton *event,
+					     guint border_left, guint border_right,
+					     guint border_top, guint border_bottom);
+gboolean ags_dial_button_press_is_up_event(AgsDial *dial,
+					   GdkEventButton *event,
+					   guint border_left, guint border_right,
+					   guint border_top, guint border_bottom);
+gboolean ags_dial_button_press_is_dial_event(AgsDial *dial,
+					     GdkEventButton *event,
+					     guint dial_left_position, guint dial_right_position);
+void ags_dial_motion_notify_do_dial(AgsDial *dial,
+				    GdkEventMotion *event);
+void ags_dial_motion_notify_do_seemless_dial(AgsDial *dial,
+					     GdkEventMotion *event);
 
 void ags_accessible_dial_get_value_and_text(AtkValue *value,
 					    gdouble *current_value,
@@ -784,54 +800,70 @@ ags_dial_expose(GtkWidget *widget,
 }
 
 gboolean
+ags_dial_button_press_is_down_event(AgsDial *dial,
+				    GdkEventButton *event,
+				    guint border_left, guint border_right,
+				    guint border_top, guint border_bottom)
+{
+  if(event->x >= border_left &&
+     event->x <= border_left + dial->button_width &&
+     event->y >= border_top + 2 * dial->radius + 2 * dial->outline_strength - dial->button_height &&
+     event->y <= border_top + 2 * dial->radius + 2 * dial->outline_strength){
+    return(TRUE);
+  }else{
+    return(FALSE);
+  }
+}
+
+gboolean
+ags_dial_button_press_is_up_event(AgsDial *dial,
+				  GdkEventButton *event,
+				  guint border_left, guint border_right,
+				  guint border_top, guint border_bottom)
+{
+  gint offset;
+
+  offset = border_left + dial->button_width + 2 * dial->radius + dial->margin_left + dial->margin_right;
+
+  if(event->x >= offset &&
+     event->x <= offset + dial->button_width &&
+     event->y >= border_top + 2 * dial->radius + 2 * dial->outline_strength - dial->button_height &&
+     event->y <= border_top + 2 * dial->radius + 2 * dial->outline_strength){
+    return(TRUE);
+  }else{
+    return(FALSE);
+  }
+}
+
+gboolean
+ags_dial_button_press_is_dial_event(AgsDial *dial,
+				    GdkEventButton *event,
+				    guint dial_left_position, guint dial_right_position)
+{
+  if(event->x >= dial_left_position &&
+     event->x <= dial_left_position + 2 * dial->radius + 2 * dial->outline_strength){
+    if((cos(event->y) < 0.0 && cos(event->y) >= -1.0) ||
+       (sin(event->y) > 0.0 && sin(event->y) <= 1.0) ||
+       (cos(event->y) < 0.0 && sin(event->y) >= -1.0) ||
+       (sin(event->y) < 0.0 && cos(event->y) >= -1.0)){
+      return(TRUE);
+    }else{
+      return(FALSE);
+    }
+  }else{
+    return(FALSE);
+  }
+}
+
+gboolean
 ags_dial_button_press(GtkWidget *widget,
 		      GdkEventButton *event)
 {
   AgsDial *dial;
-  gint border_left, border_top;
-  gint dial_left_position;
-  auto gboolean ags_dial_button_press_is_down_event();
-  auto gboolean ags_dial_button_press_is_up_event();
-  auto gboolean ags_dial_button_press_is_dial_event();
-  gboolean ags_dial_button_press_is_down_event(){
-    if(event->x >= border_left &&
-       event->x <= border_left + dial->button_width &&
-       event->y >= border_top + 2 * dial->radius + 2 * dial->outline_strength - dial->button_height &&
-       event->y <= border_top + 2 * dial->radius + 2 * dial->outline_strength){
-      return(TRUE);
-    }else{
-      return(FALSE);
-    }
-  }
-  gboolean ags_dial_button_press_is_up_event(){
-    gint offset;
 
-    offset = border_left + dial->button_width + 2 * dial->radius + dial->margin_left + dial->margin_right;
-
-    if(event->x >= offset &&
-       event->x <= offset + dial->button_width &&
-       event->y >= border_top + 2 * dial->radius + 2 * dial->outline_strength - dial->button_height &&
-       event->y <= border_top + 2 * dial->radius + 2 * dial->outline_strength){
-      return(TRUE);
-    }else{
-      return(FALSE);
-    }
-  }
-  gboolean ags_dial_button_press_is_dial_event(){
-    if(event->x >= dial_left_position &&
-       event->x <= dial_left_position + 2 * dial->radius + 2 * dial->outline_strength){
-      if((cos(event->y) < 0.0 && cos(event->y) >= -1.0) ||
-	 (sin(event->y) > 0.0 && sin(event->y) <= 1.0) ||
-	 (cos(event->y) < 0.0 && sin(event->y) >= -1.0) ||
-	 (sin(event->y) < 0.0 && cos(event->y) >= -1.0)){
-	return(TRUE);
-      }else{
-	return(FALSE);
-      }
-    }else{
-      return(FALSE);
-    }
-  }
+  gint border_left, border_right;
+  gint border_top, border_bottom;
+  gint dial_left_position, dial_right_position;
 
   //  GTK_WIDGET_CLASS(ags_dial_parent_class)->button_press_event(widget, event);
 
@@ -840,24 +872,38 @@ ags_dial_button_press(GtkWidget *widget,
 
   //TODO:JK: retrieve borders
   border_left = 0;
+  border_right = 0;
   border_top = 0;
+  border_bottom = 0;
 
   if((AGS_DIAL_WITH_BUTTONS & (dial->flags)) != 0){
-    if(ags_dial_button_press_is_down_event()){
+    if(ags_dial_button_press_is_down_event(dial,
+					   event,
+					   border_left, border_right,
+					   border_top, border_bottom)){
       dial->flags |= AGS_DIAL_BUTTON_DOWN_PRESSED;
-    }else if(ags_dial_button_press_is_up_event()){
+    }else if(ags_dial_button_press_is_up_event(dial,
+					       event,
+					       border_left, border_right,
+					       border_top, border_bottom)){
       dial->flags |= AGS_DIAL_BUTTON_UP_PRESSED;
     }else{
       dial_left_position = border_left + dial->button_width;
+      dial_right_position = border_right + dial->button_width + 2 * dial->radius;
 
-      if(ags_dial_button_press_is_dial_event()){
+      if(ags_dial_button_press_is_dial_event(dial,
+					     event,
+					     dial_left_position, dial_right_position)){
 	dial->flags |= AGS_DIAL_MOTION_CAPTURING;
       }
     }
   }else{
     dial_left_position = border_left;
+    dial_right_position = border_right + 2 * dial->radius;
 
-    if(ags_dial_button_press_is_dial_event()){
+    if(ags_dial_button_press_is_dial_event(dial,
+					   event,
+					   dial_left_position, dial_right_position)){
       dial->gravity_x = event->x;
       dial->gravity_y = event->y;
       dial->current_x = event->x;
@@ -1000,235 +1046,238 @@ ags_dial_key_release(GtkWidget *widget,
   return(TRUE);
 }
 
+void
+ags_dial_motion_notify_do_dial(AgsDial *dial,
+			       GdkEventMotion *event)
+{
+  GtkAdjustment *adjustment;
+
+  guint i;
+  gint sign_one;
+  gboolean gravity_up;
+    
+  static const gboolean movement_matrix[] = {
+    FALSE,
+    TRUE,
+    FALSE,
+    FALSE,
+    TRUE,
+    FALSE,
+    TRUE,
+    TRUE,
+  };      
+
+  adjustment = dial->adjustment;
+
+  gravity_up = FALSE;
+
+  for(i = 0; i < 8 ; i++){
+    if(!movement_matrix[i]){
+      sign_one = -1;
+    }else{
+      sign_one = 1;
+    }
+      
+    if((movement_matrix[i] &&
+	(sign_one * (dial->gravity_x - dial->current_x) < sign_one * (dial->gravity_y - dial->current_y))) ||
+       (!movement_matrix[i] &&
+	(sign_one * (dial->gravity_x - dial->current_x) > sign_one * (dial->gravity_y - dial->current_y)))){
+      gravity_up = TRUE;
+      break;
+    }
+  }
+
+  if(!gravity_up){
+    if(adjustment->value > adjustment->lower){
+      gtk_adjustment_set_value(adjustment,
+			       adjustment->value - adjustment->step_increment);
+	
+      ags_dial_draw(dial);
+    }
+  }else{
+    if(adjustment->value < adjustment->upper){
+      gtk_adjustment_set_value(adjustment,
+			       adjustment->value + adjustment->step_increment);
+	
+      ags_dial_draw(dial);
+    }
+  }
+}
+
+void
+ags_dial_motion_notify_do_seemless_dial(AgsDial *dial,
+					GdkEventMotion *event)
+{
+  GtkAdjustment *adjustment;
+
+  cairo_t *cr;
+    
+  gdouble radius;
+  gdouble border_left, border_top;
+  gdouble range;
+  gdouble a0, quarter;
+  gdouble x0, y0, x1, y1;
+  gdouble translated_x;
+  gboolean x_toggled, y_toggled;
+    
+  //TODO:JK: optimize me
+  adjustment = dial->adjustment;
+
+  range = (dial->adjustment->upper - dial->adjustment->lower);
+
+  if(range == 0.0){
+    return;
+  }
+    
+  radius = dial->radius;
+
+  border_left = 0.0;
+  border_top = 0.0;
+    
+  x1 = event->x - (1.0 + dial->button_width + dial->margin_left + radius + border_left);
+  y1 = event->y - (dial->outline_strength + radius + border_top);
+  y1 *= -1.0;    
+
+  x_toggled = FALSE;
+  y_toggled = FALSE;
+    
+  if(x1 < 0.0){
+    x_toggled = TRUE;
+  }
+
+  if(y1 < 0.0){
+    y_toggled = TRUE;
+  }
+
+  if(radius == 0.0){
+    return;
+  }
+
+  //FIXME:JK: ugly hack
+  x1 = round(x1 + 1.0);
+  y1 = round(y1 - 1.0);
+
+  if(x1 == 0.0 &&
+     y1 == 0.0){
+    return;
+  }else if(x1 == 0.0){
+    a0 = 1.0;
+
+#if 0
+    x0 = 0.0;
+    y0 = 1.0 * radius;
+#endif
+  }else if(y1 == 0.0){
+    a0 = 0.0;
+
+#if 0
+    x0 = 1.0 * radius;
+    y0 = 0.0;
+#endif
+  }else{
+    a0 = y1 / x1;
+#if 0
+    x0 = cos(a0) * radius;
+    y0 = sin(a0) * radius;
+#endif
+  }
+
+  /* origin correction */
+#if 0
+  if(x_toggled && y_toggled){
+    if(x0 > 0.0){
+      x0 *= -1.0;
+    }
+      
+    if(y0 > 0.0){
+      y0 *= -1.0;
+    }
+  }else if(y_toggled){
+    if(x0 < 0.0){
+      x0 *= -1.0;
+    }
+      
+    if(y0 > 0.0){
+      y0 *= -1.0;
+    }
+  }else if(x_toggled){
+    if(y0 < 0.0){
+      y0 *= -1.0;
+    }
+
+    if(x0 > 0.0){
+      x0 *= -1.0;
+    }
+  }else{
+    if(x0 < 0.0){
+      x0 *= -1.0;
+    }
+      
+    if(y0 < 0.0){
+      y0 *= -1.0;
+    }
+  }
+#endif
+
+  if(a0 > 2.0 * M_PI / 4.0){
+    a0 = (2.0 * M_PI / 4.0);
+  }else if(a0 < -2.0 * M_PI / 4.0){
+    a0 = (-2.0 * M_PI / 4.0);
+  }
+    
+  /* translated_x */
+  translated_x = a0 * radius;
+    
+  quarter =  (2.0 * M_PI / 4.0) * radius;
+    
+  if(x_toggled && y_toggled){
+    if(translated_x < 0.0){
+      translated_x = quarter + translated_x;
+    }else{
+      translated_x = quarter - translated_x;
+    }
+  }else if(y_toggled){
+    if(translated_x < 0.0){
+      translated_x *= -1.0;
+    }
+      
+    translated_x += 3.0 * quarter;
+  }else if(x_toggled){
+    if(translated_x < 0.0){
+      translated_x *= -1.0;
+    }
+      
+    translated_x += quarter;
+  }else{
+    if(translated_x < 0.0){
+      translated_x = quarter + translated_x;
+    }else{
+      translated_x = quarter - translated_x;
+    }
+      
+    translated_x += 2.0 * quarter;
+  }
+        
+  translated_x = ((4.0 / 3.0) * range) / (4.0 * quarter) * translated_x;
+  translated_x -= (range / 3.0 / 2.0);
+  translated_x = adjustment->lower + translated_x;  
+
+  if(translated_x < adjustment->lower){
+    translated_x = adjustment->lower;
+  }else if(translated_x > adjustment->upper){
+    translated_x = adjustment->upper;
+  }
+
+  gtk_adjustment_set_value(adjustment,
+			   translated_x);
+  ags_dial_draw(dial);
+}
+
 gboolean
 ags_dial_motion_notify(GtkWidget *widget,
 		       GdkEventMotion *event)
 {
   AgsDial *dial;
-
-  auto void ags_dial_motion_notify_do_dial();
-  auto void ags_dial_motion_notify_do_seemless_dial();
-  
-  void ags_dial_motion_notify_do_dial(){
-    GtkAdjustment *adjustment;
-
-    guint i;
-    gint sign_one;
-    gboolean gravity_up;
-    
-    static const gboolean movement_matrix[] = {
-      FALSE,
-      TRUE,
-      FALSE,
-      FALSE,
-      TRUE,
-      FALSE,
-      TRUE,
-      TRUE,
-    };      
-
-    adjustment = dial->adjustment;
-
-    gravity_up = FALSE;
-
-    for(i = 0; i < 8 ; i++){
-      if(!movement_matrix[i]){
-	sign_one = -1;
-      }else{
-	sign_one = 1;
-      }
-      
-      if((movement_matrix[i] &&
-	  (sign_one * (dial->gravity_x - dial->current_x) < sign_one * (dial->gravity_y - dial->current_y))) ||
-	 (!movement_matrix[i] &&
-	  (sign_one * (dial->gravity_x - dial->current_x) > sign_one * (dial->gravity_y - dial->current_y)))){
-	gravity_up = TRUE;
-	break;
-      }
-    }
-
-    if(!gravity_up){
-      if(adjustment->value > adjustment->lower){
-	gtk_adjustment_set_value(adjustment,
-				 adjustment->value - adjustment->step_increment);
-	
-	ags_dial_draw(dial);
-      }
-    }else{
-      if(adjustment->value < adjustment->upper){
-	gtk_adjustment_set_value(adjustment,
-				 adjustment->value + adjustment->step_increment);
-	
-	ags_dial_draw(dial);
-      }
-    }
-  }
-
-  void ags_dial_motion_notify_do_seemless_dial(){
-    GtkAdjustment *adjustment;
-
-    cairo_t *cr;
-    
-    gdouble radius;
-    gdouble border_left, border_top;
-    gdouble range;
-    gdouble a0, quarter;
-    gdouble x0, y0, x1, y1;
-    gdouble translated_x;
-    gboolean x_toggled, y_toggled;
-    
-    //TODO:JK: optimize me
-    adjustment = dial->adjustment;
-
-    range = (dial->adjustment->upper - dial->adjustment->lower);
-
-    if(range == 0.0){
-      return;
-    }
-    
-    radius = dial->radius;
-
-    border_left = 0.0;
-    border_top = 0.0;
-    
-    x1 = event->x - (1.0 + dial->button_width + dial->margin_left + radius + border_left);
-    y1 = event->y - (dial->outline_strength + radius + border_top);
-    y1 *= -1.0;    
-
-    x_toggled = FALSE;
-    y_toggled = FALSE;
-    
-    if(x1 < 0.0){
-      x_toggled = TRUE;
-    }
-
-    if(y1 < 0.0){
-      y_toggled = TRUE;
-    }
-
-    if(radius == 0.0){
-      return;
-    }
-
-    //FIXME:JK: ugly hack
-    x1 = round(x1 + 1.0);
-    y1 = round(y1 - 1.0);
-
-    if(x1 == 0.0 &&
-       y1 == 0.0){
-      return;
-    }else if(x1 == 0.0){
-      a0 = 1.0;
-
-#if 0
-      x0 = 0.0;
-      y0 = 1.0 * radius;
-#endif
-    }else if(y1 == 0.0){
-      a0 = 0.0;
-
-#if 0
-      x0 = 1.0 * radius;
-      y0 = 0.0;
-#endif
-    }else{
-      a0 = y1 / x1;
-#if 0
-      x0 = cos(a0) * radius;
-      y0 = sin(a0) * radius;
-#endif
-    }
-
-    /* origin correction */
-#if 0
-    if(x_toggled && y_toggled){
-      if(x0 > 0.0){
-	x0 *= -1.0;
-      }
-      
-      if(y0 > 0.0){
-	y0 *= -1.0;
-      }
-    }else if(y_toggled){
-      if(x0 < 0.0){
-	x0 *= -1.0;
-      }
-      
-      if(y0 > 0.0){
-	y0 *= -1.0;
-      }
-    }else if(x_toggled){
-      if(y0 < 0.0){
-	y0 *= -1.0;
-      }
-
-      if(x0 > 0.0){
-	x0 *= -1.0;
-      }
-    }else{
-      if(x0 < 0.0){
-	x0 *= -1.0;
-      }
-      
-      if(y0 < 0.0){
-	y0 *= -1.0;
-      }
-    }
-#endif
-
-    if(a0 > 2.0 * M_PI / 4.0){
-      a0 = (2.0 * M_PI / 4.0);
-    }else if(a0 < -2.0 * M_PI / 4.0){
-      a0 = (-2.0 * M_PI / 4.0);
-    }
-    
-    /* translated_x */
-    translated_x = a0 * radius;
-    
-    quarter =  (2.0 * M_PI / 4.0) * radius;
-    
-    if(x_toggled && y_toggled){
-      if(translated_x < 0.0){
-	translated_x = quarter + translated_x;
-      }else{
-	translated_x = quarter - translated_x;
-      }
-    }else if(y_toggled){
-      if(translated_x < 0.0){
-	translated_x *= -1.0;
-      }
-      
-      translated_x += 3.0 * quarter;
-    }else if(x_toggled){
-      if(translated_x < 0.0){
-	translated_x *= -1.0;
-      }
-      
-      translated_x += quarter;
-    }else{
-      if(translated_x < 0.0){
-	translated_x = quarter + translated_x;
-      }else{
-	translated_x = quarter - translated_x;
-      }
-      
-      translated_x += 2.0 * quarter;
-    }
-        
-    translated_x = ((4.0 / 3.0) * range) / (4.0 * quarter) * translated_x;
-    translated_x -= (range / 3.0 / 2.0);
-    translated_x = adjustment->lower + translated_x;  
-
-    if(translated_x < adjustment->lower){
-      translated_x = adjustment->lower;
-    }else if(translated_x > adjustment->upper){
-      translated_x = adjustment->upper;
-    }
-
-    gtk_adjustment_set_value(adjustment,
-    			     translated_x);
-    ags_dial_draw(dial);
-  }
 
   //  GTK_WIDGET_CLASS(ags_dial_parent_class)->motion_notify_event(widget, event);
   dial = AGS_DIAL(widget);
@@ -1245,7 +1294,8 @@ ags_dial_motion_notify(GtkWidget *widget,
 	dial->current_y = event->y;
       }
 
-      ags_dial_motion_notify_do_seemless_dial();
+      ags_dial_motion_notify_do_seemless_dial(dial,
+					      event);
     }else{
       if((AGS_DIAL_MOTION_CAPTURING_INIT & (dial->flags)) != 0){
 	dial->current_x = event->x;
@@ -1253,14 +1303,16 @@ ags_dial_motion_notify(GtkWidget *widget,
 
 	dial->flags &= (~AGS_DIAL_MOTION_CAPTURING_INIT);
 
-	ags_dial_motion_notify_do_dial();
+	ags_dial_motion_notify_do_dial(dial,
+				       event);
       }else{
 	dial->gravity_x = dial->current_x;
 	dial->gravity_y = dial->current_y;
 	dial->current_x = event->x;
 	dial->current_y = event->y;
 
-	ags_dial_motion_notify_do_dial();
+	ags_dial_motion_notify_do_dial(dial,
+				       event);
       }
     }
   }
