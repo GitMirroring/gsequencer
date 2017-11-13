@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2015 Joël Krähemann
+ * Copyright (C) 2005-2017 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -59,11 +59,50 @@
 
 #include <ladspa.h>
 
+void ags_line_member_editor_plugin_browser_response_create_entry(AgsLineMemberEditor *line_member_editor,
+								 gchar *filename,
+								 gchar *effect);
+void ags_line_member_editor_plugin_browser_response_destroy_entry(AgsLineMemberEditor *line_member_editor,
+								  GList *line_member);  
+
 void
 ags_line_member_editor_add_callback(GtkWidget *button,
 				    AgsLineMemberEditor *line_member_editor)
 {
   gtk_widget_show_all((GtkWidget *) line_member_editor->plugin_browser);
+}
+
+void
+ags_line_member_editor_plugin_browser_response_create_entry(AgsLineMemberEditor *line_member_editor,
+							    gchar *filename,
+							    gchar *effect)
+{
+  GtkHBox *hbox;
+  GtkCheckButton *check_button;
+  GtkLabel *label;
+
+  /* create entry */
+  hbox = (GtkHBox *) gtk_hbox_new(FALSE, 0);
+  gtk_box_pack_start(GTK_BOX(line_member_editor->line_member),
+		     GTK_WIDGET(hbox),
+		     FALSE, FALSE,
+		     0);
+      
+  check_button = (GtkCheckButton *) gtk_check_button_new();
+  gtk_box_pack_start(GTK_BOX(hbox),
+		     GTK_WIDGET(check_button),
+		     FALSE, FALSE,
+		     0);
+
+  //TODO:JK: ugly
+  label = (GtkLabel *) gtk_label_new(g_strdup_printf("%s - %s",
+						     filename,
+						     effect));
+  gtk_box_pack_start(GTK_BOX(hbox),
+		     GTK_WIDGET(label),
+		     FALSE, FALSE,
+		     0);
+  gtk_widget_show_all((GtkWidget *) hbox);
 }
 
 void
@@ -85,38 +124,7 @@ ags_line_member_editor_plugin_browser_response_callback(GtkDialog *dialog,
   GList *list, *list_start;
   gchar *filename, *effect;
   gboolean has_bridge;
-  gboolean is_output;
-  
-  auto void ags_line_member_editor_plugin_browser_response_create_entry();
-  
-  void ags_line_member_editor_plugin_browser_response_create_entry(){
-    GtkHBox *hbox;
-    GtkCheckButton *check_button;
-    GtkLabel *label;
-
-    /* create entry */
-    hbox = (GtkHBox *) gtk_hbox_new(FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(line_member_editor->line_member),
-		       GTK_WIDGET(hbox),
-		       FALSE, FALSE,
-		       0);
-      
-    check_button = (GtkCheckButton *) gtk_check_button_new();
-    gtk_box_pack_start(GTK_BOX(hbox),
-		       GTK_WIDGET(check_button),
-		       FALSE, FALSE,
-		       0);
-
-    //TODO:JK: ugly
-    label = (GtkLabel *) gtk_label_new(g_strdup_printf("%s - %s",
-						       filename,
-						       effect));
-    gtk_box_pack_start(GTK_BOX(hbox),
-		       GTK_WIDGET(label),
-		       FALSE, FALSE,
-		       0);
-    gtk_widget_show_all((GtkWidget *) hbox);
-  }
+  gboolean is_output;  
   
   switch(response){
   case GTK_RESPONSE_ACCEPT:
@@ -202,7 +210,9 @@ ags_line_member_editor_plugin_browser_response_callback(GtkDialog *dialog,
 						   NULL,
 						   filename,
 						   effect) == NULL){
-	    ags_line_member_editor_plugin_browser_response_create_entry();
+	    ags_line_member_editor_plugin_browser_response_create_entry(line_member_editor,
+									filename,
+									effect);
 	    
 	    /* add effect */
 	    add_effect = ags_add_effect_new(line->channel,
@@ -266,7 +276,9 @@ ags_line_member_editor_plugin_browser_response_callback(GtkDialog *dialog,
 						   NULL,
 						   filename,
 						   effect) == NULL){
-	    ags_line_member_editor_plugin_browser_response_create_entry();
+	    ags_line_member_editor_plugin_browser_response_create_entry(line_member_editor,
+									filename,
+									effect);
 
 	    /* add effect */
 	    add_effect = ags_add_effect_new(effect_line->channel,
@@ -283,6 +295,14 @@ ags_line_member_editor_plugin_browser_response_callback(GtkDialog *dialog,
 }
 
 void
+ags_line_member_editor_plugin_browser_response_destroy_entry(AgsLineMemberEditor *line_member_editor,
+							     GList *line_member)
+{
+  /* destroy line member editor entry */
+  gtk_widget_destroy(GTK_WIDGET(line_member->data));
+}
+  
+void
 ags_line_member_editor_remove_callback(GtkWidget *button,
 				       AgsLineMemberEditor *line_member_editor)
 {
@@ -296,13 +316,6 @@ ags_line_member_editor_remove_callback(GtkWidget *button,
   guint nth;
   gboolean has_bridge;
   gboolean is_output;
-  
-  auto void ags_line_member_editor_plugin_browser_response_destroy_entry();
-  
-  void ags_line_member_editor_plugin_browser_response_destroy_entry(){
-    /* destroy line member editor entry */
-    gtk_widget_destroy(GTK_WIDGET(line_member->data));
-  }
   
   if(button == NULL ||
      line_member_editor == NULL){
@@ -375,7 +388,8 @@ ags_line_member_editor_remove_callback(GtkWidget *button,
 	children = gtk_container_get_children((GtkContainer *) GTK_CONTAINER(line_member->data));
 
 	if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(children->data))){
-	  ags_line_member_editor_plugin_browser_response_destroy_entry();
+	  ags_line_member_editor_plugin_browser_response_destroy_entry(line_member_editor,
+								       line_member);
 
 	  /* remove effect */
 	  ags_line_remove_effect(line,
@@ -430,7 +444,8 @@ ags_line_member_editor_remove_callback(GtkWidget *button,
 	children = gtk_container_get_children(GTK_CONTAINER(line_member->data));
 
 	if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(children->data))){
-	  ags_line_member_editor_plugin_browser_response_destroy_entry();
+	  ags_line_member_editor_plugin_browser_response_destroy_entry(line_member_editor,
+								       line_member);
 	
 	  /* remove effect */
 	  ags_effect_line_remove_effect(effect_line,

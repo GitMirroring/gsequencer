@@ -92,7 +92,10 @@
 
 #include <gdk/gdk.h>
 
+#ifndef __APPLE__
 #include <fontconfig/fontconfig.h>
+#endif
+
 #include <math.h>
 
 void ags_gui_thread_signal_handler(int signr);

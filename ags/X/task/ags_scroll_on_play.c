@@ -38,7 +38,9 @@
 #include <ags/X/editor/ags_note_edit.h>
 #include <ags/X/editor/ags_automation_edit.h>
 
+#ifndef __APPLE__
 #include <fontconfig/fontconfig.h>
+#endif
 
 #include <math.h>
 

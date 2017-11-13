@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2015 Joël Krähemann
+ * Copyright (C) 2005-2017 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -52,6 +52,9 @@
 void ags_cell_pattern_refresh_gui_callback(AgsTogglePatternBit *toggle_pattern_bit,
 					   AgsCellPattern *cell_pattern);
 void ags_cell_pattern_init_channel_launch_callback(AgsTask *task, gpointer data);
+
+void ags_cell_pattern_drawing_area_key_release_event_play_channel(AgsCellPattern *cell_pattern,
+								  AgsChannel *channel);
 
 gboolean
 ags_cell_pattern_focus_in_callback(GtkWidget *widget, GdkEvent *event, AgsCellPattern *cell_pattern)
@@ -180,6 +183,116 @@ ags_cell_pattern_drawing_area_key_press_event(GtkWidget *widget, GdkEventKey *ev
   return(TRUE);
 }
 
+void
+ags_cell_pattern_drawing_area_key_release_event_play_channel(AgsCellPattern *cell_pattern,
+							     AgsChannel *channel){
+  AgsWindow *window;
+  
+  GObject *soundcard;
+  AgsAudio *audio;
+    
+  AgsStartSoundcard *start_soundcard;
+  AgsInitChannel *init_channel;
+  AgsAppendChannel *append_channel;
+
+  AgsMutexManager *mutex_manager;
+  AgsThread *main_loop;
+  AgsGuiThread *gui_thread;
+  AgsSoundcardThread *soundcard_thread;
+
+  AgsApplicationContext *application_context;
+    
+  GList *tasks;
+
+  gboolean no_soundcard;
+
+  pthread_mutex_t *application_mutex;
+  pthread_mutex_t *audio_mutex;
+  pthread_mutex_t *channel_mutex;
+
+  window = (AgsWindow *) gtk_widget_get_ancestor((GtkWidget *) cell_pattern,
+						 AGS_TYPE_WINDOW);
+
+  application_context = (AgsApplicationContext *) window->application_context;
+    
+  mutex_manager = ags_mutex_manager_get_instance();
+  application_mutex = ags_mutex_manager_get_application_mutex(mutex_manager);
+
+  no_soundcard = FALSE;
+
+  pthread_mutex_lock(application_mutex);
+
+  if(ags_sound_provider_get_soundcard(AGS_SOUND_PROVIDER(application_context)) == NULL){
+    no_soundcard = TRUE;
+  }
+
+  pthread_mutex_unlock(application_mutex);
+
+  if(no_soundcard){
+    g_message("No soundcard available");
+      
+    return;
+  }
+
+  /* lookup channel mutex */
+  pthread_mutex_lock(application_mutex);
+
+  channel_mutex = ags_mutex_manager_lookup(mutex_manager,
+					   (GObject *) channel);
+
+  pthread_mutex_unlock(application_mutex);
+
+  pthread_mutex_lock(channel_mutex);
+  
+  soundcard = channel->soundcard;
+  audio = (AgsAudio *) channel->audio;
+
+  pthread_mutex_unlock(channel_mutex);
+  
+  /* lookup audio mutex */
+  pthread_mutex_lock(application_mutex);
+
+  audio_mutex = ags_mutex_manager_lookup(mutex_manager,
+					 (GObject *) audio);
+    
+  pthread_mutex_unlock(application_mutex);
+
+  pthread_mutex_lock(audio_mutex);
+  
+  main_loop = (AgsThread *) application_context->main_loop;
+    
+  gui_thread = (AgsGuiThread *) ags_thread_find_type(main_loop,
+						     AGS_TYPE_GUI_THREAD);
+  soundcard_thread = (AgsSoundcardThread *) ags_thread_find_type(main_loop,
+								 AGS_TYPE_SOUNDCARD_THREAD);
+
+  tasks = NULL;
+
+  /* init channel for playback */
+  init_channel = ags_init_channel_new(channel, FALSE,
+				      TRUE, FALSE, FALSE);
+  g_signal_connect_after(G_OBJECT(init_channel), "launch",
+			 G_CALLBACK(ags_cell_pattern_init_channel_launch_callback), NULL);
+  tasks = g_list_prepend(tasks, init_channel);
+    
+  /* append channel for playback */
+  append_channel = ags_append_channel_new(G_OBJECT(main_loop),
+					  G_OBJECT(channel));
+  tasks = g_list_prepend(tasks, append_channel);
+
+  /* create start task */
+  start_soundcard = ags_start_soundcard_new(application_context);
+  tasks = g_list_prepend(tasks,
+			 start_soundcard);
+
+  /* perform playback */
+  tasks = g_list_reverse(tasks);
+  ags_gui_thread_schedule_task_list(gui_thread,
+				    tasks);
+
+  pthread_mutex_unlock(audio_mutex);
+}
+
 gboolean
 ags_cell_pattern_drawing_area_key_release_event(GtkWidget *widget, GdkEventKey *event, AgsCellPattern *cell_pattern)
 {
@@ -190,112 +303,7 @@ ags_cell_pattern_drawing_area_key_release_event(GtkWidget *widget, GdkEventKey *
 
   AgsThread *main_loop;
   AgsGuiThread *gui_thread;
-
-  auto void ags_cell_pattern_drawing_area_key_release_event_play_channel(AgsChannel *channel);
-
-  void ags_cell_pattern_drawing_area_key_release_event_play_channel(AgsChannel *channel){
-    GObject *soundcard;
-    AgsAudio *audio;
     
-    AgsStartSoundcard *start_soundcard;
-    AgsInitChannel *init_channel;
-    AgsAppendChannel *append_channel;
-
-    AgsMutexManager *mutex_manager;
-    AgsThread *main_loop;
-    AgsGuiThread *gui_thread;
-    AgsSoundcardThread *soundcard_thread;
-
-    AgsApplicationContext *application_context;
-    
-    GList *tasks;
-
-    gboolean no_soundcard;
-
-    pthread_mutex_t *application_mutex;
-    pthread_mutex_t *audio_mutex;
-    pthread_mutex_t *channel_mutex;
-
-    application_context = (AgsApplicationContext *) window->application_context;
-    
-    mutex_manager = ags_mutex_manager_get_instance();
-    application_mutex = ags_mutex_manager_get_application_mutex(mutex_manager);
-
-    no_soundcard = FALSE;
-
-    pthread_mutex_lock(application_mutex);
-
-    if(ags_sound_provider_get_soundcard(AGS_SOUND_PROVIDER(application_context)) == NULL){
-      no_soundcard = TRUE;
-    }
-
-    pthread_mutex_unlock(application_mutex);
-
-    if(no_soundcard){
-      g_message("No soundcard available");
-      
-      return;
-    }
-
-    /* lookup channel mutex */
-    pthread_mutex_lock(application_mutex);
-
-    channel_mutex = ags_mutex_manager_lookup(mutex_manager,
-					     (GObject *) channel);
-
-    pthread_mutex_unlock(application_mutex);
-
-    pthread_mutex_lock(channel_mutex);
-  
-    soundcard = channel->soundcard;
-    audio = (AgsAudio *) channel->audio;
-
-    pthread_mutex_unlock(channel_mutex);
-  
-    /* lookup audio mutex */
-    pthread_mutex_lock(application_mutex);
-
-    audio_mutex = ags_mutex_manager_lookup(mutex_manager,
-					   (GObject *) audio);
-    
-    pthread_mutex_unlock(application_mutex);
-
-    pthread_mutex_lock(audio_mutex);
-  
-    main_loop = (AgsThread *) application_context->main_loop;
-    
-    gui_thread = (AgsGuiThread *) ags_thread_find_type(main_loop,
-							 AGS_TYPE_GUI_THREAD);
-    soundcard_thread = (AgsSoundcardThread *) ags_thread_find_type(main_loop,
-								   AGS_TYPE_SOUNDCARD_THREAD);
-
-    tasks = NULL;
-
-    /* init channel for playback */
-    init_channel = ags_init_channel_new(channel, FALSE,
-					TRUE, FALSE, FALSE);
-    g_signal_connect_after(G_OBJECT(init_channel), "launch",
-			   G_CALLBACK(ags_cell_pattern_init_channel_launch_callback), NULL);
-    tasks = g_list_prepend(tasks, init_channel);
-    
-    /* append channel for playback */
-    append_channel = ags_append_channel_new(G_OBJECT(main_loop),
-					    G_OBJECT(channel));
-    tasks = g_list_prepend(tasks, append_channel);
-
-    /* create start task */
-    start_soundcard = ags_start_soundcard_new(application_context);
-    tasks = g_list_prepend(tasks,
-			   start_soundcard);
-
-    /* perform playback */
-    tasks = g_list_reverse(tasks);
-    ags_gui_thread_schedule_task_list(gui_thread,
-				      tasks);
-
-    pthread_mutex_unlock(audio_mutex);
-  }
-  
   if(event->keyval == GDK_KEY_Tab){
     return(FALSE);
   }
@@ -331,7 +339,8 @@ ags_cell_pattern_drawing_area_key_release_event(GtkWidget *widget, GdkEventKey *
 	  
 	if(ags_pattern_get_bit(channel->pattern->data,
 			       0, machine->bank_1, cell_pattern->cursor_x)){
-	  ags_cell_pattern_drawing_area_key_release_event_play_channel(channel);
+	  ags_cell_pattern_drawing_area_key_release_event_play_channel(cell_pattern,
+								       channel);
 	}
       }
     }
@@ -347,7 +356,8 @@ ags_cell_pattern_drawing_area_key_release_event(GtkWidget *widget, GdkEventKey *
 
 	if(ags_pattern_get_bit(channel->pattern->data,
 			       0, machine->bank_1, cell_pattern->cursor_x)){
-	  ags_cell_pattern_drawing_area_key_release_event_play_channel(channel);
+	  ags_cell_pattern_drawing_area_key_release_event_play_channel(cell_pattern,
+								       channel);
 	}
       }
     }
@@ -363,7 +373,8 @@ ags_cell_pattern_drawing_area_key_release_event(GtkWidget *widget, GdkEventKey *
 
 	if(ags_pattern_get_bit(channel->pattern->data,
 			       0, machine->bank_1, cell_pattern->cursor_x)){
-	  ags_cell_pattern_drawing_area_key_release_event_play_channel(channel);
+	  ags_cell_pattern_drawing_area_key_release_event_play_channel(cell_pattern,
+								       channel);
 	}
       }
 
@@ -384,7 +395,8 @@ ags_cell_pattern_drawing_area_key_release_event(GtkWidget *widget, GdkEventKey *
 
 	if(ags_pattern_get_bit(channel->pattern->data,
 			       0, machine->bank_1, cell_pattern->cursor_x)){
-	  ags_cell_pattern_drawing_area_key_release_event_play_channel(channel);
+	  ags_cell_pattern_drawing_area_key_release_event_play_channel(cell_pattern,
+								       channel);
 	}
       }
 
@@ -418,7 +430,8 @@ ags_cell_pattern_drawing_area_key_release_event(GtkWidget *widget, GdkEventKey *
 
       if(!ags_pattern_get_bit(channel->pattern->data,
 			      0, index1, j)){
-	ags_cell_pattern_drawing_area_key_release_event_play_channel(channel);
+	ags_cell_pattern_drawing_area_key_release_event_play_channel(cell_pattern,
+								     channel);
       }
       
       ags_gui_thread_schedule_task(gui_thread,

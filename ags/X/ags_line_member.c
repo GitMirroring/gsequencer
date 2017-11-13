@@ -61,6 +61,10 @@ void ags_line_member_connect(AgsConnectable *connectable);
 void ags_line_member_disconnect(AgsConnectable *connectable);
 void ags_line_member_finalize(GObject *gobject);
 
+AgsPort* ags_line_member_find_specifier(AgsLineMember *line_member,
+					GList *recall,
+					gchar *specifier);
+
 void ags_line_member_real_change_port(AgsLineMember *line_member,
 				      gpointer port_data);
 GList* ags_line_member_real_find_port(AgsLineMember *line_member);
@@ -1289,6 +1293,41 @@ ags_line_member_change_port(AgsLineMember *line_member,
   g_object_unref((GObject *) line_member);
 }
 
+AgsPort*
+ags_line_member_find_specifier(AgsLineMember *line_member,
+			       GList *recall,
+			       gchar *specifier)
+{
+  GList *port;
+    
+  while(recall != NULL){
+    if((AGS_RECALL_BULK_MODE & (AGS_RECALL(recall->data)->flags)) != 0){
+      recall = recall->next;
+
+      continue;
+    }
+
+    port = AGS_RECALL(recall->data)->port;
+
+#ifdef AGS_DEBUG
+    g_message("search port in %s", G_OBJECT_TYPE_NAME(recall->data));
+#endif
+
+    while(port != NULL){
+      if(!g_strcmp0(AGS_PORT(port->data)->specifier,
+		    specifier)){
+	return(AGS_PORT(port->data));
+      }
+
+      port = port->next;
+    }
+
+    recall = recall->next;
+  }
+
+  return(NULL);
+}
+
 GList*
 ags_line_member_real_find_port(AgsLineMember *line_member)
 {
@@ -1304,39 +1343,6 @@ ags_line_member_real_find_port(AgsLineMember *line_member)
   GList *port;
   
   gchar *specifier;
-
-  auto AgsPort* ags_line_member_find_specifier(GList *recall);
-
-  AgsPort* ags_line_member_find_specifier(GList *recall){
-    GList *port;
-    
-    while(recall != NULL){
-      if((AGS_RECALL_BULK_MODE & (AGS_RECALL(recall->data)->flags)) != 0){
-	recall = recall->next;
-
-	continue;
-      }
-
-    port = AGS_RECALL(recall->data)->port;
-
-#ifdef AGS_DEBUG
-      g_message("search port in %s", G_OBJECT_TYPE_NAME(recall->data));
-#endif
-
-      while(port != NULL){
-	if(!g_strcmp0(AGS_PORT(port->data)->specifier,
-		      specifier)){
-	  return(AGS_PORT(port->data));
-	}
-
-	port = port->next;
-      }
-
-      recall = recall->next;
-    }
-
-    return(NULL);
-  }
 
   if(line_member == NULL){
     return(NULL);
@@ -1378,10 +1384,14 @@ ags_line_member_real_find_port(AgsLineMember *line_member)
     
   /* search channels */
   recall = channel->play;
-  channel_port = ags_line_member_find_specifier(recall);
+  channel_port = ags_line_member_find_specifier(line_member,
+						recall,
+						specifier);
 
   recall = channel->recall;
-  recall_channel_port = ags_line_member_find_specifier(recall);
+  recall_channel_port = ags_line_member_find_specifier(line_member,
+						       recall,
+						       specifier);
 
   if(channel_port != NULL){
     port = g_list_prepend(port,
@@ -1396,10 +1406,14 @@ ags_line_member_real_find_port(AgsLineMember *line_member)
   /* search audio */
   if(channel_port == NULL && recall_channel_port == NULL){
     recall = audio->play;
-    audio_port = ags_line_member_find_specifier(recall);
+    audio_port = ags_line_member_find_specifier(line_member,
+						recall,
+						specifier);
 
     recall = audio->recall;
-    recall_audio_port = ags_line_member_find_specifier(recall);
+    recall_audio_port = ags_line_member_find_specifier(line_member,
+						       recall,
+						       specifier);
 
     if(audio_port != NULL){
       port = g_list_prepend(port,

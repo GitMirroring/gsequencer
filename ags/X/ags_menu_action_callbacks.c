@@ -71,7 +71,9 @@
 #include <stdio.h>
 #include <sys/stat.h>
 
+#ifndef __APPLE__
 #include <X11/Xlib.h>
+#endif
 
 void ags_menu_action_open_response_callback(GtkFileChooserDialog *file_chooser, gint response, gpointer data);
 

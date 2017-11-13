@@ -106,6 +106,7 @@ void ags_syncsynth_set_pads(AgsAudio *audio, GType type,
 			    AgsSyncsynth *syncsynth);
 
 void ags_syncsynth_output_map_recall(AgsSyncsynth *syncsynth, guint output_pad_start);
+void ags_syncsynth_input_map_recall(AgsSyncsynth *syncsynth, guint input_pad_start);
 
 /**
  * SECTION:ags_syncsynth

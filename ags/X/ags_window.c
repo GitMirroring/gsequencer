@@ -34,7 +34,7 @@
 #include <ags/X/machine/ags_lv2_bridge.h>
 
 #ifdef AGS_WITH_QUARTZ
-#include <gtkmacintegration-gtk2/gtkosxapplication.h>
+#include <gtkmacintegration/gtkosxapplication.h>
 #endif
 
 #include <stdlib.h>
