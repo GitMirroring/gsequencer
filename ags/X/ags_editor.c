@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2015 Joël Krähemann
+ * Copyright (C) 2005-2017 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -58,6 +58,14 @@ void ags_editor_get_property(GObject *gobject,
 void ags_editor_finalize(GObject *gobject);
 void ags_editor_connect(AgsConnectable *connectable);
 void ags_editor_disconnect(AgsConnectable *connectable);
+
+gint ags_editor_paste_read_notation(AgsEditor *editor,
+				    xmlNode *clipboard,
+				    gboolean paste_from_position,
+				    guint position_x, guint position_y,
+				    guint last_x);
+void ags_editor_invert_notation(AgsEditor *editor,
+				AgsNotation *notation);
 
 void ags_editor_real_machine_changed(AgsEditor *editor, AgsMachine *machine);
 
@@ -624,6 +632,158 @@ ags_editor_select_all(AgsEditor *editor)
   }
 }
 
+gint
+ags_editor_paste_read_notation(AgsEditor *editor,
+			       xmlNode *clipboard,
+			       gboolean paste_from_position,
+			       guint position_x, guint position_y,
+			       guint last_x)
+{
+  AgsMachine *machine;
+  
+  xmlXPathContext *xpathCtxt;
+  xmlXPathObject *xpathObj;
+  xmlNodeSet *nodes;
+  GList *notation_list;
+
+  guint first_x;
+
+  machine = editor->selected_machine;
+  
+  xpathCtxt = xmlXPathNewContext(clipboard);
+  xpathObj = xmlXPathEvalExpression("/audio/notation", xpathCtxt);
+
+  first_x = -1;
+    
+  if(xpathObj != NULL){
+    int i, j, size;
+    guint audio_channel;
+    guint current_x;
+      
+    nodes = xpathObj->nodesetval;
+    size = (nodes != NULL) ? nodes->nodeNr: 0;
+    j = 0;
+
+    for(i = 0; i < size; i++){
+
+      j = ags_notebook_next_active_tab(editor->current_notebook,
+				       j);
+
+      if(j == -1){
+	break;
+      }
+	
+      //	audio_channel = (guint) g_ascii_strtoull(xmlGetProp(nodes->nodeTab[i],
+      //						    "audio-channel"),
+      //					 NULL,
+      //					 10);
+      notation_list = g_list_nth(machine->audio->notation,
+				 j);
+      j++;
+	
+      if(notation_list == NULL){
+	break;
+      }
+	
+      if(paste_from_position){
+	xmlNode *child;
+
+	guint x_boundary;
+	  
+	ags_notation_insert_from_clipboard(AGS_NOTATION(notation_list->data),
+					   nodes->nodeTab[i],
+					   TRUE, position_x,
+					   TRUE, position_y);
+
+	/* get boundaries */
+	child = nodes->nodeTab[i]->children;
+	current_x = 0;
+	  
+	while(child != NULL){
+	  if(child->type == XML_ELEMENT_NODE){
+	    if(!xmlStrncmp(child->name,
+			   "note",
+			   5)){
+	      guint tmp;
+
+	      tmp = g_ascii_strtoull(xmlGetProp(child,
+						"x1"),
+				     NULL,
+				     10);
+
+	      if(tmp > current_x){
+		current_x = tmp;
+	      }
+	    }
+	  }
+
+	  child = child->next;
+	}
+
+	x_boundary = g_ascii_strtoull(xmlGetProp(nodes->nodeTab[i],
+						 "x_boundary"),
+				      NULL,
+				      10);
+
+
+	if(first_x == -1 || x_boundary < first_x){
+	  first_x = x_boundary;
+	}
+	  
+	if(position_x > x_boundary){
+	  current_x += (position_x - x_boundary);
+	}else{
+	  current_x -= (x_boundary - position_x);
+	}
+	  
+	if(current_x > last_x){
+	  last_x = current_x;
+	}	
+      }else{
+	xmlNode *child;
+
+	ags_notation_insert_from_clipboard(AGS_NOTATION(notation_list->data),
+					   nodes->nodeTab[i],
+					   FALSE, 0,
+					   FALSE, 0);
+
+	/* get boundaries */
+	child = nodes->nodeTab[i]->children;
+	current_x = 0;
+	  
+	while(child != NULL){
+	  if(child->type == XML_ELEMENT_NODE){
+	    if(!xmlStrncmp(child->name,
+			   "note",
+			   5)){
+	      guint tmp;
+
+	      tmp = g_ascii_strtoull(xmlGetProp(child,
+						"x1"),
+				     NULL,
+				     10);
+
+	      if(tmp > current_x){
+		current_x = tmp;
+	      }
+	    }
+	  }
+
+	  child = child->next;
+	}
+
+	if(current_x > last_x){
+	  last_x = current_x;
+	}
+      }
+    }
+
+    xmlXPathFreeObject(xpathObj);
+  }
+
+  return(first_x);
+}
+
 /**
  * ags_editor_paste:
  * @editor: an #AgsEditor
@@ -648,150 +808,6 @@ ags_editor_paste(AgsEditor *editor)
   guint position_x, position_y;
   gint first_x, last_x;
   gboolean paste_from_position;
-
-  auto gint ags_editor_paste_read_notation();
-  
-  gint ags_editor_paste_read_notation(){
-    xmlXPathContext *xpathCtxt;
-    xmlXPathObject *xpathObj;
-    xmlNodeSet *nodes;
-    GList *notation_list;
-
-    guint first_x;
-    
-    xpathCtxt = xmlXPathNewContext(clipboard);
-    xpathObj = xmlXPathEvalExpression("/audio/notation", xpathCtxt);
-
-    first_x = -1;
-    
-    if(xpathObj != NULL){
-      int i, j, size;
-      guint audio_channel;
-      guint current_x;
-      
-      nodes = xpathObj->nodesetval;
-      size = (nodes != NULL) ? nodes->nodeNr: 0;
-      j = 0;
-
-      for(i = 0; i < size; i++){
-
-	j = ags_notebook_next_active_tab(editor->current_notebook,
-					 j);
-
-	if(j == -1){
-	  break;
-	}
-	
-	//	audio_channel = (guint) g_ascii_strtoull(xmlGetProp(nodes->nodeTab[i],
-	//						    "audio-channel"),
-	//					 NULL,
-	//					 10);
-	notation_list = g_list_nth(machine->audio->notation,
-				   j);
-	j++;
-	
-	if(notation_list == NULL){
-	  break;
-	}
-	
-	if(paste_from_position){
-	  xmlNode *child;
-
-	  guint x_boundary;
-	  
-	  ags_notation_insert_from_clipboard(AGS_NOTATION(notation_list->data),
-					     nodes->nodeTab[i],
-					     TRUE, position_x,
-					     TRUE, position_y);
-
-	  /* get boundaries */
-	  child = nodes->nodeTab[i]->children;
-	  current_x = 0;
-	  
-	  while(child != NULL){
-	    if(child->type == XML_ELEMENT_NODE){
-	      if(!xmlStrncmp(child->name,
-			     "note",
-			     5)){
-		guint tmp;
-
-		tmp = g_ascii_strtoull(xmlGetProp(child,
-						  "x1"),
-				       NULL,
-				       10);
-
-		if(tmp > current_x){
-		  current_x = tmp;
-		}
-	      }
-	    }
-
-	    child = child->next;
-	  }
-
-	  x_boundary = g_ascii_strtoull(xmlGetProp(nodes->nodeTab[i],
-						   "x_boundary"),
-					NULL,
-					10);
-
-
-	  if(first_x == -1 || x_boundary < first_x){
-	    first_x = x_boundary;
-	  }
-	  
-	  if(position_x > x_boundary){
-	    current_x += (position_x - x_boundary);
-	  }else{
-	    current_x -= (x_boundary - position_x);
-	  }
-	  
-	  if(current_x > last_x){
-	    last_x = current_x;
-	  }	
-	}else{
-	  xmlNode *child;
-
-	  ags_notation_insert_from_clipboard(AGS_NOTATION(notation_list->data),
-					     nodes->nodeTab[i],
-					     FALSE, 0,
-					     FALSE, 0);
-
-	  /* get boundaries */
-	  child = nodes->nodeTab[i]->children;
-	  current_x = 0;
-	  
-	  while(child != NULL){
-	    if(child->type == XML_ELEMENT_NODE){
-	      if(!xmlStrncmp(child->name,
-			     "note",
-			     5)){
-		guint tmp;
-
-		tmp = g_ascii_strtoull(xmlGetProp(child,
-						  "x1"),
-				       NULL,
-				       10);
-
-		if(tmp > current_x){
-		  current_x = tmp;
-		}
-	      }
-	    }
-
-	    child = child->next;
-	  }
-
-	  if(current_x > last_x){
-	    last_x = current_x;
-	  }
-	}
-      }
-
-      xmlXPathFreeObject(xpathObj);
-    }
-
-    return(first_x);
-  }
   
   if((machine = editor->selected_machine) != NULL && editor->current_edit_widget != NULL){
     AgsMutexManager *mutex_manager;
@@ -854,7 +870,11 @@ ags_editor_paste(AgsEditor *editor)
 
 	notation_node = audio_node->children;
 	
-	first_x = ags_editor_paste_read_notation();
+	first_x = ags_editor_paste_read_notation(editor,
+						 clipboard,
+						 paste_from_position,
+						 position_x, position_y,
+						 last_x);
 	
 	break;
       }
@@ -1128,6 +1148,49 @@ ags_editor_cut(AgsEditor *editor)
   }
 }
 
+void
+ags_editor_invert_notation(AgsEditor *editor,
+			   AgsNotation *notation)
+{
+  GList *note;
+  guint lower, upper;
+
+  note = notation->notes;
+
+  if(note == NULL){
+    return;
+  }
+
+  /* retrieve upper and lower */
+  upper = 0;
+  lower = G_MAXUINT;
+    
+  while(note != NULL){
+    if(AGS_NOTE(note->data)->y < lower){
+      lower = AGS_NOTE(note->data)->y;
+    }
+
+    if(AGS_NOTE(note->data)->y > upper){
+      upper = AGS_NOTE(note->data)->y;
+    }
+      
+    note = note->next;
+  }
+
+  /* invert */
+  note = notation->notes;
+
+  while(note != NULL){
+    if((gdouble) AGS_NOTE(note->data)->y < (gdouble) (upper - lower) / 2.0){
+      AGS_NOTE(note->data)->y = (upper - (AGS_NOTE(note->data)->y - lower));
+    }else if((gdouble) AGS_NOTE(note->data)->y > (gdouble) (upper - lower) / 2.0){
+      AGS_NOTE(note->data)->y = (lower + (upper - AGS_NOTE(note->data)->y));
+    }
+      
+    note = note->next;
+  }
+}
+
 /**
  * ags_editor_invert:
  * @editor: an #AgsEditor
@@ -1149,48 +1212,6 @@ ags_editor_invert(AgsEditor *editor)
 
   int size;
   gint i;
-
-  auto void ags_editor_invert_notation(AgsNotation *notation);
-
-  void ags_editor_invert_notation(AgsNotation *notation){
-    GList *note;
-    guint lower, upper;
-
-    note = notation->notes;
-
-    if(note == NULL){
-      return;
-    }
-
-    /* retrieve upper and lower */
-    upper = 0;
-    lower = G_MAXUINT;
-    
-    while(note != NULL){
-      if(AGS_NOTE(note->data)->y < lower){
-	lower = AGS_NOTE(note->data)->y;
-      }
-
-      if(AGS_NOTE(note->data)->y > upper){
-	upper = AGS_NOTE(note->data)->y;
-      }
-      
-      note = note->next;
-    }
-
-    /* invert */
-    note = notation->notes;
-
-    while(note != NULL){
-      if((gdouble) AGS_NOTE(note->data)->y < (gdouble) (upper - lower) / 2.0){
-	AGS_NOTE(note->data)->y = (upper - (AGS_NOTE(note->data)->y - lower));
-      }else if((gdouble) AGS_NOTE(note->data)->y > (gdouble) (upper - lower) / 2.0){
-	AGS_NOTE(note->data)->y = (lower + (upper - AGS_NOTE(note->data)->y));
-      }
-      
-      note = note->next;
-    }
-  }
   
   if(editor->selected_machine != NULL && editor->current_edit_widget != NULL){
     AgsMutexManager *mutex_manager;
@@ -1221,7 +1242,8 @@ ags_editor_invert(AgsEditor *editor)
       list_notation = g_list_nth(machine->audio->notation,
 				 i);
 
-      ags_editor_invert_notation(AGS_NOTATION(list_notation->data));
+      ags_editor_invert_notation(editor,
+				 AGS_NOTATION(list_notation->data));
       
       i++;
     }
