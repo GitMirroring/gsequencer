@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2015 Joël Krähemann
+ * Copyright (C) 2005-2017 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -49,6 +49,15 @@ void ags_automation_area_get_property(GObject *gobject,
 				      GParamSpec *param_spec);
 void ags_automation_area_connect(AgsConnectable *connectable);
 void ags_automation_area_disconnect(AgsConnectable *connectable);
+void ags_automation_area_dispose(GObject *gobject);
+void ags_automation_area_finalize(GObject *gobject);
+
+gboolean ags_automation_area_draw_automation_find_tab(AgsAutomationArea *automation_area,
+						      gdouble *tab_x, gdouble *tab_y,
+						      gdouble *prev_tab_x, gdouble *prev_tab_y,
+						      guint n_tab,
+						      gdouble x, gdouble y,
+						      gdouble prev_x, gdouble prev_y);
 
 /**
  * SECTION:ags_automation_area
@@ -133,6 +142,9 @@ ags_automation_area_class_init(AgsAutomationAreaClass *automation_area)
   gobject->set_property = ags_automation_area_set_property;
   gobject->get_property = ags_automation_area_get_property;
 
+  gobject->dispose = ags_automation_area_dispose;
+  gobject->finalize = ags_automation_area_finalize;
+  
   /* properties */
   /**
    * AgsAutomationArea:y:
@@ -503,6 +515,54 @@ ags_automation_area_disconnect(AgsConnectable *connectable)
   //TODO:JK: implement me
 }
 
+void
+ags_automation_area_dispose(GObject *gobject)
+{
+  AgsAutomationArea *automation_area;
+
+  automation_area = AGS_AUTOMATION_AREA(gobject);
+
+  if(automation_area->drawing_area != NULL){
+    g_object_unref(automation_area->drawing_area);
+
+    automation_area->drawing_area = NULL;
+  }
+  
+  if(automation_area->audio != NULL){
+    g_object_unref(automation_area->audio);
+
+    automation_area->audio = NULL;
+  }
+
+  /* call parent */
+  G_OBJECT_CLASS(ags_automation_area_parent_class)->dispose(gobject);
+}
+
+void
+ags_automation_area_finalize(GObject *gobject)
+{
+  AgsAutomationArea *automation_area;
+
+  automation_area = AGS_AUTOMATION_AREA(gobject);
+
+  if(automation_area->drawing_area != NULL){
+    g_object_unref(automation_area->drawing_area);
+  }
+
+  if(automation_area->audio != NULL){
+    g_object_unref(automation_area->audio);
+  }
+  
+  g_free(automation_area->filename);
+  g_free(automation_area->effect);
+  g_free(automation_area->control_specifier);
+
+  g_free(automation_area->control_name);
+  
+  /* call parent */
+  G_OBJECT_CLASS(ags_automation_area_parent_class)->finalize(gobject);
+}
+
 /**
  * ags_automation_area_find_specifier:
  * @automation_area: the #GList-struct containing #AgsAutomationArea
@@ -780,6 +840,28 @@ ags_automation_area_draw_scale(AgsAutomationArea *automation_area,
   cairo_restore(cr);
 }
 
+gboolean
+ags_automation_area_draw_automation_find_tab(AgsAutomationArea *automation_area,
+					     gdouble *tab_x, gdouble *tab_y,
+					     gdouble *prev_tab_x, gdouble *prev_tab_y,
+					     guint n_tab,
+					     gdouble x, gdouble y,
+					     gdouble prev_x, gdouble prev_y)
+{
+  guint i;
+    
+  for(i = 0; i < n_tab; i++){
+    if(tab_x[i] == x &&
+       tab_y[i] == y &&
+       prev_tab_x[i] == prev_x &&
+       prev_tab_y[i] == prev_y){
+      return(TRUE);
+    }
+  }
+    
+  return(FALSE);
+}  
+
 /**
  * ags_automation_area_draw_automation:
  * @automation_area: a #AgsAutomationArea
@@ -828,23 +910,6 @@ ags_automation_area_draw_automation(AgsAutomationArea *automation_area,
 
   static const gdouble white_gc = 65535.0;
 
-  auto gboolean ags_automation_area_draw_automation_find_tab(gdouble x, gdouble y, gdouble prev_x, gdouble prev_y);
-
-  gboolean ags_automation_area_draw_automation_find_tab(gdouble x, gdouble y, gdouble prev_x, gdouble prev_y){
-    guint i;
-    
-    for(i = 0; i < n_tab; i++){
-      if(tab_x[i] == x &&
-	 tab_y[i] == y &&
-	 prev_tab_x[i] == prev_x &&
-	 prev_tab_y[i] == prev_y){
-	return(TRUE);
-      }
-    }
-    
-    return(FALSE);
-  }
-  
   automation_editor = (AgsAutomationEditor *) gtk_widget_get_ancestor((GtkWidget *) automation_area->drawing_area,
 								      AGS_TYPE_AUTOMATION_EDITOR);
   automation_edit = (AgsAutomationEdit *) gtk_widget_get_ancestor((GtkWidget *) automation_area->drawing_area,
@@ -959,7 +1024,12 @@ ags_automation_area_draw_automation(AgsAutomationArea *automation_area,
 				       FALSE);
 	  prev_y = (automation_area->height / (1.0 / AGS_AUTOMATION(automation->data)->steps)) * ((val / AGS_AUTOMATION(automation->data)->steps) - (c_lower / AGS_AUTOMATION(automation->data)->steps));
 
-	  if(!ags_automation_area_draw_automation_find_tab(x, y, prev_x, prev_y)){
+	  if(!ags_automation_area_draw_automation_find_tab(automation_area,
+							   tab_x, tab_y,
+							   prev_tab_x, prev_tab_y,
+							   n_tab,
+							   x, y,
+							   prev_x, prev_y)){
 	    if(n_tab == 0){
 	      tab_x = (gdouble *) malloc(sizeof(gdouble));
 	      tab_y = (gdouble *) malloc(sizeof(gdouble));
@@ -1079,7 +1149,11 @@ ags_automation_area_draw_automation(AgsAutomationArea *automation_area,
 	      prev_y = 0.0;
 	    }
 
-	    if(!ags_automation_area_draw_automation_find_tab(x, y, prev_x, prev_y)){
+	    if(!ags_automation_area_draw_automation_find_tab(automation_area,
+							     tab_x, tab_y,
+							     prev_tab_x, prev_tab_y,
+							     n_tab,
+							     x, y, prev_x, prev_y)){
 	      if(n_tab == 0){
 		tab_x = (gdouble *) malloc(sizeof(gdouble));
 		tab_y = (gdouble *) malloc(sizeof(gdouble));

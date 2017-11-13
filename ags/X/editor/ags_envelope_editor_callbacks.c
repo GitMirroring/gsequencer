@@ -162,7 +162,7 @@ ags_envelope_editor_preset_rename_response_callback(GtkWidget *widget, gint resp
   envelope_editor->rename = NULL;
   gtk_widget_destroy(widget);
 
-  return(0);
+  return;
 }
 
 void
