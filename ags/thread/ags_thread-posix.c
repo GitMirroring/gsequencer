@@ -58,6 +58,33 @@ void ags_thread_connect(AgsConnectable *connectable);
 void ags_thread_disconnect(AgsConnectable *connectable);
 void ags_thread_finalize(GObject *gobject);
 
+void ags_thread_set_sync_all_reset(AgsThread *thread);
+void ags_thread_set_sync_all_recursive(AgsThread *thread, guint tic);
+void ags_thread_reset_all_recursive(AgsThread *thread, AgsThread *main_loop);
+gboolean ags_thread_children_is_locked_recursive(AgsThread *thread);
+gboolean ags_thread_is_current_ready(AgsThread *current,
+                                    guint tic);
+gboolean ags_thread_is_tree_ready_current_tic(AgsThread *thread, AgsThread *current,
+                                             guint tic);
+gboolean ags_thread_is_tree_ready_recursive(AgsThread *thread, AgsThread *current,
+                                           guint tic);
+AgsThread* ags_thread_next_children_locked_recursive(AgsThread *thread);
+void ags_thread_lock_children_recursive(AgsThread *child);  
+void ags_thread_unlock_children_recursive(AgsThread *thread, AgsThread *child);
+void ags_thread_wait_children_recursive(AgsThread *child);
+void ags_thread_signal_children_recursive(AgsThread *thread, gboolean broadcast);
+void ags_thread_clock_sync(AgsThread *thread,
+			   AgsThread *main_loop,
+			   AgsThread *async_queue,
+			   gboolean *async_queue_running);
+void ags_thread_clock_wait_async(AgsThread *thread,
+				 AgsThread *async_queue,
+				 gboolean *async_queue_running,
+				 pthread_mutex_t *run_mutex,
+				 pthread_cond_t *run_cond);
+void ags_thread_hangcheck_recursive(AgsThread *thread, gboolean *synced);
+void ags_thread_hangcheck_unsync_all(AgsThread *thread, gboolean broadcast);
+
 guint ags_thread_real_clock(AgsThread *thread);
 
 void ags_thread_real_start(AgsThread *thread);
@@ -67,29 +94,6 @@ void ags_thread_real_timelock(AgsThread *thread);
 void* ags_thread_timelock_loop(void *ptr);
 void ags_thread_real_stop(AgsThread *thread);
 
-void ags_thread_set_sync_all_reset(AgsThread *thread);
-void ags_thread_set_sync_all_recursive(AgsThread *thread, guint tic);
-void ags_thread_reset_all_recursive(AgsThread *thread, AgsThread *main_loop);
-gboolean ags_thread_children_is_locked_recursive(AgsThread *thread);
-gboolean ags_thread_is_current_ready(AgsThread *current,
-				     guint tic);
-gboolean ags_thread_is_tree_ready_current_tic(AgsThread *current,
-					      guint *tic);
-gboolean ags_thread_is_tree_ready_recursive(AgsThread *current,
-					    guint *tic);
-AgsThread* ags_thread_next_children_locked_recursive(AgsThread *thread);
-void ags_thread_lock_children_recursive(AgsThread *child);  
-void ags_thread_unlock_children_recursive(AgsThread *thread, AgsThread *child);
-void ags_thread_wait_children_recursive(AgsThread *child);
-void ags_thread_signal_children_recursive(AgsThread *thread, gboolean broadcast);
-gboolean ags_thread_clock_sync(AgsThread *thread, AgsThread *main_loop,
-			       AgsThread *async_queue);
-void ags_thread_clock_wait_async(AgsThread *thread, AgsThread *async_queue,
-				 pthread_mutex_t *mutex, pthread_cond_t *cond,
-				 gboolean async_queue_running);
-void ags_thread_hangcheck_recursive(AgsThread *thread, gboolean *synced);
-void ags_thread_hangcheck_unsync_all(AgsThread *thread, gboolean broadcast);
-  
 void ags_thread_interrupt_callback(AgsMainLoop *main_loop,
 				   int sig,
 				   guint time_cycle, guint *time_spent,
@@ -1084,7 +1088,7 @@ void
 ags_thread_set_sync_all(AgsThread *thread, guint tic)
 {
   AgsThread *main_loop;
-
+  
   /* entry point */
   main_loop = ags_thread_get_toplevel(thread);
 
@@ -1093,7 +1097,8 @@ ags_thread_set_sync_all(AgsThread *thread, guint tic)
 }
 
 void
-ags_thread_reset_all_recursive(AgsThread *thread, AgsThread *main_loop)
+ags_thread_reset_all_recursive(AgsThread *thread,
+			       AgsThread *main_loop)
 {
   AgsThread *child;
 
@@ -1141,7 +1146,8 @@ ags_thread_reset_all_recursive(AgsThread *thread, AgsThread *main_loop)
   child = g_atomic_pointer_get(&(thread->children));
 
   while(child != NULL){
-    ags_thread_reset_all_recursive(child, main_loop);
+    ags_thread_reset_all_recursive(child,
+				   main_loop);
       
     child = g_atomic_pointer_get(&(child->next));
   }
@@ -1704,9 +1710,10 @@ ags_thread_is_current_ready(AgsThread *current,
   return(retval);
 }
 
+
 gboolean
-ags_thread_is_tree_ready_current_tic(AgsThread *current,
-				     guint *tic)
+ags_thread_is_tree_ready_current_tic(AgsThread *thread, AgsThread *current,
+				     guint tic)
 {
   AgsThread *toplevel;
   guint flags, sync_flags;
@@ -1725,7 +1732,7 @@ ags_thread_is_tree_ready_current_tic(AgsThread *current,
     retval = TRUE;
   }
 
-  if((AGS_THREAD_IMMEDIATE_SYNC & (g_atomic_int_get(&(current->flags)))) == 0){
+  if((AGS_THREAD_IMMEDIATE_SYNC & (g_atomic_int_get(&(thread->flags)))) == 0){
     if((AGS_THREAD_INITIAL_RUN & flags) != 0){
       pthread_mutex_unlock(current->mutex);
 	
@@ -1748,11 +1755,11 @@ ags_thread_is_tree_ready_current_tic(AgsThread *current,
     return(TRUE);
   }
 
-  if(tic[0] > 2){
-    tic[0] = tic[0] % 3;
+  if(tic > 2){
+    tic = tic % 3;
   }
 
-  switch(tic[0]){
+  switch(tic){
   case 0:
     {
       if((AGS_THREAD_WAIT_0 & sync_flags) != 0){
@@ -1782,20 +1789,20 @@ ags_thread_is_tree_ready_current_tic(AgsThread *current,
 }
 
 gboolean
-ags_thread_is_tree_ready_recursive(AgsThread *current,
-				   guint *tic)
+ags_thread_is_tree_ready_recursive(AgsThread *thread, AgsThread *current,
+				   guint tic)
 {
   AgsThread *children;
 
   children = g_atomic_pointer_get(&(current->children));
 
-  if(!ags_thread_is_tree_ready_current_tic(current,
+  if(!ags_thread_is_tree_ready_current_tic(thread, current,
 					   tic)){
     return(FALSE);
   }
 
   while(children != NULL){
-    if(!ags_thread_is_tree_ready_recursive(children,
+    if(!ags_thread_is_tree_ready_recursive(thread, children,
 					   tic)){
       return(FALSE);
     }
@@ -1815,8 +1822,8 @@ ags_thread_is_tree_ready(AgsThread *thread,
 
   main_loop = ags_thread_get_toplevel(thread);
 
-  retval = ags_thread_is_tree_ready_recursive(thread,
-					      &tic);
+  retval = ags_thread_is_tree_ready_recursive(thread, main_loop,
+					      tic);
 
   return(retval);
 }
@@ -2138,7 +2145,8 @@ ags_thread_unlock_children_recursive(AgsThread *thread, AgsThread *child)
   current = ags_thread_last(child);
 
   while(current != NULL){
-    ags_thread_unlock_children_recursive(thread, g_atomic_pointer_get(&(current->children)));
+    ags_thread_unlock_children_recursive(thread,
+					 g_atomic_pointer_get(&(current->children)));
 
     g_atomic_int_and(&(current->sync_flags),
 		     (~AGS_THREAD_WAITING_FOR_PARENT));
@@ -2176,7 +2184,8 @@ ags_thread_unlock_children(AgsThread *thread)
   
   ags_thread_unlock(thread);
 
-  ags_thread_unlock_children_recursive(thread, g_atomic_pointer_get(&(thread->children)));
+  ags_thread_unlock_children_recursive(thread,
+				       g_atomic_pointer_get(&(thread->children)));
 }
 
 void
@@ -2427,13 +2436,14 @@ ags_thread_signal_children(AgsThread *thread, gboolean broadcast)
   ags_thread_signal_children(g_atomic_pointer_get(&(thread->children)), broadcast);
 }
 
-gboolean
-ags_thread_clock_sync(AgsThread *thread, AgsThread *main_loop,
-		      AgsThread *async_queue)
+void
+ags_thread_clock_sync(AgsThread *thread,
+		      AgsThread *main_loop,
+		      AgsThread *async_queue,
+		      gboolean *async_queue_running)
 {
   guint next_tic, current_tic;
-  gboolean async_queue_running;
-  
+
   /* sync */
   pthread_mutex_lock(ags_main_loop_get_tree_lock(AGS_MAIN_LOOP(main_loop)));
 
@@ -2542,9 +2552,9 @@ ags_thread_clock_sync(AgsThread *thread, AgsThread *main_loop,
 				FALSE);
       }
 	
-      async_queue_running = ((AGS_THREAD_RUNNING & (g_atomic_int_get(&(async_queue->flags)))) != 0) ? TRUE: FALSE;
+      async_queue_running[0] = ((AGS_THREAD_RUNNING & (g_atomic_int_get(&(async_queue->flags)))) != 0) ? TRUE: FALSE;
     }else{
-      async_queue_running = FALSE;
+      async_queue_running[0] = FALSE;
     }
       
     ags_main_loop_set_last_sync(AGS_MAIN_LOOP(main_loop), thread->current_tic);
@@ -2556,14 +2566,14 @@ ags_thread_clock_sync(AgsThread *thread, AgsThread *main_loop,
 
     pthread_mutex_unlock(ags_main_loop_get_tree_lock(AGS_MAIN_LOOP(main_loop)));
   }  
-
-  return(async_queue_running);
 }
   
 void
-ags_thread_clock_wait_async(AgsThread *thread, AgsThread *async_queue,
-			    pthread_mutex_t *run_mutex, pthread_cond_t *run_cond,
-			    gboolean async_queue_running)
+ags_thread_clock_wait_async(AgsThread *thread,
+			    AgsThread *async_queue,
+			    gboolean *async_queue_running,
+			    pthread_mutex_t *run_mutex,
+			    pthread_cond_t *run_cond)
 {
   if(async_queue == NULL){
     return;
@@ -2571,7 +2581,7 @@ ags_thread_clock_wait_async(AgsThread *thread, AgsThread *async_queue,
     
   /* async-queue */
   if(!AGS_IS_ASYNC_QUEUE(thread)){
-    if(async_queue_running){
+    if(async_queue_running[0]){
       pthread_mutex_lock(run_mutex);
       //	g_message("blocked");
 	
@@ -2625,7 +2635,7 @@ ags_thread_real_clock(AgsThread *thread)
   pthread_mutex_t *mutex, *main_loop_mutex;
   pthread_cond_t *run_cond;
   pthread_mutex_t *run_mutex;
-
+  
   main_loop = ags_thread_get_toplevel(thread);
 
   if(!AGS_IS_MAIN_LOOP(main_loop)){
@@ -2820,12 +2830,16 @@ ags_thread_real_clock(AgsThread *thread)
   /* sync */  
   /* run in hierarchy */
   //  pthread_mutex_lock(thread->mutex);
-  async_queue_running = ags_thread_clock_sync(thread, main_loop,
-					      async_queue);
+  ags_thread_clock_sync(thread,
+			main_loop,
+			async_queue,
+			&async_queue_running);
 
-  ags_thread_clock_wait_async(thread, async_queue,
-			      run_mutex, run_cond,
-			      async_queue_running);
+  ags_thread_clock_wait_async(thread,
+			      async_queue,
+			      &async_queue_running,
+			      run_mutex,
+			      run_cond);
     
   //  pthread_mutex_unlock(thread->mutex);
   /* increment delay counter and set run per cycle */

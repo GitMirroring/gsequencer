@@ -2054,6 +2054,10 @@ ags_channel_pad_first(AgsChannel *channel)
   }
 
   /* lookup mutex */
+  mutex_manager = ags_mutex_manager_get_instance();
+  application_mutex = ags_mutex_manager_get_application_mutex(mutex_manager);
+
+  /* lookup mutex */
   pthread_mutex_lock(application_mutex);
   
   mutex_manager = ags_mutex_manager_get_instance();

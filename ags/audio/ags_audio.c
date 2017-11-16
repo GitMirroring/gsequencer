@@ -5845,7 +5845,7 @@ ags_audio_recursive_set_property(AgsAudio *audio,
     return;
   }
 
-  ags_recursive_set_property_audio_set_property(audio,
+  ags_audio_recursive_set_property_set_property(audio,
 						parameter, n_params);
 
   if(audio->input != NULL){

@@ -21,12 +21,12 @@
 
 #include <ags/server/security/ags_password_store.h>
 
+#include <unistd.h>
 #ifndef __APPLE__
 #define __USE_GNU
 #define _GNU_SOURCE
 #include <crypt.h>
 #endif
-#include <unistd.h>
 
 #include <libxml/parser.h>
 #include <libxml/xlink.h>
