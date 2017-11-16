@@ -595,7 +595,9 @@ ags_lv2ui_manager_load_file_ui_plugin(AgsLv2uiManager *lv2ui_manager,
       continue;
     }
 
-    xpath = "//rdf-triple//rdf-verb//rdf-pname-ln[substring(text(), string-length(text()) - string-length(':binary') + 1) = ':binary']/ancestor::*[self::rdf-verb][1]/following-sibling::*[self::rdf-object-list][1]//rdf-iriref[substring(text(), string-length(text()) - string-length('.so>') + 1) = '.so>']";
+    xpath = g_strdup_printf("//rdf-triple//rdf-verb//rdf-pname-ln[substring(text(), string-length(text()) - string-length(':binary') + 1) = ':binary']/ancestor::*[self::rdf-verb][1]/following-sibling::*[self::rdf-object-list][1]//rdf-iriref[substring(text(), string-length(text()) - string-length('%s>') + 1) = '%s>']",
+			    AGS_LIBRARY_SUFFIX,
+			    AGS_LIBRARY_SUFFIX);
     binary_list = ags_turtle_find_xpath_with_context_node(turtle,
 							  xpath,
 							  list->data);
@@ -863,7 +865,8 @@ ags_lv2ui_manager_load_default_directory(AgsLv2uiManager *lv2ui_manager)
 
 	gchar *manifest_filename;
 	gchar *turtle_path, *filename;
-
+	gchar *binary_xpath;
+	
 	gboolean turtle_loaded;
 
 	manifest_filename = g_strdup_printf("%s/manifest.ttl",
@@ -879,8 +882,11 @@ ags_lv2ui_manager_load_default_directory(AgsLv2uiManager *lv2ui_manager)
 			NULL);
 
 	/* read binary from turtle */
+	binary_xpath = g_strdup_printf("//rdf-triple//rdf-verb//rdf-pname-ln[substring(text(), string-length(text()) - string-length(':binary') + 1) = ':binary']/ancestor::*[self::rdf-verb][1]/following-sibling::*[self::rdf-object-list][1]//rdf-iriref[substring(text(), string-length(text()) - string-length('%s>') + 1) = '%s>']",
+			      AGS_LIBRARY_SUFFIX,
+			      AGS_LIBRARY_SUFFIX);
 	binary_list = ags_turtle_find_xpath(manifest,
-					    "//rdf-triple//rdf-verb//rdf-pname-ln[substring(text(), string-length(text()) - string-length(':binary') + 1) = ':binary']/ancestor::*[self::rdf-verb][1]/following-sibling::*[self::rdf-object-list][1]//rdf-iriref[substring(text(), string-length(text()) - string-length('.so>') + 1) = '.so>']");
+					    binary_xpath);
 
 	/* persist XML */
 	//NOTE:JK: no need for it

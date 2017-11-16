@@ -9241,6 +9241,9 @@ ags_channel_recursive_play_up(AgsChannel *channel,
      recall_id == NULL){
     return;
   }
+  
+  mutex_manager = ags_mutex_manager_get_instance();
+  application_mutex = ags_mutex_manager_get_application_mutex(mutex_manager);
 
   /* lookup mutex */
   pthread_mutex_lock(application_mutex);
@@ -9407,7 +9410,10 @@ ags_channel_recursive_play_down_input(AgsChannel *output,
   if(output == NULL || default_recall_id == NULL){
     return;
   }
-    
+  
+  mutex_manager = ags_mutex_manager_get_instance();
+  application_mutex = ags_mutex_manager_get_application_mutex(mutex_manager);
+
   /* lookup mutex */
   pthread_mutex_lock(application_mutex);
 
@@ -9664,6 +9670,9 @@ ags_channel_recursive_play_down(AgsChannel *output,
     return;
   }
 
+  mutex_manager = ags_mutex_manager_get_instance();
+  application_mutex = ags_mutex_manager_get_application_mutex(mutex_manager);
+  
   /* lookup mutex */
   pthread_mutex_lock(application_mutex);
 

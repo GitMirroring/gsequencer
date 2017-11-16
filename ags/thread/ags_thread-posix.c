@@ -73,9 +73,10 @@ void ags_thread_reset_all_recursive(AgsThread *thread, AgsThread *main_loop);
 gboolean ags_thread_children_is_locked_recursive(AgsThread *thread);
 gboolean ags_thread_is_current_ready(AgsThread *current,
 				     guint tic);
-gboolean ags_thread_is_tree_ready_current_tic(AgsThread *thread, AgsThread *current,
+gboolean ags_thread_is_tree_ready_current_tic(AgsThread *current,
 					      guint *tic);
-gboolean ags_thread_is_tree_ready_recursive(AgsThread *thread, AgsThread *current);
+gboolean ags_thread_is_tree_ready_recursive(AgsThread *current,
+					    guint *tic);
 AgsThread* ags_thread_next_children_locked_recursive(AgsThread *thread);
 void ags_thread_lock_children_recursive(AgsThread *child);  
 void ags_thread_unlock_children_recursive(AgsThread *thread, AgsThread *child);
@@ -1704,7 +1705,7 @@ ags_thread_is_current_ready(AgsThread *current,
 }
 
 gboolean
-ags_thread_is_tree_ready_current_tic(AgsThread *thread, AgsThread *current,
+ags_thread_is_tree_ready_current_tic(AgsThread *current,
 				     guint *tic)
 {
   AgsThread *toplevel;
@@ -1724,7 +1725,7 @@ ags_thread_is_tree_ready_current_tic(AgsThread *thread, AgsThread *current,
     retval = TRUE;
   }
 
-  if((AGS_THREAD_IMMEDIATE_SYNC & (g_atomic_int_get(&(thread->flags)))) == 0){
+  if((AGS_THREAD_IMMEDIATE_SYNC & (g_atomic_int_get(&(current->flags)))) == 0){
     if((AGS_THREAD_INITIAL_RUN & flags) != 0){
       pthread_mutex_unlock(current->mutex);
 	
@@ -1781,22 +1782,21 @@ ags_thread_is_tree_ready_current_tic(AgsThread *thread, AgsThread *current,
 }
 
 gboolean
-ags_thread_is_tree_ready_recursive(AgsThread *thread, AgsThread *current)
+ags_thread_is_tree_ready_recursive(AgsThread *current,
+				   guint *tic)
 {
   AgsThread *children;
 
-  guint tic;
-  
   children = g_atomic_pointer_get(&(current->children));
 
-  if(!ags_thread_is_tree_ready_current_tic(thread, current,
-					   &tic)){
+  if(!ags_thread_is_tree_ready_current_tic(current,
+					   tic)){
     return(FALSE);
   }
 
   while(children != NULL){
     if(!ags_thread_is_tree_ready_recursive(children,
-					   &tic)){
+					   tic)){
       return(FALSE);
     }
 
@@ -1815,7 +1815,8 @@ ags_thread_is_tree_ready(AgsThread *thread,
 
   main_loop = ags_thread_get_toplevel(thread);
 
-  retval = ags_thread_is_tree_ready_recursive(thread, main_loop);
+  retval = ags_thread_is_tree_ready_recursive(thread,
+					      &tic);
 
   return(retval);
 }

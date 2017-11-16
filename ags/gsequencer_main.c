@@ -73,7 +73,7 @@ premain()
 		       rindex(path, '/') - path);
     printf("base dir %s\n", base_dir);
 
-    sprintf(path, "%s/../Frameworks",
+    sprintf(path, "%s/../Resources/lib",
 	    base_dir);
     gdk_pixbuf_module_file = realpath(path,
 				      NULL);
@@ -107,7 +107,7 @@ premain()
 
     printf(".. %s", str);
     
-    sprintf(path, "%s/../Resources",
+    sprintf(path, "%s/../Resources/share/gsequencer",
 	    base_dir);
     data_dir = realpath(path,
 			NULL);
@@ -117,7 +117,7 @@ premain()
 	    data_dir);
     putenv(str);
 
-    sprintf(path, "%s/../Resources",
+    sprintf(path, "%s/../Resources/share/gsequencer/styles",
 	    base_dir);
     data_dir = realpath(path,
 			NULL);
@@ -127,7 +127,7 @@ premain()
 	    data_dir);
     putenv(str);
 
-    sprintf(path, "%s/../Resources",
+    sprintf(path, "%s/../Resources/share/gsequencer/images",
 	    base_dir);
     data_dir = realpath(path,
 			NULL);
@@ -137,7 +137,7 @@ premain()
 	    data_dir);
     putenv(str);
 
-    sprintf(path, "%s/../Resources",
+    sprintf(path, "%s/../Resources/share/gsequencer/images",
 	    base_dir);
     data_dir = realpath(path,
 			NULL);
@@ -147,7 +147,7 @@ premain()
 	    data_dir);
     putenv(str);
 
-    sprintf(path, "%s/../Resources",
+    sprintf(path, "%s/../Resources/",
 	    base_dir);
     data_dir = realpath(path,
 			NULL);
