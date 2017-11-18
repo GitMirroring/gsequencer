@@ -298,7 +298,6 @@ ags_task_thread_init(AgsTaskThread *task_thread)
   task_thread->cyclic_task_mutex = (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t));
   pthread_mutex_init(task_thread->cyclic_task_mutex, task_thread->cyclic_task_mutexattr);
 
-
   g_atomic_pointer_set(&(task_thread->cyclic_task),
 		       NULL);
     

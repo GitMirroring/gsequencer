@@ -34,6 +34,7 @@
 
 typedef struct _AgsMessageQueue AgsMessageQueue;
 typedef struct _AgsMessageQueueClass AgsMessageQueueClass;
+typedef struct _AgsMessageEnvelope AgsMessageEnvelope;
 
 struct _AgsMessageQueue
 {
@@ -52,7 +53,27 @@ struct _AgsMessageQueueClass
   GObjectClass gobject; 
 };
 
+struct _AgsMessageEnvelope
+{
+  GObject *sender;
+  GObject *recipient;
+
+  xmlDoc *message;
+};
+
 GType ags_message_queue_get_type();
+
+AgsMessageEnvelope* ags_message_envelope_alloc(GObject *sender,
+					       GObject *recipient,
+					       xmlDoc *doc);
+
+GList* ags_message_queue_find_sender(AgsMessageQueue *message_queue,
+				     GObject *sender);
+GList* ags_message_queue_find_recipient(AgsMessageQueue *message_queue,
+					GObject *recipient);
+
+GList* ags_message_queue_query(AgsMessageQueue *message_queue,
+			       gchar *xpath);
 
 AgsMessageQueue* ags_message_queue_new(gchar *namespace);
 

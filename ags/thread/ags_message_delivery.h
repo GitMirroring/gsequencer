@@ -36,7 +36,6 @@
 
 typedef struct _AgsMessageDelivery AgsMessageDelivery;
 typedef struct _AgsMessageDeliveryClass AgsMessageDeliveryClass;
-typedef struct _AgsMessageEnvelope AgsMessageEnvelope;
 
 struct _AgsMessageDelivery
 {
@@ -53,26 +52,24 @@ struct _AgsMessageDeliveryClass
   GObjectClass gobject; 
 };
 
-struct _AgsMessageEnvelope
-{
-  GObject *sender;
-  GObject *recipient;
-
-  xmlDoc *message;
-};
-
 GType ags_message_delivery_get_type();
 
-AgsMessageEnvelope* ags_message_envelope_alloc(GObject *sender,
-					       GObject *recipient,
-					       xmlDoc *doc);
+GObject* ags_message_delivery_find_namespace(AgsMessageDelivery *message_delivery,
+					     gchar *namespace);
 
 void ags_message_delivery_push_message(AgsMessageDelivery *message_delivery,
 				       gchar *namespace,
-				       AgsMessageEnvelope *envelope);
+				       gpointer envelope);
 void ags_message_delivery_pop_message(AgsMessageDelivery *message_delivery,
 				      gchar *namespace,
-				      AgsMessageEnvelope *envelope);
+				      gpointer envelope);
+
+GList* ags_message_delivery_find_sender(AgsMessageDelivery *message_delivery,
+					gchar *namespace,
+					GObject *sender);
+GList* ags_message_delivery_find_recipient(AgsMessageDelivery *message_delivery,
+					   gchar *namespace,
+					   GObject *recipient);
 
 GList* ags_message_delivery_query_message(AgsMessageDelivery *message_delivery,
 					  gchar *namespace,
