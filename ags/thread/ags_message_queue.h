@@ -32,6 +32,8 @@
 #define AGS_IS_MESSAGE_QUEUE_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE ((class), AGS_TYPE_MESSAGE_QUEUE))
 #define AGS_MESSAGE_QUEUE_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS(obj, AGS_TYPE_MESSAGE_QUEUE, AgsMessageQueueClass))
 
+#define AGS_MESSAGE_ENVELOPE(ptr) ((AgsMessageEnvelope *)(ptr))
+
 typedef struct _AgsMessageQueue AgsMessageQueue;
 typedef struct _AgsMessageQueueClass AgsMessageQueueClass;
 typedef struct _AgsMessageEnvelope AgsMessageEnvelope;
@@ -66,6 +68,7 @@ GType ags_message_queue_get_type();
 AgsMessageEnvelope* ags_message_envelope_alloc(GObject *sender,
 					       GObject *recipient,
 					       xmlDoc *doc);
+void ags_message_envelope_free(AgsMessageEnvelope *message);
 
 void ags_message_queue_add_message(AgsMessageQueue *message_queue,
 				   gpointer message);
@@ -77,8 +80,8 @@ GList* ags_message_queue_find_sender(AgsMessageQueue *message_queue,
 GList* ags_message_queue_find_recipient(AgsMessageQueue *message_queue,
 					GObject *recipient);
 
-GList* ags_message_queue_query(AgsMessageQueue *message_queue,
-			       gchar *xpath);
+GList* ags_message_queue_query_message(AgsMessageQueue *message_queue,
+				       gchar *xpath);
 
 AgsMessageQueue* ags_message_queue_new(gchar *namespace);
 
