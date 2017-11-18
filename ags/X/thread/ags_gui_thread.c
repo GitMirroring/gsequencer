@@ -147,6 +147,13 @@ gboolean ags_gui_thread_task_dispatch(GSource *source,
 				      GSourceFunc callback,
 				      gpointer user_data);
 
+gboolean ags_gui_thread_message_prepare(GSource *source,
+					gint *timeout_);
+gboolean ags_gui_thread_message_check(GSource *source);
+gboolean ags_gui_thread_message_dispatch(GSource *source,
+					 GSourceFunc callback,
+					 gpointer user_data);
+
 gboolean ags_gui_thread_do_animation_callback(GtkWidget *widget, GdkEventExpose *event,
 					      AgsGuiThread *gui_thread);
 
@@ -326,6 +333,23 @@ ags_gui_thread_init(AgsGuiThread *gui_thread)
 
   gui_thread->collected_task = NULL;
   gui_thread->task_source = NULL;
+
+  /* message */
+  gui_thread->message_mutexattr = (pthread_mutexattr_t *) malloc(sizeof(pthread_mutexattr_t));
+  pthread_mutexattr_init(gui_thread->message_mutexattr);
+  pthread_mutexattr_settype(gui_thread->message_mutexattr,
+			    PTHREAD_MUTEX_RECURSIVE);
+
+  gui_thread->message_mutex = (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t));
+  pthread_mutex_init(gui_thread->message_mutex,
+		     gui_thread->message_mutexattr);
+
+  g_atomic_pointer_set(&(gui_thread->message_exec),
+		       NULL);
+  g_atomic_pointer_set(&(gui_thread->message_queue),
+		       NULL);
+  
+  gui_thread->message_source = NULL;
 }
 
 void
@@ -412,6 +436,7 @@ ags_gui_thread_do_poll_loop(void *ptr)
   GMainContext *main_context;
   GSourceFuncs task_funcs;
   GSourceFuncs sync_funcs;
+  GSourceFuncs message_funcs;
   GSourceFuncs animation_funcs;
 
   struct timespec idle = {
@@ -469,14 +494,24 @@ ags_gui_thread_do_poll_loop(void *ptr)
   g_source_attach(gui_thread->animation_source,
 		  main_context);
 
-  /* sync functions */
-  sync_funcs.prepare = ags_gui_thread_sync_task_prepare;
-  sync_funcs.check = ags_gui_thread_sync_task_check;
-  sync_funcs.dispatch = ags_gui_thread_sync_task_dispatch;
+  /* message functions */
+  message_funcs.prepare = ags_gui_thread_message_prepare;
+  message_funcs.check = ags_gui_thread_message_check;
+  message_funcs.dispatch = ags_gui_thread_message_dispatch;
 
-  gui_thread->sync_source = g_source_new(&sync_funcs,
+  gui_thread->message_source = g_source_new(&message_funcs,
+					    sizeof(GSource));
+  g_source_attach(gui_thread->message_source,
+		  main_context);
+  
+  /* message functions */
+  message_funcs.prepare = ags_gui_thread_message_task_prepare;
+  message_funcs.check = ags_gui_thread_message_task_check;
+  message_funcs.dispatch = ags_gui_thread_message_task_dispatch;
+
+  gui_thread->message_source = g_source_new(&message_funcs,
 					 sizeof(GSource));
-  g_source_attach(gui_thread->sync_source,
+  g_source_attach(gui_thread->message_source,
 		  main_context);
   
   /* task functions */
@@ -1629,6 +1664,27 @@ ags_gui_thread_task_dispatch(GSource *source,
   ags_gui_thread_complete_task(gui_thread);
   
   return(G_SOURCE_CONTINUE);
+}
+
+gboolean
+ags_gui_thread_message_prepare(GSource *source,
+			       gint *timeout_)
+{
+  //TODO:JK: implement me
+}
+
+gboolean
+ags_gui_thread_message_check(GSource *source)
+{
+  //TODO:JK: implement me
+}
+
+gboolean
+ags_gui_thread_message_dispatch(GSource *source,
+				GSourceFunc callback,
+				gpointer user_data)
+{
+  //TODO:JK: implement me
 }
 
 gboolean

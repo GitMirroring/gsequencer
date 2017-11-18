@@ -87,6 +87,14 @@ struct _AgsGuiThread
 
   GList *collected_task;
   GSource *task_source;
+
+  pthread_mutexattr_t *message_mutexattr;
+  pthread_mutex_t *message_mutex;
+
+  volatile GList *message_exec;
+  volatile GList *message_queue;
+
+  GSource *message_source;
 };
 
 struct _AgsGuiThreadClass

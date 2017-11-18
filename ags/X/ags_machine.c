@@ -82,7 +82,7 @@ xmlNode* ags_machine_copy_pattern_to_notation(AgsMachine *machine,
 					      AgsChannel *current);
 
 void ags_machine_real_resize_audio_channels(AgsMachine *machine,
-						  guint new_size, guint old_size);
+					    guint new_size, guint old_size);
 void ags_machine_real_resize_pads(AgsMachine *machine,
 					GType channel_type,
 					guint new_size, guint old_size);
