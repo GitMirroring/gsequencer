@@ -67,6 +67,11 @@ AgsMessageEnvelope* ags_message_envelope_alloc(GObject *sender,
 					       GObject *recipient,
 					       xmlDoc *doc);
 
+void ags_message_queue_add_message(AgsMessageQueue *message_queue,
+				   gpointer message);
+void ags_message_queue_remove_message(AgsMessageQueue *message_queue,
+				      gpointer message);
+
 GList* ags_message_queue_find_sender(AgsMessageQueue *message_queue,
 				     GObject *sender);
 GList* ags_message_queue_find_recipient(AgsMessageQueue *message_queue,

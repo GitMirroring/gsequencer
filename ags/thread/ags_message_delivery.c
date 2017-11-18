@@ -39,6 +39,8 @@ void ags_message_delivery_finalize(GObject *gobject);
  * The #AgsMessageDelivery acts as messages passing system.
  */
 
+AgsMessageDelivery *ags_message_delivery = NULL;
+
 static gpointer ags_message_delivery_parent_class = NULL;
 
 GType
@@ -169,6 +171,58 @@ ags_message_delivery_finalize(GObject *gobject)
 }
 
 /**
+ * ags_message_delivery_add_queue:
+ * @message_delivery: the #AgsMessageDelivery
+ * @message_queue: the #AgsMessageQueue
+ *
+ * Add @message_queue to @message_delivery.
+ * 
+ * Since: 1.1.5
+ */
+void
+ags_message_delivery_add_queue(AgsMessageDelivery *message_delivery,
+			       GObject *message_queue)
+{
+  if(!AGS_IS_MESSAGE_DELIVERY(message_delivery) ||
+     !AGS_IS_MESSAGE_QUEUE(message_queue)){
+    return;
+  }
+
+  pthread_mutex_lock(message_delivery->mutex);
+
+  message_delivery->message_queue = g_list_prepend(message_delivery->message_queue,
+						   message_queue);
+  
+  pthread_mutex_unlock(message_delivery->mutex);
+}
+
+/**
+ * ags_message_delivery_remove_queue:
+ * @message_delivery: the #AgsMessageDelivery
+ * @message_queue: the #AgsMessageQueue
+ *
+ * Remove @message_queue to @message_delivery.
+ * 
+ * Since: 1.1.5
+ */
+void
+ags_message_delivery_remove_queue(AgsMessageDelivery *message_delivery,
+				  GObject *message_queue)
+{
+  if(!AGS_IS_MESSAGE_DELIVERY(message_delivery) ||
+     !AGS_IS_MESSAGE_QUEUE(message_queue)){
+    return;
+  }
+
+  pthread_mutex_lock(message_delivery->mutex);
+
+  message_delivery->message_queue = g_list_remove(message_delivery->message_queue,
+						  message_queue);
+  
+  pthread_mutex_unlock(message_delivery->mutex);
+}
+
+/**
  * ags_message_delivery_find_namespace:
  * @message_delivery: the #AgsMessageDelivery to search
  * @namespace: the namespace as string to find
@@ -177,13 +231,14 @@ ags_message_delivery_finalize(GObject *gobject)
  * 
  * Returns: the matching #AgsMessageQueue
  * 
- * Since: 1.2.0
+ * Since: 1.1.5
  */
 GObject*
 ags_message_delivery_find_namespace(AgsMessageDelivery *message_delivery,
 				    gchar *namespace)
 {
   AgsMessageQueue *message_queue;
+
   GList *list;
   
   if(!AGS_IS_MESSAGE_DELIVERY(message_delivery) ||
@@ -227,18 +282,68 @@ ags_message_delivery_find_namespace(AgsMessageDelivery *message_delivery,
   return(NULL);
 }
 
+/**
+ * ags_message_delivery_add_message:
+ * @message_delivery: the #AgsMessageDelivery
+ * @namespace: the namespace as string
+ * @message: the #AgsMessageEnvelope
+ * 
+ * Add @message to an #AgsMessageQueue specified by @namespace.
+ * 
+ * Since: 1.1.5
+ */
 void
-ags_message_delivery_push_message(AgsMessageDelivery *message_delivery,
-				  gchar *namespace,
-				  gpointer envelope)
+ags_message_delivery_add_message(AgsMessageDelivery *message_delivery,
+				 gchar *namespace,
+				 gpointer message)
 {
+  AgsMessageQueue *message_queue;
+  
+  if(!AGS_IS_MESSAGE_DELIVERY(message_delivery) ||
+     namespace == NULL){
+    return;
+  }
+
+  message_queue = ags_message_delivery_find_namespace(message_delivery,
+						      namespace);
+
+  if(message_queue == NULL){
+    message_queue = ags_message_queue_new(namespace);
+    ags_message_delivery_add_queue(message_delivery,
+				   message_queue);
+  }
+  
+  ags_message_queue_add_message(message_queue,
+				message);  
 }
 
+/**
+ * ags_message_delivery_remove_message:
+ * @message_delivery: the #AgsMessageDelivery
+ * @namespace: the namespace as string
+ * @message: the #AgsMessageEnvelope
+ * 
+ * Remove @message from an #AgsMessageQueue specified by @namespace.
+ * 
+ * Since: 1.1.5
+ */
 void
-ags_message_delivery_pop_message(AgsMessageDelivery *message_delivery,
-				 gchar *namespace,
-				 gpointer envelope)
+ags_message_delivery_remove_message(AgsMessageDelivery *message_delivery,
+				    gchar *namespace,
+				    gpointer message)
 {
+  AgsMessageQueue *message_queue;
+  
+  if(!AGS_IS_MESSAGE_DELIVERY(message_delivery) ||
+     namespace == NULL){
+    return;
+  }
+
+  message_queue = ags_message_delivery_find_namespace(message_delivery,
+						      namespace);
+  
+  ags_message_queue_remove_message(message_queue,
+				   message);  
 }
 
 GList*
@@ -246,6 +351,7 @@ ags_message_delivery_find_sender(AgsMessageDelivery *message_delivery,
 				 gchar *namespace,
 				 GObject *sender)
 {
+  //TODO:JK: implement me
 }
 
 GList*
@@ -253,6 +359,7 @@ ags_message_delivery_find_recipient(AgsMessageDelivery *message_delivery,
 				    gchar *namespace,
 				    GObject *recipient)
 {
+  //TODO:JK: implement me
 }
 
 GList*
@@ -260,11 +367,32 @@ ags_message_delivery_query_message(AgsMessageDelivery *message_delivery,
 				   gchar *namespace,
 				   gchar *xpath)
 {
+  //TODO:JK: implement me
 }
 
+/**
+ * ags_message_delivery_get_instance:
+ *
+ * Get the #AgsMessageDelivery instance.
+ *
+ * Returns: the #AgsMessageDelivery
+ *
+ * Since: 1.1.5
+ */ 
 AgsMessageDelivery*
 ags_message_delivery_get_instance()
 {
+  static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+
+  pthread_mutex_lock(&mutex);
+
+  if(ags_message_delivery == NULL){
+    ags_message_delivery = ags_message_delivery_new();
+  }
+  
+  pthread_mutex_unlock(&mutex);
+
+  return(ags_message_delivery);
 }
 
 /**
@@ -274,7 +402,7 @@ ags_message_delivery_get_instance()
  *
  * Returns: the new #AgsMessageDelivery
  *
- * Since: 1.2.0
+ * Since: 1.1.5
  */ 
 AgsMessageDelivery*
 ags_message_delivery_new()

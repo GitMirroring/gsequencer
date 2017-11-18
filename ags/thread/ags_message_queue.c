@@ -152,29 +152,105 @@ ags_message_queue_finalize(GObject *gobject)
   G_OBJECT_CLASS(ags_message_queue_parent_class)->finalize(gobject);
 }
 
+/**
+ * ags_message_envelope_alloc:
+ * @sender: the sender as #GObject
+ * @recipient: the recipient as #GObject
+ * @doc: the message document
+ * 
+ * Allocate #AgsMessageEnvelope.
+ * 
+ * Since: 1.1.5
+ */
 AgsMessageEnvelope*
 ags_message_envelope_alloc(GObject *sender,
 			   GObject *recipient,
 			   xmlDoc *doc)
 {
+  AgsMessageEnvelope *message;
+
+  message = (AgsMessageEnvelope *) malloc(sizeof(AgsMessageEnvelope));
+
+  message->sender = sender;
+  message->recipient = recipient;
+
+  message->doc = doc;
+
+  return(message);
+}
+
+/**
+ * ags_message_queue_add_message:
+ * @message_queue: the #AgsMessageQueue
+ * @message: the #AgsMessageEnvelope
+ * 
+ * Add @message to @message_queue.
+ * 
+ * Since: 1.1.5
+ */
+void
+ags_message_queue_add_message(AgsMessageQueue *message_queue,
+			      gpointer message)
+{
+  if(!AGS_IS_MESSAGE_QUEUE(message_queue) ||
+     message == NULL){
+    return;
+  }
+
+  pthread_mutex_lock(message_queue->mutex);
+
+  message_queue->message = g_list_prepend(message_queue->message,
+					  message);
+  
+  pthread_mutex_unlock(message_queue->mutex);
+}
+
+/**
+ * ags_message_queue_remove_message:
+ * @message_queue: the #AgsMessageQueue
+ * @message: the #AgsMessageEnvelope
+ * 
+ * Remove @message from @message_queue.
+ * 
+ * Since: 1.1.5
+ */
+void
+ags_message_queue_remove_message(AgsMessageQueue *message_queue,
+				 gpointer message)
+{
+  if(!AGS_IS_MESSAGE_QUEUE(message_queue) ||
+     message == NULL){
+    return;
+  }
+
+
+  pthread_mutex_lock(message_queue->mutex);
+
+  message_queue->message = g_list_remove(message_queue->message,
+					 message);
+  
+  pthread_mutex_unlock(message_queue->mutex);
 }
 
 GList*
 ags_message_queue_find_sender(AgsMessageQueue *message_queue,
 			      GObject *sender)
 {
+  //TODO:JK: implement me
 }
 
 GList*
 ags_message_queue_find_recipient(AgsMessageQueue *message_queue,
 				 GObject *recipient)
 {
+  //TODO:JK: implement me
 }
 
 GList*
 ags_message_queue_query(AgsMessageQueue *message_queue,
 			gchar *xpath)
 {
+  //TODO:JK: implement me
 }
 
 /**
@@ -184,7 +260,7 @@ ags_message_queue_query(AgsMessageQueue *message_queue,
  *
  * Returns: the new #AgsMessageQueue
  *
- * Since: 1.2.0
+ * Since: 1.1.5
  */ 
 AgsMessageQueue*
 ags_message_queue_new()

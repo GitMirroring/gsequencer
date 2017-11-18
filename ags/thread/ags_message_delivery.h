@@ -54,15 +54,20 @@ struct _AgsMessageDeliveryClass
 
 GType ags_message_delivery_get_type();
 
+void ags_message_delivery_add_queue(AgsMessageDelivery *message_delivery,
+				    GObject *message_queue);
+void ags_message_delivery_remove_queue(AgsMessageDelivery *message_delivery,
+				       GObject *message_queue);
+
 GObject* ags_message_delivery_find_namespace(AgsMessageDelivery *message_delivery,
 					     gchar *namespace);
 
-void ags_message_delivery_push_message(AgsMessageDelivery *message_delivery,
-				       gchar *namespace,
-				       gpointer envelope);
-void ags_message_delivery_pop_message(AgsMessageDelivery *message_delivery,
+void ags_message_delivery_add_message(AgsMessageDelivery *message_delivery,
 				      gchar *namespace,
-				      gpointer envelope);
+				      gpointer message);
+void ags_message_delivery_remove_message(AgsMessageDelivery *message_delivery,
+					 gchar *namespace,
+					 gpointer message);
 
 GList* ags_message_delivery_find_sender(AgsMessageDelivery *message_delivery,
 					gchar *namespace,
