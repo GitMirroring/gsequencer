@@ -501,13 +501,16 @@ ags_gui_thread_do_poll_loop(void *ptr)
 
   gui_thread->message_source = g_source_new(&message_funcs,
 					    sizeof(GSource));
+
+#if 0
   g_source_attach(gui_thread->message_source,
 		  main_context);
+#endif
   
   /* message functions */
-  message_funcs.prepare = ags_gui_thread_message_task_prepare;
-  message_funcs.check = ags_gui_thread_message_task_check;
-  message_funcs.dispatch = ags_gui_thread_message_task_dispatch;
+  message_funcs.prepare = ags_gui_thread_message_prepare;
+  message_funcs.check = ags_gui_thread_message_check;
+  message_funcs.dispatch = ags_gui_thread_message_dispatch;
 
   gui_thread->message_source = g_source_new(&message_funcs,
 					 sizeof(GSource));
@@ -1670,13 +1673,21 @@ gboolean
 ags_gui_thread_message_prepare(GSource *source,
 			       gint *timeout_)
 {
+  if(timeout_ != NULL){
+    *timeout_ = 0;
+  }
+
   //TODO:JK: implement me
+
+  return(FALSE);
 }
 
 gboolean
 ags_gui_thread_message_check(GSource *source)
 {
   //TODO:JK: implement me
+
+  return(FALSE);
 }
 
 gboolean
@@ -1685,6 +1696,8 @@ ags_gui_thread_message_dispatch(GSource *source,
 				gpointer user_data)
 {
   //TODO:JK: implement me
+  
+  return(G_SOURCE_CONTINUE);
 }
 
 gboolean

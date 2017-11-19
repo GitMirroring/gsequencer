@@ -73,6 +73,7 @@ premain()
 		       rindex(path, '/') - path);
     printf("base dir %s\n", base_dir);
 
+#if 0
     sprintf(path, "%s/../Resources/lib",
 	    base_dir);
     gdk_pixbuf_module_file = realpath(path,
@@ -91,21 +92,20 @@ premain()
 	    ld_library_path);
     putenv(str);
 
-    frameworks_dir = realpath(path,
-			      NULL);
     str = malloc(PATH_MAX * sizeof(gchar));
     sprintf(str,
 	    "DYLD_FALLBACK_LIBRARY_PATH=%s",
-	    frameworks_dir);
+	    ld_library_path);
     putenv(str);
 
     str = malloc(PATH_MAX * sizeof(gchar));
     sprintf(str,
 	    "GDK_PIXBUF_MODULEDIR=%s",
-	    frameworks_dir);
+	    ld_library_path);
     putenv(str);
 
     printf(".. %s", str);
+#endif
     
     sprintf(path, "%s/../Resources/share/gsequencer",
 	    base_dir);
