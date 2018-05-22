@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2018 Joël Krähemann
+ * Copyright (C) 2005-2015 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -63,7 +63,6 @@ void ags_count_beats_audio_run_seek(AgsSeekable *seekable,
 				    gboolean forward);
 guint ags_count_beats_audio_run_get_notation_counter(AgsCountable *countable);
 guint ags_count_beats_audio_run_get_sequencer_counter(AgsCountable *countable);
-guint64 ags_count_beats_audio_run_get_wave_counter(AgsCountable *countable);
 void ags_count_beats_audio_run_read(AgsFile *file, xmlNode *node, AgsPlugin *plugin);
 xmlNode* ags_count_beats_audio_run_write(AgsFile *file, xmlNode *parent, AgsPlugin *plugin);
 
@@ -87,25 +86,18 @@ void ags_count_beats_audio_run_change_bpm(AgsTactable *tactable, gdouble new_bpm
 void ags_count_beats_audio_run_change_tact(AgsTactable *tactable, gdouble new_tact, gdouble old_tact);
 
 void ags_count_beats_audio_run_notation_alloc_output_callback(AgsDelayAudioRun *delay_audio_run,
-							      guint nth_run, gdouble delay, guint attack,
+							      guint run_order, gdouble delay, guint attack,
 							      AgsCountBeatsAudioRun *count_beats_audio_run);
 void ags_count_beats_audio_run_notation_count_callback(AgsDelayAudioRun *delay_audio_run,
-						       guint nth_run, gdouble delay, guint attack,
+						       guint run_order, gdouble delay, guint attack,
 						       AgsCountBeatsAudioRun *count_beats_audio_run);
 
 void ags_count_beats_audio_run_sequencer_alloc_output_callback(AgsDelayAudioRun *delay_audio_run,
-							       guint nth_run, gdouble delay, guint attack,
+							       guint run_order, gdouble delay, guint attack,
 							       AgsCountBeatsAudioRun *count_beats_audio_run);
 void ags_count_beats_audio_run_sequencer_count_callback(AgsDelayAudioRun *delay_audio_run,
-							guint nth_run, gdouble delay, guint attack,
+							guint run_order, gdouble delay, guint attack,
 							AgsCountBeatsAudioRun *count_beats_audio_run);
-
-void ags_count_beats_audio_run_wave_alloc_output_callback(AgsDelayAudioRun *delay_audio_run,
-							  guint nth_run, gdouble delay, guint attack,
-							  AgsCountBeatsAudioRun *count_beats_audio_run);
-void ags_count_beats_audio_run_wave_count_callback(AgsDelayAudioRun *delay_audio_run,
-						   guint nth_run, gdouble delay, guint attack,
-						   AgsCountBeatsAudioRun *count_beats_audio_run);
 
 void ags_count_beats_audio_run_write_resolve_dependency(AgsFileLookup *file_lookup,
 							GObject *recall);
@@ -134,9 +126,6 @@ enum{
   SEQUENCER_LOOP,
   SEQUENCER_START,
   SEQUENCER_STOP,
-  WAVE_LOOP,
-  WAVE_START,
-  WAVE_STOP,
   LAST_SIGNAL,
 };
 
@@ -145,7 +134,6 @@ enum{
   PROP_DELAY_AUDIO_RUN,
   PROP_NOTATION_COUNTER,
   PROP_SEQUENCER_COUNTER,
-  PROP_WAVE_COUNTER,
 };
 
 static gpointer ags_count_beats_audio_run_parent_class = NULL;
@@ -271,7 +259,6 @@ ags_count_beats_audio_run_countable_interface_init(AgsCountableInterface *counta
 {
   countable->get_notation_counter = ags_count_beats_audio_run_get_notation_counter;
   countable->get_sequencer_counter = ags_count_beats_audio_run_get_sequencer_counter;
-  countable->get_wave_counter = ags_count_beats_audio_run_get_wave_counter;
 }
 
 void
@@ -279,12 +266,9 @@ ags_count_beats_audio_run_tactable_interface_init(AgsTactableInterface *tactable
 {
   tactable->get_bpm = ags_count_beats_audio_run_get_bpm;
   tactable->get_tact = ags_count_beats_audio_run_get_tact;
-
-  tactable->get_wave_duration = NULL;
   tactable->get_sequencer_duration = NULL;
   tactable->get_notation_duration = NULL;
 
-  tactable->change_wave_duration = NULL;
   tactable->change_sequencer_duration = NULL;
   tactable->change_notation_duration = NULL;
   tactable->change_bpm = ags_count_beats_audio_run_change_bpm;
@@ -392,11 +376,9 @@ ags_count_beats_audio_run_class_init(AgsCountBeatsAudioRunClass *count_beats_aud
   /**
    * AgsCountBeatsAudioRun::notation-start:
    * @count_beats_audio_run: the object
-   * @nth_run: the nth run
+   * @run_order: the nth run
    *
    * The ::notation-start signal is emited while starting notation playback.
-   * 
-   * Since: 1.0.0
    */
   count_beats_audio_run_signals[NOTATION_START] =
     g_signal_new("notation-start",
@@ -411,11 +393,9 @@ ags_count_beats_audio_run_class_init(AgsCountBeatsAudioRunClass *count_beats_aud
   /**
    * AgsCountBeatsAudioRun::notation-loop:
    * @count_beats_audio_run: the object
-   * @nth_run: the nth run
+   * @run_order: the nth run
    *
    * The ::notation-loop signal is emited while looping notation playback.
-   *
-   * Since: 1.0.0
    */
   count_beats_audio_run_signals[NOTATION_LOOP] =
     g_signal_new("notation-loop",
@@ -430,11 +410,9 @@ ags_count_beats_audio_run_class_init(AgsCountBeatsAudioRunClass *count_beats_aud
   /**
    * AgsCountBeatsAudioRun::notation-stop:
    * @count_beats_audio_run: the object
-   * @nth_run: the nth run
+   * @run_order: the nth run
    *
    * The ::notation-loop signal is emited while stoping notation playback.
-   *
-   * Since: 1.0.0
    */
   count_beats_audio_run_signals[NOTATION_STOP] =
     g_signal_new("notation-stop",
@@ -449,11 +427,9 @@ ags_count_beats_audio_run_class_init(AgsCountBeatsAudioRunClass *count_beats_aud
   /**
    * AgsCountBeatsAudioRun::sequencer-start:
    * @count_beats_audio_run: the object
-   * @nth_run: the nth run
+   * @run_order: the nth run
    *
    * The ::sequencer-start signal is emited while starting sequencer playback.
-   *
-   * Since: 1.0.0
    */
   count_beats_audio_run_signals[SEQUENCER_START] =
     g_signal_new("sequencer-start",
@@ -468,11 +444,9 @@ ags_count_beats_audio_run_class_init(AgsCountBeatsAudioRunClass *count_beats_aud
   /**
    * AgsCountBeatsAudioRun::sequencer-loop:
    * @count_beats_audio_run: the object
-   * @nth_run: the nth run
+   * @run_order: the nth run
    *
    * The ::sequencer-loop signal is emited while looping sequencer playback.
-   *
-   * Since: 1.0.0
    */
   count_beats_audio_run_signals[SEQUENCER_LOOP] =
     g_signal_new("sequencer-loop",
@@ -487,74 +461,15 @@ ags_count_beats_audio_run_class_init(AgsCountBeatsAudioRunClass *count_beats_aud
   /**
    * AgsCountBeatsAudioRun::sequencer-stop:
    * @count_beats_audio_run: the object
-   * @nth_run: the nth run
+   * @run_order: the nth run
    *
    * The ::sequencer-loop signal is emited while stoping sequencer playback.
-   *
-   * Since: 1.0.0
    */
   count_beats_audio_run_signals[SEQUENCER_STOP] =
     g_signal_new("sequencer-stop",
 		 G_TYPE_FROM_CLASS(count_beats_audio_run),
 		 G_SIGNAL_RUN_LAST,
 		 G_STRUCT_OFFSET(AgsCountBeatsAudioRunClass, sequencer_stop),
-		 NULL, NULL,
-		 g_cclosure_marshal_VOID__UINT,
-		 G_TYPE_NONE, 1,
-		 G_TYPE_UINT);
-
-  /**
-   * AgsCountBeatsAudioRun::wave-start:
-   * @count_beats_audio_run: the object
-   * @nth_run: the nth run
-   *
-   * The ::wave-start signal is emited while starting wave playback.
-   *
-   * Since: 1.5.0
-   */
-  count_beats_audio_run_signals[WAVE_START] =
-    g_signal_new("wave-start",
-		 G_TYPE_FROM_CLASS(count_beats_audio_run),
-		 G_SIGNAL_RUN_LAST,
-		 G_STRUCT_OFFSET(AgsCountBeatsAudioRunClass, wave_start),
-		 NULL, NULL,
-		 g_cclosure_marshal_VOID__UINT,
-		 G_TYPE_NONE, 1,
-		 G_TYPE_UINT);
-
-  /**
-   * AgsCountBeatsAudioRun::wave-loop:
-   * @count_beats_audio_run: the object
-   * @nth_run: the nth run
-   *
-   * The ::wave-loop signal is emited while looping wave playback.
-   *
-   * Since: 1.5.0
-   */
-  count_beats_audio_run_signals[WAVE_LOOP] =
-    g_signal_new("wave-loop",
-		 G_TYPE_FROM_CLASS(count_beats_audio_run),
-		 G_SIGNAL_RUN_LAST,
-		 G_STRUCT_OFFSET(AgsCountBeatsAudioRunClass, wave_loop),
-		 NULL, NULL,
-		 g_cclosure_marshal_VOID__UINT,
-		 G_TYPE_NONE, 1,
-		 G_TYPE_UINT);
-
-  /**
-   * AgsCountBeatsAudioRun::wave-stop:
-   * @count_beats_audio_run: the object
-   * @nth_run: the nth run
-   *
-   * The ::wave-loop signal is emited while stoping wave playback.
-   *
-   * Since: 1.5.0
-   */
-  count_beats_audio_run_signals[WAVE_STOP] =
-    g_signal_new("wave-stop",
-		 G_TYPE_FROM_CLASS(count_beats_audio_run),
-		 G_SIGNAL_RUN_LAST,
-		 G_STRUCT_OFFSET(AgsCountBeatsAudioRunClass, wave_stop),
 		 NULL, NULL,
 		 g_cclosure_marshal_VOID__UINT,
 		 G_TYPE_NONE, 1,
@@ -572,14 +487,12 @@ ags_count_beats_audio_run_init(AgsCountBeatsAudioRun *count_beats_audio_run)
 
   count_beats_audio_run->notation_counter = 0;
   count_beats_audio_run->sequencer_counter = 0;
-  count_beats_audio_run->wave_counter = 0;
 
   count_beats_audio_run->recall_ref = 0;
 
   count_beats_audio_run->hide_ref = 0;
   count_beats_audio_run->notation_hide_ref_counter = 0;
   count_beats_audio_run->sequencer_hide_ref_counter = 0;
-  count_beats_audio_run->wave_hide_ref_counter = 0;
 
   count_beats_audio_run->delay_audio_run = NULL;
 
@@ -623,12 +536,6 @@ ags_count_beats_audio_run_set_property(GObject *gobject,
 	}else{
 	  if((AGS_RECALL_DYNAMIC_CONNECTED & (AGS_RECALL(count_beats_audio_run)->flags)) != 0){
 	    g_object_disconnect(G_OBJECT(count_beats_audio_run->delay_audio_run),
-				"any_signal::wave-alloc-output",
-				G_CALLBACK(ags_count_beats_audio_run_wave_alloc_output_callback),
-				count_beats_audio_run,
-				"any_signal::wave-count",
-				G_CALLBACK(ags_count_beats_audio_run_wave_count_callback),
-				count_beats_audio_run,
 				"any_signal::sequencer-alloc-output",
 				G_CALLBACK(ags_count_beats_audio_run_sequencer_alloc_output_callback),
 				count_beats_audio_run,
@@ -656,12 +563,6 @@ ags_count_beats_audio_run_set_property(GObject *gobject,
 				    ags_recall_dependency_new((GObject *) delay_audio_run));
 	}else{
 	  if((AGS_RECALL_DYNAMIC_CONNECTED & (AGS_RECALL(count_beats_audio_run)->flags)) != 0){
-	    g_signal_connect(G_OBJECT(delay_audio_run), "wave-alloc-output",
-			     G_CALLBACK(ags_count_beats_audio_run_wave_alloc_output_callback), count_beats_audio_run);
-
-	    g_signal_connect(G_OBJECT(delay_audio_run), "wave-count",
-			     G_CALLBACK(ags_count_beats_audio_run_wave_count_callback), count_beats_audio_run);
-
 	    g_signal_connect(G_OBJECT(delay_audio_run), "sequencer-alloc-output",
 			     G_CALLBACK(ags_count_beats_audio_run_sequencer_alloc_output_callback), count_beats_audio_run);
 
@@ -698,15 +599,6 @@ ags_count_beats_audio_run_set_property(GObject *gobject,
       count_beats_audio_run->sequencer_counter = counter;
     }
     break;
-  case PROP_WAVE_COUNTER:
-    {
-      guint counter;
-
-      counter = g_value_get_uint(value);
-
-      count_beats_audio_run->wave_counter = counter;
-    }
-    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(gobject, prop_id, param_spec);
     break;
@@ -737,11 +629,6 @@ ags_count_beats_audio_run_get_property(GObject *gobject,
   case PROP_SEQUENCER_COUNTER:
     {
       g_value_set_uint(value, count_beats_audio_run->sequencer_counter);
-    }
-    break;
-  case PROP_WAVE_COUNTER:
-    {
-      g_value_set_uint(value, count_beats_audio_run->wave_counter);
     }
     break;
   default:
@@ -820,12 +707,6 @@ ags_count_beats_audio_run_connect_dynamic(AgsDynamicConnectable *dynamic_connect
   /* AgsCountBeats */
   count_beats_audio_run = AGS_COUNT_BEATS_AUDIO_RUN(dynamic_connectable);
 
-  g_signal_connect(G_OBJECT(count_beats_audio_run->delay_audio_run), "wave-alloc-output",
-		   G_CALLBACK(ags_count_beats_audio_run_wave_alloc_output_callback), count_beats_audio_run);
-
-  g_signal_connect(G_OBJECT(count_beats_audio_run->delay_audio_run), "wave-count",
-		   G_CALLBACK(ags_count_beats_audio_run_wave_count_callback), count_beats_audio_run);
-
   g_signal_connect(G_OBJECT(count_beats_audio_run->delay_audio_run), "sequencer-alloc-output",
 		   G_CALLBACK(ags_count_beats_audio_run_sequencer_alloc_output_callback), count_beats_audio_run);
 
@@ -850,12 +731,6 @@ ags_count_beats_audio_run_disconnect_dynamic(AgsDynamicConnectable *dynamic_conn
   count_beats_audio_run = AGS_COUNT_BEATS_AUDIO_RUN(dynamic_connectable);
 
   g_object_disconnect(G_OBJECT(count_beats_audio_run->delay_audio_run),
-		      "any_signal::wave-alloc-output",
-		      G_CALLBACK(ags_count_beats_audio_run_wave_alloc_output_callback),
-		      count_beats_audio_run,
-		      "any_signal::wave-count",
-		      G_CALLBACK(ags_count_beats_audio_run_wave_count_callback),
-		      count_beats_audio_run,
 		      "any_signal::sequencer-alloc-output",
 		      G_CALLBACK(ags_count_beats_audio_run_sequencer_alloc_output_callback),
 		      count_beats_audio_run,
@@ -900,8 +775,6 @@ ags_count_beats_audio_run_seek(AgsSeekable *seekable,
     }else{
       count_beats_audio_run->sequencer_counter = (guint) (seq_steps + count_beats_audio_run->sequencer_counter) % (guint) (delay_audio->sequencer_duration->port_value.ags_port_double);
     }
-
-    count_beats_audio_run->wave_counter += steps;
   }else{
     count_beats_audio_run->notation_counter -= steps;
 
@@ -910,8 +783,6 @@ ags_count_beats_audio_run_seek(AgsSeekable *seekable,
     }else{
       count_beats_audio_run->sequencer_counter = (guint) (delay_audio->sequencer_duration->port_value.ags_port_double) - (seq_steps - count_beats_audio_run->sequencer_counter);
     }
-
-    count_beats_audio_run->wave_counter -= steps;
   }
 }
 
@@ -925,12 +796,6 @@ guint
 ags_count_beats_audio_run_get_sequencer_counter(AgsCountable *countable)
 {
   return(AGS_COUNT_BEATS_AUDIO_RUN(countable)->sequencer_counter);
-}
-
-guint64
-ags_count_beats_audio_run_get_wave_counter(AgsCountable *countable)
-{
-  return(AGS_COUNT_BEATS_AUDIO_RUN(countable)->wave_counter);
 }
 
 void
@@ -1096,7 +961,6 @@ ags_count_beats_audio_run_resolve_dependencies(AgsRecall *recall)
       //NOTE:JK: not really thread-safe but might be initialized by a task
       note_offset = ags_soundcard_get_note_offset(AGS_SOUNDCARD(recall->soundcard));
       
-      AGS_COUNT_BEATS_AUDIO_RUN(recall)->wave_counter = note_offset;
       AGS_COUNT_BEATS_AUDIO_RUN(recall)->sequencer_counter = note_offset % (guint) delay_audio->sequencer_duration->port_value.ags_port_double;
       AGS_COUNT_BEATS_AUDIO_RUN(recall)->notation_counter = note_offset;
 
@@ -1169,7 +1033,6 @@ ags_count_beats_audio_run_run_init_pre(AgsRecall *recall)
 
   count_beats_audio_run->notation_hide_ref_counter = 0;
   count_beats_audio_run->sequencer_hide_ref_counter = 0;
-  count_beats_audio_run->wave_hide_ref_counter = 0;
   
   //  count_beats_audio_run->sequencer_counter = 0;
   //  count_beats_audio_run->notation_counter = 0;
@@ -1195,7 +1058,7 @@ ags_count_beats_audio_run_done(AgsRecall *recall)
 
   GObject *soundcard;
   
-  gboolean wave, sequencer, notation;
+  gboolean sequencer, notation;
   
   pthread_mutex_t *application_mutex;
   pthread_mutex_t *soundcard_mutex;
@@ -1271,7 +1134,7 @@ ags_count_beats_audio_run_done(AgsRecall *recall)
 /**
  * ags_count_beats_audio_run_notation_start:
  * @count_beats_audio_run: the #AgsCountBeatsAudioRun
- * @nth_run: the nth run order
+ * @run_order: the nth run order
  *
  * Emitted as notation starts playback.
  *
@@ -1279,21 +1142,21 @@ ags_count_beats_audio_run_done(AgsRecall *recall)
  */
 void
 ags_count_beats_audio_run_notation_start(AgsCountBeatsAudioRun *count_beats_audio_run,
-					 guint nth_run)
+					 guint run_order)
 {
   g_return_if_fail(AGS_IS_COUNT_BEATS_AUDIO_RUN(count_beats_audio_run));
 
   g_object_ref(G_OBJECT(count_beats_audio_run));
   g_signal_emit(G_OBJECT(count_beats_audio_run),
 		count_beats_audio_run_signals[NOTATION_START], 0,
-		nth_run);
+		run_order);
   g_object_unref(G_OBJECT(count_beats_audio_run));
 }
 
 /**
  * ags_count_beats_audio_run_notation_loop:
  * @count_beats_audio_run: the #AgsCountBeatsAudioRun
- * @nth_run: the nth run order
+ * @run_order: the nth run order
  *
  * Emitted as notation loops playback.
  *
@@ -1301,21 +1164,21 @@ ags_count_beats_audio_run_notation_start(AgsCountBeatsAudioRun *count_beats_audi
  */
 void
 ags_count_beats_audio_run_notation_loop(AgsCountBeatsAudioRun *count_beats_audio_run,
-					guint nth_run)
+					guint run_order)
 {
   g_return_if_fail(AGS_IS_COUNT_BEATS_AUDIO_RUN(count_beats_audio_run));
 
   g_object_ref(G_OBJECT(count_beats_audio_run));
   g_signal_emit(G_OBJECT(count_beats_audio_run),
 		count_beats_audio_run_signals[NOTATION_LOOP], 0,
-		nth_run);
+		run_order);
   g_object_unref(G_OBJECT(count_beats_audio_run));
 }
 
 /**
  * ags_count_beats_audio_run_notation_stop:
  * @count_beats_audio_run: the #AgsCountBeatsAudioRun
- * @nth_run: the nth run order
+ * @run_order: the nth run order
  *
  * Emitted as notation stops playback.
  *
@@ -1323,21 +1186,21 @@ ags_count_beats_audio_run_notation_loop(AgsCountBeatsAudioRun *count_beats_audio
  */
 void
 ags_count_beats_audio_run_notation_stop(AgsCountBeatsAudioRun *count_beats_audio_run,
-					guint nth_run)
+					guint run_order)
 {
   g_return_if_fail(AGS_IS_COUNT_BEATS_AUDIO_RUN(count_beats_audio_run));
 
   g_object_ref(G_OBJECT(count_beats_audio_run));
   g_signal_emit(G_OBJECT(count_beats_audio_run),
 		count_beats_audio_run_signals[NOTATION_STOP], 0,
-		nth_run);
+		run_order);
   g_object_unref(G_OBJECT(count_beats_audio_run));
 }
 
 /**
  * ags_count_beats_audio_run_sequencer_start:
  * @count_beats_audio_run: the #AgsCountBeatsAudioRun
- * @nth_run: the nth run order
+ * @run_order: the nth run order
  *
  * Emitted as sequencer starts playback.
  *
@@ -1345,21 +1208,21 @@ ags_count_beats_audio_run_notation_stop(AgsCountBeatsAudioRun *count_beats_audio
  */
 void
 ags_count_beats_audio_run_sequencer_start(AgsCountBeatsAudioRun *count_beats_audio_run,
-					  guint nth_run)
+					  guint run_order)
 {
   g_return_if_fail(AGS_IS_COUNT_BEATS_AUDIO_RUN(count_beats_audio_run));
 
   g_object_ref(G_OBJECT(count_beats_audio_run));
   g_signal_emit(G_OBJECT(count_beats_audio_run),
 		count_beats_audio_run_signals[SEQUENCER_START], 0,
-		nth_run);
+		run_order);
   g_object_unref(G_OBJECT(count_beats_audio_run));
 }
 
 /**
  * ags_count_beats_audio_run_sequencer_loop:
  * @count_beats_audio_run: the #AgsCountBeatsAudioRun
- * @nth_run: the nth run order
+ * @run_order: the nth run order
  *
  * Emitted as sequencer loops playback.
  *
@@ -1367,21 +1230,21 @@ ags_count_beats_audio_run_sequencer_start(AgsCountBeatsAudioRun *count_beats_aud
  */
 void
 ags_count_beats_audio_run_sequencer_loop(AgsCountBeatsAudioRun *count_beats_audio_run,
-					 guint nth_run)
+					 guint run_order)
 {
   g_return_if_fail(AGS_IS_COUNT_BEATS_AUDIO_RUN(count_beats_audio_run));
 
   g_object_ref(G_OBJECT(count_beats_audio_run));
   g_signal_emit(G_OBJECT(count_beats_audio_run),
 		count_beats_audio_run_signals[SEQUENCER_LOOP], 0,
-		nth_run);
+		run_order);
   g_object_unref(G_OBJECT(count_beats_audio_run));
 }
 
 /**
  * ags_count_beats_audio_run_sequencer_stop:
  * @count_beats_audio_run: the #AgsCountBeatsAudioRun
- * @nth_run: the nth run order
+ * @run_order: the nth run order
  *
  * Emitted as sequencer stops playback.
  *
@@ -1389,86 +1252,20 @@ ags_count_beats_audio_run_sequencer_loop(AgsCountBeatsAudioRun *count_beats_audi
  */
 void
 ags_count_beats_audio_run_sequencer_stop(AgsCountBeatsAudioRun *count_beats_audio_run,
-					 guint nth_run)
+					 guint run_order)
 {
   g_return_if_fail(AGS_IS_COUNT_BEATS_AUDIO_RUN(count_beats_audio_run));
 
   g_object_ref(G_OBJECT(count_beats_audio_run));
   g_signal_emit(G_OBJECT(count_beats_audio_run),
 		count_beats_audio_run_signals[SEQUENCER_STOP], 0,
-		nth_run);
-  g_object_unref(G_OBJECT(count_beats_audio_run));
-}
-
-/**
- * ags_count_beats_audio_run_wave_start:
- * @count_beats_audio_run: the #AgsCountBeatsAudioRun
- * @nth_run: the nth run order
- *
- * Emitted as wave starts playback.
- *
- * Since: 1.5.0
- */
-void
-ags_count_beats_audio_run_wave_start(AgsCountBeatsAudioRun *count_beats_audio_run,
-				     guint nth_run)
-{
-  g_return_if_fail(AGS_IS_COUNT_BEATS_AUDIO_RUN(count_beats_audio_run));
-
-  g_object_ref(G_OBJECT(count_beats_audio_run));
-  g_signal_emit(G_OBJECT(count_beats_audio_run),
-		count_beats_audio_run_signals[WAVE_START], 0,
-		nth_run);
-  g_object_unref(G_OBJECT(count_beats_audio_run));
-}
-
-/**
- * ags_count_beats_audio_run_wave_loop:
- * @count_beats_audio_run: the #AgsCountBeatsAudioRun
- * @nth_run: the nth run order
- *
- * Emitted as wave loops playback.
- *
- * Since: 1.5.0
- */
-void
-ags_count_beats_audio_run_wave_loop(AgsCountBeatsAudioRun *count_beats_audio_run,
-				    guint nth_run)
-{
-  g_return_if_fail(AGS_IS_COUNT_BEATS_AUDIO_RUN(count_beats_audio_run));
-
-  g_object_ref(G_OBJECT(count_beats_audio_run));
-  g_signal_emit(G_OBJECT(count_beats_audio_run),
-		count_beats_audio_run_signals[WAVE_LOOP], 0,
-		nth_run);
-  g_object_unref(G_OBJECT(count_beats_audio_run));
-}
-
-/**
- * ags_count_beats_audio_run_wave_stop:
- * @count_beats_audio_run: the #AgsCountBeatsAudioRun
- * @nth_run: the nth run order
- *
- * Emitted as wave stops playback.
- *
- * Since: 1.5.0
- */
-void
-ags_count_beats_audio_run_wave_stop(AgsCountBeatsAudioRun *count_beats_audio_run,
-				    guint nth_run)
-{
-  g_return_if_fail(AGS_IS_COUNT_BEATS_AUDIO_RUN(count_beats_audio_run));
-
-  g_object_ref(G_OBJECT(count_beats_audio_run));
-  g_signal_emit(G_OBJECT(count_beats_audio_run),
-		count_beats_audio_run_signals[WAVE_STOP], 0,
-		nth_run);
+		run_order);
   g_object_unref(G_OBJECT(count_beats_audio_run));
 }
 
 void
 ags_count_beats_audio_run_notation_alloc_output_callback(AgsDelayAudioRun *delay_audio_run,
-							 guint nth_run, gdouble delay, guint attack,
+							 guint run_order, gdouble delay, guint attack,
 							 AgsCountBeatsAudioRun *count_beats_audio_run)
 {
   AgsCountBeatsAudio *count_beats_audio;
@@ -1494,7 +1291,7 @@ ags_count_beats_audio_run_notation_alloc_output_callback(AgsDelayAudioRun *delay
   if(count_beats_audio_run->first_run){
     //    g_message("ags_count_beats_audio_run_sequencer_alloc_output_callback: start\n");
     ags_count_beats_audio_run_notation_start(count_beats_audio_run,
-					     nth_run);
+					     run_order);
   }
 
   /* loop */
@@ -1505,14 +1302,14 @@ ags_count_beats_audio_run_notation_alloc_output_callback(AgsDelayAudioRun *delay
       //	g_message("ags_count_beats_audio_run_notation_alloc_output_callback: loop\n");
 
       ags_count_beats_audio_run_notation_loop(count_beats_audio_run,
-					      nth_run);
+					      run_order);
     }
   }
 }
 
 void
 ags_count_beats_audio_run_sequencer_alloc_output_callback(AgsDelayAudioRun *delay_audio_run,
-							  guint nth_run,
+							  guint run_order,
 							  gdouble delay, guint attack,
 							  AgsCountBeatsAudioRun *count_beats_audio_run)
 {
@@ -1539,7 +1336,7 @@ ags_count_beats_audio_run_sequencer_alloc_output_callback(AgsDelayAudioRun *dela
   if(count_beats_audio_run->first_run){
     //    g_message("ags_count_beats_audio_run_sequencer_alloc_output_callback: start\n");
     ags_count_beats_audio_run_sequencer_start(count_beats_audio_run,
-					      nth_run);
+					      run_order);
   }
 
   /* loop */
@@ -1550,58 +1347,14 @@ ags_count_beats_audio_run_sequencer_alloc_output_callback(AgsDelayAudioRun *dela
       //      g_message("ags_count_beats_audio_run_sequencer_alloc_output_callback: loop\n");
       
       ags_count_beats_audio_run_sequencer_loop(count_beats_audio_run,
-					       nth_run);
-    }
-  }
-}
-
-void
-ags_count_beats_audio_run_wave_alloc_output_callback(AgsDelayAudioRun *delay_audio_run,
-						     guint nth_run, gdouble delay, guint attack,
-						     AgsCountBeatsAudioRun *count_beats_audio_run)
-{
-  AgsCountBeatsAudio *count_beats_audio;
-
-  gboolean loop;
-  
-  GValue loop_value = {0,};  
-
-  if((AGS_RECALL_ID_WAVE & (AGS_RECALL(count_beats_audio_run)->recall_id->flags)) == 0){
-    return;
-  }
-  
-  count_beats_audio = AGS_COUNT_BEATS_AUDIO(AGS_RECALL_AUDIO_RUN(count_beats_audio_run)->recall_audio);
-
-  /* loop */
-  g_value_init(&loop_value, G_TYPE_BOOLEAN);
-  ags_port_safe_read(count_beats_audio->wave_loop, &loop_value);
-
-  loop = g_value_get_boolean(&loop_value);
-  g_value_unset(&loop_value);
-
-  /* start */
-  if(count_beats_audio_run->first_run){
-    //    g_message("ags_count_beats_audio_run_sequencer_alloc_output_callback: start\n");
-    ags_count_beats_audio_run_wave_start(count_beats_audio_run,
-					 nth_run);
-  }
-
-  /* loop */
-  if(!count_beats_audio_run->first_run &&
-     count_beats_audio_run->wave_counter == 0){
-    /* emit wave signals */
-    if(loop){
-      //	g_message("ags_count_beats_audio_run_wave_alloc_output_callback: loop\n");
-
-      ags_count_beats_audio_run_wave_loop(count_beats_audio_run,
-					  nth_run);
+					       run_order);
     }
   }
 }
 
 void
 ags_count_beats_audio_run_notation_count_callback(AgsDelayAudioRun *delay_audio_run,
-						  guint nth_run,
+						  guint run_order,
 						  gdouble delay, guint attack,
 						  AgsCountBeatsAudioRun *count_beats_audio_run)
 {
@@ -1658,7 +1411,7 @@ ags_count_beats_audio_run_notation_count_callback(AgsDelayAudioRun *delay_audio_
 
 void
 ags_count_beats_audio_run_sequencer_count_callback(AgsDelayAudioRun *delay_audio_run,
-						   guint nth_run, gdouble delay, guint attack,
+						   guint run_order, gdouble delay, guint attack,
 						   AgsCountBeatsAudioRun *count_beats_audio_run)
 {
   AgsCountBeatsAudio *count_beats_audio;
@@ -1840,63 +1593,6 @@ ags_count_beats_audio_run_sequencer_count_callback(AgsDelayAudioRun *delay_audio
     }
 
     count_beats_audio_run->sequencer_counter += 1;
-  }
-}
-
-void
-ags_count_beats_audio_run_wave_count_callback(AgsDelayAudioRun *delay_audio_run,
-					      guint nth_run,
-					      gdouble delay, guint attack,
-					      AgsCountBeatsAudioRun *count_beats_audio_run)
-{
-  AgsCountBeatsAudio *count_beats_audio;
-
-  gdouble loop_end;
-  gboolean loop;
-
-  GValue loop_value = {0,};
-  GValue loop_end_value = {0,};  
-
-  if((guint) floor(delay) != 0){
-    return;
-  }
-
-  if((AGS_RECALL_ID_WAVE & (AGS_RECALL(count_beats_audio_run)->recall_id->flags)) == 0){
-    return;
-  }
-  
-  count_beats_audio = AGS_COUNT_BEATS_AUDIO(AGS_RECALL_AUDIO_RUN(count_beats_audio_run)->recall_audio);
-
-  /* loop */
-  g_value_init(&loop_value, G_TYPE_BOOLEAN);
-  ags_port_safe_read(count_beats_audio->wave_loop, &loop_value);
-
-  loop = g_value_get_boolean(&loop_value);
-  g_value_unset(&loop_value);
-
-  /* loop end */
-  g_value_init(&loop_end_value, G_TYPE_DOUBLE);
-  ags_port_safe_read(count_beats_audio->wave_loop_end, &loop_end_value);
-
-  loop_end = g_value_get_double(&loop_end_value);
-  g_value_unset(&loop_end_value);
-
-  /* tact signal */
-  //  g_message("wave %d", count_beats_audio_run->wave_counter);
-  ags_audio_tact(AGS_RECALL_AUDIO(count_beats_audio)->audio,
-		 AGS_RECALL(count_beats_audio_run)->recall_id);
-  
-  /* 
-   * Block counter for sequencer and wave counter
-   */
-  if(loop){
-    if(count_beats_audio_run->wave_counter >= (guint) loop_end - 1.0){
-      count_beats_audio_run->wave_counter = 0;
-    }else{
-      count_beats_audio_run->wave_counter += 1;
-    }
-  }else{
-    count_beats_audio_run->wave_counter += 1;
   }
 }
 

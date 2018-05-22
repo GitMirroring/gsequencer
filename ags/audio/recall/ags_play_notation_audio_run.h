@@ -25,8 +25,8 @@
 
 #include <ags/libags.h>
 
-#include <ags/audio/ags_notation.h>
 #include <ags/audio/ags_recall_audio_run.h>
+#include <ags/audio/ags_notation.h>
 
 #include <ags/audio/recall/ags_delay_audio_run.h>
 #include <ags/audio/recall/ags_count_beats_audio.h>
@@ -46,7 +46,7 @@ typedef struct _AgsPlayNotationAudioRunClass AgsPlayNotationAudioRunClass;
  * AgsPlayNotationAudioRunFlags:
  * @AGS_PLAY_NOTATION_AUDIO_RUN_DEFAULT: not used
  *
- * Enum values to control the behavior or indicate internal state of #AgsPlayNotationAudioRun by
+ * Enum values to control the behavior or indicate internal state of #AgsPlayLv2Audio by
  * enable/disable as flags.
  */
 typedef enum{

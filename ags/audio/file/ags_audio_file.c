@@ -659,30 +659,6 @@ ags_audio_file_read_audio_signal(AgsAudioFile *audio_file)
 }
 
 /**
- * ags_audio_file_read_wave:
- * @audio_file: the #AgsAudioFile
- *
- * Convert the #AgsAudioFile to a #GList of buffers.
- *
- * Since: 1.0.0
- */
-void
-ags_audio_file_read_wave(AgsAudioFile *audio_file,
-			 guint64 x_offset,
-			 gdouble delay, guint attack)
-{
-  GList *list;
-
-  list = ags_playable_read_wave(AGS_PLAYABLE(audio_file->playable),
-				audio_file->soundcard,
-				audio_file->start_channel, audio_file->audio_channels,
-				x_offset,
-				delay, attack);
-
-  audio_file->wave = list;
-}
-
-/**
  * ags_audio_file_seek:
  * @audio_file: the #AgsAudioFile
  * @frames: number of frames to seek
@@ -715,7 +691,7 @@ ags_audio_file_write(AgsAudioFile *audio_file,
 		     void *buffer, guint buffer_size, guint format)
 {
   double *playable_buffer;
-
+  
   guint copy_mode;
   guint i;
 
@@ -725,9 +701,10 @@ ags_audio_file_write(AgsAudioFile *audio_file,
   }
   
   playable_buffer = (double *) malloc(audio_file->channels * buffer_size * sizeof(double));
+
   copy_mode = ags_audio_buffer_util_get_copy_mode(AGS_AUDIO_BUFFER_UTIL_DOUBLE,
 						  ags_audio_buffer_util_format_from_soundcard(format));
-  
+      
   for(i = 0; i < audio_file->channels; i++){
     ags_audio_buffer_util_clear_double(&(playable_buffer[i]), audio_file->channels,
 				       buffer_size);

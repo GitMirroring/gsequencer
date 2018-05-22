@@ -1,12 +1,111 @@
-ags (1.5.0)
+ags (1.4.32)
 
 	[ Joël Krähemann (Maintainer of Advanced Gtk+ Sequencer) ]
-	* TODO:JK: implemented AgsWaveWindow, AgsWaveEditor, AgsWaveToolbar and AgsWaveEdit
-	* TODO:JK: implemented AgsSelectBuffer and AgsPositionWaveCursor
-	* implemented AgsWave and AgsBuffer
-	* TODO:JK: implemented ags-play-wave recall
-	* implemented ags-capture-sound recall
-	* TODO:JK: implemented AgsAudiorec
+	* reworked CoreAudio output
+	* fixed wrong loop condition in ags_apply_presets.c
+
+ags (1.4.31)
+
+	[ Joël Krähemann (Maintainer of Advanced Gtk+ Sequencer) ]
+	* disabled GLib-GObject fatal mask
+
+ags (1.4.30)
+
+	[ Joël Krähemann (Maintainer of Advanced Gtk+ Sequencer) ]
+	* fixed wrong if statement in ags_route_dssi_audio_run.c causing DSSI silence
+	* fixed potential SIGSEGV related to AgsRecyclingContext wrong ref count
+
+ags (1.4.29)
+
+	[ Joël Krähemann (Maintainer of Advanced Gtk+ Sequencer) ]
+	* fixed timestamp offset clipboard insert
+	* fixed missing timestamp of notation
+
+ags (1.4.28)
+
+	[ Joël Krähemann (Maintainer of Advanced Gtk+ Sequencer) ]
+	* fixed integrity check of ags_recall_lv2_load()
+	* fixed selection of notation region
+
+ags (1.4.27)
+
+	[ Joël Krähemann (Maintainer of Advanced Gtk+ Sequencer) ]
+	* fixed missing timestamp information in AgsAutomation clipboard
+	* fixed if statement in ags_automation_find_specifier_with_type_and_line()
+	* fixed missing return in ags_automation_get_value()
+	* minor improvements
+
+ags (1.4.26)
+
+	[ Joël Krähemann (Maintainer of Advanced Gtk+ Sequencer) ]
+	* fixed wrong ref count in ags_automation.c
+	* fixed wrong ref count in ags_notation.c
+	* fixed allow select all first and last acceleration of automation
+	* improved AgsExportWindow to reset backend
+
+ags (1.4.25)
+
+	[ Joël Krähemann (Maintainer of Advanced Gtk+ Sequencer) ]
+	* fixed wrong connectable interface of AgsRecallAudioRun
+	* fixed AgsRecall::stop-persistent and do event invocation
+	* exported symbols of ags_widget_marshal.c
+
+ags (1.4.24)
+
+	[ Joël Krähemann (Maintainer of Advanced Gtk+ Sequencer) ]
+	* reverted write double as exporting to audio file
+
+ags (1.4.23)
+
+	[ Joël Krähemann (Maintainer of Advanced Gtk+ Sequencer) ]
+	* implemented MIDI input callback of AgsCoreAudioPort
+	* implemented ags_playable_read_int() and ags_playable_write_int()
+	* implemented new AgsPlayable interface functions in ags_sndfile.c and ags_ipatch.c
+	* refactored AgsSequencerEditor to support AgsCoreAudioMidiin
+	* added AgsCoreAudioMidiin support to ags_core_audio_server.c
+
+ags (1.4.22)
+
+	[ Joël Krähemann (Maintainer of Advanced Gtk+ Sequencer) ]
+	* fixed do async start of AgsWindow
+	* fixed concurrent access during animation
+
+ags (1.4.21)
+
+	[ Joël Krähemann (Maintainer of Advanced Gtk+ Sequencer) ]
+	* work-around reverted pulseaudio GMainLoop integration
+	* implemented property AgsBasePlugin:id
+	* improved ags_lv2_manager.c to be faster
+
+ags (1.4.20)
+
+	[ Joël Krähemann (Maintainer of Advanced Gtk+ Sequencer) ]
+	* fixed ags_functional_audio_test.c to create notation as needed
+	* defaulted to disable OSS4 dependency
+
+ags (1.4.19)
+
+	[ Joël Krähemann (Maintainer of Advanced Gtk+ Sequencer) ]
+	* fixed ags_audio_set_audio_channels() to remove unneeded notation, automation and wave objects
+
+ags (1.4.18)
+
+	[ Joël Krähemann (Maintainer of Advanced Gtk+ Sequencer) ]
+	* fixed copy to clipboard in AgsMatrix and AgsDrum
+
+ags (1.4.17)
+
+	[ Joël Krähemann (Maintainer of Advanced Gtk+ Sequencer) ]
+	* fixed playback scope
+	* fixed wrong count of runs and init code in ags_channel.c
+	* minor-fixes
+
+ags (1.4.16)
+
+	[ Joël Krähemann (Maintainer of Advanced Gtk+ Sequencer) ]
+	* fixed potential SIGSEGV during ags_recall_dssi_run_finalize()
+	* fixed potential SIGSEGV during ags_recall_lv2_run_finalize()
+	* removed redundant code in ags_simple_file.c
 
 ags (1.4.15)
 

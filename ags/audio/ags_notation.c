@@ -943,6 +943,7 @@ ags_notation_add_note(AgsNotation *notation,
   g_object_ref(note);
   
   if(use_selection_list){
+    note->flags |= AGS_NOTE_IS_SELECTED;
     notation->selection = g_list_insert_sorted(notation->selection,
 					       note,
 					       (GCompareFunc) ags_note_sort_func);
@@ -1162,7 +1163,6 @@ ags_notation_find_point(AgsNotation *notation,
 			gboolean use_selection_list)
 {
   AgsNote *note, *prev_note;
-
   GList *notes;
 
   if(use_selection_list){
@@ -1175,9 +1175,8 @@ ags_notation_find_point(AgsNotation *notation,
     notes = notes->next;
   }
 
-  if(notes == NULL){
+  if(notes == NULL)
     return(NULL);
-  }
 
   prev_note = NULL;
 
@@ -1278,6 +1277,16 @@ ags_notation_find_region(AgsNotation *notation,
 void
 ags_notation_free_selection(AgsNotation *notation)
 {
+  GList *list;
+
+  list = notation->selection;
+
+  while(list != NULL){
+    AGS_NOTE(list->data)->flags &= (~AGS_NOTE_IS_SELECTED);
+
+    list = list->next;
+  }
+  
   g_list_free_full(notation->selection,
 		   g_object_unref);
   
@@ -1302,13 +1311,12 @@ ags_notation_add_all_to_selection(AgsNotation *notation)
   list = notation->notes;
   
   while(list != NULL){
-    AGS_NOTE(list->data)->flags |= AGS_NOTE_IS_SELECTED;
-    g_object_ref(G_OBJECT(list->data));
+    ags_notation_add_note(notation,
+			  list->data,
+			  TRUE);
     
     list = list->next;
   }
-
-  notation->selection = g_list_copy(notation->notes);
 }
 
 /**
@@ -1340,11 +1348,11 @@ ags_notation_add_point_to_selection(AgsNotation *notation,
     }
   }else{
     /* add to or replace selection */
-    note->flags |= AGS_NOTE_IS_SELECTED;
-    g_object_ref(note);
-
     if(replace_current_selection){
       GList *list;
+
+      note->flags |= AGS_NOTE_IS_SELECTED;
+      g_object_ref(note);
 
       list = g_list_alloc();
       list->data = note;
@@ -1423,9 +1431,10 @@ ags_notation_add_region_to_selection(AgsNotation *notation,
     list = region;
 
     while(list != NULL){
-      AGS_NOTE(list->data)->flags |= AGS_NOTE_IS_SELECTED;
-      g_object_ref(G_OBJECT(list->data));
-
+      ags_notation_add_note(notation,
+			    list->data,
+			    TRUE);
+      
       list = list->next;
     }
 
@@ -1435,8 +1444,6 @@ ags_notation_add_region_to_selection(AgsNotation *notation,
       note = AGS_NOTE(region->data);
 
       if(!ags_notation_is_note_selected(notation, note)){
-	note->flags |= AGS_NOTE_IS_SELECTED;
-	g_object_ref(G_OBJECT(note));
 	ags_notation_add_note(notation,
 			      note,
 			      TRUE);
@@ -1673,6 +1680,7 @@ ags_notation_insert_native_piano_from_clipboard(AgsNotation *notation,
     guint x_boundary_val, y_boundary_val;
     guint x0_val, x1_val, y_val;
     guint base_x_difference, base_y_difference;
+    guint64 offset_val;
     gboolean subtract_x, subtract_y;
 
     node = root_node->children;
@@ -1883,7 +1891,8 @@ ags_notation_insert_native_piano_from_clipboard(AgsNotation *notation,
 	  
 	  /* add note */
 	  if(!match_timestamp ||
-	     x0_val < notation->timestamp->timer.ags_offset.offset + AGS_NOTATION_DEFAULT_OFFSET){
+	     (x0_val >= notation->timestamp->timer.ags_offset.offset &&
+	      x0_val < notation->timestamp->timer.ags_offset.offset + AGS_NOTATION_DEFAULT_OFFSET)){
 	    note = ags_note_new();
 
 	    note->x[0] = x0_val;
@@ -1914,13 +1923,13 @@ ags_notation_insert_native_piano_from_clipboard(AgsNotation *notation,
   
   if(!xmlStrncmp("0.3.12", version, 7)){
     ags_notation_insert_native_piano_from_clipboard_version_0_3_12();
-  }else if(!xmlStrncmp("0.4.2", version, 7)){
+  }else if(!xmlStrncmp("0.4.2", version, 6)){
     /* changes contain only for UI relevant new informations */
     ags_notation_insert_native_piano_from_clipboard_version_0_3_12();
-  }else if(!xmlStrncmp("1.2.0", version, 7)){
+  }else if(!xmlStrncmp("1.2.0", version, 6)){
     /* changes contain only optional informations */
     match_timestamp = TRUE;
-    
+
     if(match_channel &&
        notation->audio_channel != g_ascii_strtoull(xmlGetProp(root_node,
 							      "audio-channel"),
@@ -1928,7 +1937,7 @@ ags_notation_insert_native_piano_from_clipboard(AgsNotation *notation,
 						   10)){
       return;
     }
-    
+        
     ags_notation_insert_native_piano_from_clipboard_version_0_3_12();
   }
 }

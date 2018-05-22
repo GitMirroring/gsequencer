@@ -19,10 +19,7 @@
 
 #include <ags/audio/thread/ags_export_thread.h>
 
-#include <ags/object/ags_connectable.h>
-#include <ags/object/ags_soundcard.h>
-
-#include <ags/thread/ags_mutex_manager.h>
+#include <ags/libags.h>
 
 #include <ags/audio/ags_devout.h>
 
@@ -192,7 +189,8 @@ ags_export_thread_init(AgsExportThread *export_thread)
   thread = (AgsThread *) export_thread;
 
   g_atomic_int_or(&(thread->flags),
-		  (AGS_THREAD_START_SYNCED_FREQ));
+		  (AGS_THREAD_START_SYNCED_FREQ |
+		   AGS_THREAD_INTERMEDIATE_POST_SYNC));
   
   config = ags_config_get_instance();
   
@@ -470,12 +468,10 @@ ags_export_thread_run(AgsThread *thread)
 
   soundcard = AGS_SOUNDCARD(export_thread->soundcard);
 
-  if(AGS_IS_DEVOUT(soundcard)){
-    soundcard_buffer = ags_soundcard_get_buffer(soundcard);
-  }else if(AGS_IS_JACK_DEVOUT(soundcard) ||
-	   AGS_IS_PULSE_DEVOUT(soundcard)){
+  if(AGS_IS_JACK_DEVOUT(soundcard) ||
+     AGS_IS_PULSE_DEVOUT(soundcard)){
     soundcard_buffer = ags_soundcard_get_prev_buffer(soundcard);
-  }else if(AGS_IS_CORE_AUDIO_DEVOUT(soundcard)){
+  }else{
     soundcard_buffer = ags_soundcard_get_buffer(soundcard);
   }
   

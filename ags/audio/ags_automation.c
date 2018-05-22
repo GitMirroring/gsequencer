@@ -1157,6 +1157,7 @@ ags_automation_add_acceleration(AgsAutomation *automation,
   g_object_ref(acceleration);
   
   if(use_selection_list){
+    acceleration->flags |= AGS_ACCELERATION_IS_SELECTED;
     automation->selection = g_list_insert_sorted(automation->selection,
 						 acceleration,
 						 (GCompareFunc) ags_automation_add_acceleration_compare_function);
@@ -1365,22 +1366,20 @@ ags_automation_find_region(AgsAutomation *automation,
 void
 ags_automation_free_selection(AgsAutomation *automation)
 {
-  AgsAcceleration *acceleration;
   GList *list;
 
   list = automation->selection;
   
   while(list != NULL){
-    acceleration = AGS_ACCELERATION(list->data);
-    acceleration->flags &= (~AGS_ACCELERATION_IS_SELECTED);
-    g_object_unref(G_OBJECT(acceleration));
+    AGS_ACCELERATION(list->data)->flags &= (~AGS_ACCELERATION_IS_SELECTED);
     
     list = list->next;
   }
 
-  list = automation->selection;
+  g_list_free_full(automation->selection,
+		   g_object_unref);
+  
   automation->selection = NULL;
-  g_list_free(list);
 }
 
 /**
@@ -1412,12 +1411,12 @@ ags_automation_add_point_to_selection(AgsAutomation *automation,
     }
   }else{
     /* add to or replace selection */
-    acceleration->flags |= AGS_ACCELERATION_IS_SELECTED;
-    g_object_ref(acceleration);
-
     if(replace_current_selection){
       GList *list;
 
+      acceleration->flags |= AGS_ACCELERATION_IS_SELECTED;
+      g_object_ref(acceleration);
+      
       list = g_list_alloc();
       list->data = acceleration;
       
@@ -1449,7 +1448,7 @@ ags_automation_remove_point_from_selection(AgsAutomation *automation,
 
   acceleration = ags_automation_find_point(automation,
 					   x, y,
-					   FALSE);
+					   TRUE);
 
   if(acceleration != NULL){
     acceleration->flags &= (~AGS_ACCELERATION_IS_SELECTED);
@@ -1481,8 +1480,9 @@ ags_automation_add_region_to_selection(AgsAutomation *automation,
     list = region;
 
     while(list != NULL){
-      AGS_ACCELERATION(list->data)->flags |= AGS_ACCELERATION_IS_SELECTED;
-      g_object_ref(G_OBJECT(list->data));
+      ags_automation_add_acceleration(automation,
+				      list->data,
+				      TRUE);
 
       list = list->next;
     }
@@ -1493,8 +1493,6 @@ ags_automation_add_region_to_selection(AgsAutomation *automation,
       acceleration = AGS_ACCELERATION(region->data);
 
       if(!ags_automation_is_acceleration_selected(automation, acceleration)){
-	acceleration->flags |= AGS_ACCELERATION_IS_SELECTED;
-	g_object_ref(G_OBJECT(acceleration));
 	ags_automation_add_acceleration(automation,
 					acceleration,
 					TRUE);
@@ -1556,9 +1554,8 @@ ags_automation_add_all_to_selection(AgsAutomation *automation)
   }
   
   acceleration = automation->acceleration;
-  acceleration = acceleration->next;
   
-  while(acceleration->next != NULL){
+  while(acceleration != NULL){
     AGS_ACCELERATION(acceleration->data)->flags |= AGS_ACCELERATION_IS_SELECTED;
     
     acceleration = acceleration->next;
@@ -1581,6 +1578,7 @@ ags_automation_copy_selection(AgsAutomation *automation)
   AgsAcceleration *acceleration;
 
   xmlNode *automation_node, *current_acceleration;
+  xmlNode *timestamp_node;
 
   GList *selection;
 
@@ -1599,6 +1597,19 @@ ags_automation_copy_selection(AgsAutomation *automation)
   xmlNewProp(automation_node, "control-name", automation->control_name);
   xmlNewProp(automation_node, "line", g_strdup_printf("%u", automation->line));
 
+  /* timestamp */
+  if(automation->timestamp != NULL){
+    timestamp_node = xmlNewNode(NULL,
+				BAD_CAST "timestamp");
+    xmlAddChild(automation_node,
+		timestamp_node);
+
+    xmlNewProp(timestamp_node,
+	       BAD_CAST "offset",
+	       BAD_CAST (g_strdup_printf("%u", AGS_TIMESTAMP(automation->timestamp)->timer.ags_offset.offset)));
+  }
+
+  /* selection */
   selection = automation->selection;
 
   if(selection != NULL){
@@ -1844,7 +1855,8 @@ ags_automation_insert_native_scale_from_clipboard(AgsAutomation *automation,
 	
 	/* add acceleration */
 	if(!match_timestamp ||
-	   x_val < automation->timestamp->timer.ags_offset.offset + AGS_AUTOMATION_DEFAULT_OFFSET){
+	   (x_val >= automation->timestamp->timer.ags_offset.offset &&
+	    x_val < automation->timestamp->timer.ags_offset.offset + AGS_AUTOMATION_DEFAULT_OFFSET)){
 	  acceleration = ags_acceleration_new();
 	  
 	  acceleration->x = x_val;
@@ -2242,7 +2254,7 @@ ags_automation_find_specifier_with_type_and_line(GList *automation,
        !g_ascii_strcasecmp(AGS_AUTOMATION(automation->data)->control_name,
 			   specifier) &&
        AGS_AUTOMATION(automation->data)->channel_type == channel_type &&
-       AGS_AUTOMATION(automation->data)->line == AGS_AUTOMATION(automation->data)->line){
+       AGS_AUTOMATION(automation->data)->line == line){
 
       break;
     }
@@ -2309,6 +2321,8 @@ ags_automation_get_value(AgsAutomation *automation,
     }
     
     ret_x = AGS_ACCELERATION(acceleration->data)->x;
+  }else{
+    return(G_MAXUINT);
   }
   
   if(!port->port_value_is_pointer){

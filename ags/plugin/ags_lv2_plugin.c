@@ -19,11 +19,7 @@
 
 #include <ags/plugin/ags_lv2_plugin.h>
 
-#include <ags/lib/ags_string_util.h>
-
-#include <ags/object/ags_soundcard.h>
-#include <ags/object/ags_config.h>
-#include <ags/object/ags_marshal.h>
+#include <ags/libags.h>
 
 #include <ags/plugin/ags_lv2_plugin.h>
 #include <ags/plugin/ags_lv2_manager.h>
@@ -772,14 +768,42 @@ ags_lv2_plugin_instantiate(AgsBasePlugin *base_plugin,
 						  LV2_ATOM__Int);
     options[2].value = ptr_buffer_size;
 
-    /* terminate */
+    /* bounded-block-length */
     options[3].context = LV2_OPTIONS_INSTANCE;
     options[3].subject = 0;
-    options[3].key = 0;
+    options[3].key = ags_lv2_urid_manager_lookup(ags_lv2_urid_manager_get_instance(),
+						 LV2_BUF_SIZE__boundedBlockLength);
 
-    options[3].size = 0;
-    options[3].type = 0;
-    options[3].value = NULL;
+    ptr_buffer_size = (float *) malloc(sizeof(float));
+    ptr_buffer_size[0] = conf_buffer_size;
+
+    options[3].size = sizeof(float);
+    options[3].type = ags_lv2_urid_manager_lookup(ags_lv2_urid_manager_get_instance(),
+						  LV2_ATOM__Int);
+    options[3].value = ptr_buffer_size;
+
+    /* fixed-block-length */
+    options[4].context = LV2_OPTIONS_INSTANCE;
+    options[4].subject = 0;
+    options[4].key = ags_lv2_urid_manager_lookup(ags_lv2_urid_manager_get_instance(),
+						 LV2_BUF_SIZE__fixedBlockLength);
+
+    ptr_buffer_size = (float *) malloc(sizeof(float));
+    ptr_buffer_size[0] = conf_buffer_size;
+
+    options[4].size = sizeof(float);
+    options[4].type = ags_lv2_urid_manager_lookup(ags_lv2_urid_manager_get_instance(),
+						  LV2_ATOM__Int);
+    options[4].value = ptr_buffer_size;
+    
+    /* terminate */
+    options[5].context = LV2_OPTIONS_INSTANCE;
+    options[5].subject = 0;
+    options[5].key = 0;
+    
+    options[5].size = 0;
+    options[5].type = 0;
+    options[5].value = NULL;
 
     /* set options */
     ags_lv2_option_manager_lv2_options_set(*lv2_handle,
@@ -887,20 +911,11 @@ ags_lv2_plugin_load_plugin(AgsBasePlugin *base_plugin)
 
     escaped_effect = ags_string_util_escape_single_quote(base_plugin->effect);
 
-    /* retrieve name node as context node */
-    xpath = g_strdup_printf("(//rdf-triple//rdf-verb[//rdf-pname-ln[substring(text(), string-length(text()) - string-length(':name') + 1) = ':name'] and following-sibling::*//rdf-string[text()='\"%s\"']]/ancestor::*[self::rdf-triple])[1]",
-			    escaped_effect);
+    /* retrieve triple node */
+    triple_node = g_hash_table_lookup(ags_lv2_manager_get_instance()->current_plugin_node,
+				      base_plugin->id);
     
-    list = ags_turtle_find_xpath(lv2_plugin->turtle,
-				 xpath);
-
-    free(xpath);
-
-    if(list != NULL){
-      triple_node = (xmlNode *) list->data;
-
-      g_list_free(list);
-    }else{
+    if(triple_node == NULL){
       g_warning("rdf-triple not found");
       
       return;
@@ -1995,7 +2010,8 @@ ags_lv2_plugin_find_pname(GList *lv2_plugin,
   }
 
   while(lv2_plugin != NULL){
-    if(!g_ascii_strcasecmp(pname,
+    if(AGS_LV2_PLUGIN(lv2_plugin->data)->pname != NULL &&
+       !g_ascii_strcasecmp(pname,
 			   AGS_LV2_PLUGIN(lv2_plugin->data)->pname)){
       return(lv2_plugin);
     }

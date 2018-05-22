@@ -43,7 +43,7 @@
 #include <ags/X/thread/ags_gui_thread.h>
 
 #ifdef AGS_WITH_QUARTZ
-#include <gtkmacintegration-gtk2/gtkosxapplication.h>
+#include <gtkmacintegration/gtkosxapplication.h>
 #endif
 
 #include <stdlib.h>
@@ -86,13 +86,16 @@ enum{
 
 static gpointer ags_window_parent_class = NULL;
 GHashTable *ags_window_load_file = NULL;
+GHashTable *ags_window_load_libags_audio = NULL;
 
 GType
 ags_window_get_type()
 {
-  static GType ags_type_window = 0;
+  static volatile gsize g_define_type_id__volatile = 0;
 
-  if(!ags_type_window){
+  if(g_once_init_enter (&g_define_type_id__volatile)){
+    GType ags_type_window;
+
     static const GTypeInfo ags_window_info = {
       sizeof (AgsWindowClass),
       NULL, /* base_init */
@@ -118,9 +121,11 @@ ags_window_get_type()
     g_type_add_interface_static(ags_type_window,
 				AGS_TYPE_CONNECTABLE,
 				&ags_connectable_interface_info);
+    
+    g_once_init_leave (&g_define_type_id__volatile, ags_type_window);
   }
 
-  return(ags_type_window);
+  return g_define_type_id__volatile;
 }
 
 void
@@ -200,7 +205,7 @@ ags_window_init(AgsWindow *window)
   gchar *str;
   
   GError *error;
-
+  
   window->flags = 0;
 
   error = NULL;
@@ -233,16 +238,7 @@ ags_window_init(AgsWindow *window)
   vbox = (GtkVBox *) gtk_vbox_new(FALSE, 0);
   gtk_container_add((GtkContainer *) window, (GtkWidget*) vbox);
 
-  /* menubar */
-  window->context_menu = ags_context_menu_new();
-  gtk_widget_set_events(GTK_WIDGET(window), 
-			(GDK_BUTTON_PRESS_MASK
-			 | GDK_BUTTON_RELEASE_MASK));
-  gtk_widget_show_all(window->context_menu);
-
-  g_signal_connect((GObject *) window, "button-press-event",
-		   G_CALLBACK(ags_window_button_press_event), (gpointer) window);
-  
+  /* menubar */  
   window->menu_bar = ags_menu_bar_new();
   gtk_box_pack_start((GtkBox *) vbox,
   		     (GtkWidget *) window->menu_bar,
@@ -319,6 +315,18 @@ ags_window_init(AgsWindow *window)
   
   window->preferences = NULL;
   window->history_browser = NULL;
+
+  /* libags_audio */
+  if(ags_window_load_libags_audio == NULL){
+    ags_window_load_libags_audio = g_hash_table_new_full(g_direct_hash, g_direct_equal,
+							 NULL,
+							 NULL);
+  }
+
+  g_hash_table_insert(ags_window_load_libags_audio,
+		      window, ags_window_load_libags_audio_timeout);
+
+  g_timeout_add(1000, (GSourceFunc) ags_window_load_libags_audio_timeout, (gpointer) window);
 
   /* load file */
   if(ags_window_load_file == NULL){
@@ -520,6 +528,9 @@ ags_window_finalize(GObject *gobject)
   AgsWindow *window;
 
   window = (AgsWindow *) gobject;
+
+  g_hash_table_remove(ags_window_load_libags_audio,
+		      window);
 
   /* remove message monitor */
   g_hash_table_remove(ags_window_load_file,
@@ -760,6 +771,146 @@ ags_window_show_error(AgsWindow *window,
 						GTK_BUTTONS_OK,
 						"%s", message);
   gtk_widget_show_all((GtkWidget *) dialog);
+}
+
+gboolean
+ags_window_load_libags_audio_timeout(AgsWindow *window)
+{
+  if(g_hash_table_lookup(ags_window_load_libags_audio,
+			 window) != NULL){
+    AgsMessageDelivery *message_delivery;
+    AgsMutexManager *mutex_manager;
+
+    AgsApplicationContext *application_context;
+    
+    GList *message_start, *message;
+    
+    pthread_mutex_t *application_mutex;
+
+    application_context = ags_application_context_get_instance();
+
+    mutex_manager = ags_mutex_manager_get_instance();
+    application_mutex = ags_mutex_manager_get_application_mutex(mutex_manager);
+
+    /* retrieve message */
+    message_delivery = ags_message_delivery_get_instance();
+
+    message_start = 
+      message = ags_message_delivery_find_sender(message_delivery,
+						 "libags-audio",
+						 application_context);
+
+    while(message != NULL){
+      xmlNode *root_node;
+
+      root_node = xmlDocGetRootElement(AGS_MESSAGE_ENVELOPE(message->data)->doc);
+      
+      if(!xmlStrncmp(root_node->name,
+		     "ags-command",
+		     12)){
+	if(!xmlStrncmp(xmlGetProp(root_node,
+				  "method"),
+		       "AgsSoundProvider::config-read",
+		       29)){
+	  GObject *soundcard;
+
+	  GList *list;
+	  
+	  gchar **argv;
+	  gchar *filename;
+    
+	  guint argc;
+	  guint i;
+    
+
+	  pthread_mutex_lock(application_mutex);
+
+	  if((list = ags_sound_provider_get_soundcard(AGS_SOUND_PROVIDER(application_context))) != NULL){
+	    soundcard = list->data;
+	  }else{
+	    soundcard = NULL;
+	  }
+    
+	  pthread_mutex_unlock(application_mutex);
+    
+	  /* AgsWindow */    
+	  g_object_set(window,
+		       "soundcard", soundcard,
+		       NULL);
+    
+	  pthread_mutex_lock(application_mutex);
+
+	  g_object_set(application_context,
+		       "window", window,
+		       NULL);
+
+	  pthread_mutex_unlock(application_mutex);
+
+	  /* context menu */
+	  window->context_menu = ags_context_menu_new();
+	  gtk_widget_set_events(GTK_WIDGET(window), 
+				(GDK_BUTTON_PRESS_MASK
+				 | GDK_BUTTON_RELEASE_MASK));
+	  gtk_widget_show_all(window->context_menu);
+
+	  g_signal_connect((GObject *) window, "button-press-event",
+			   G_CALLBACK(ags_window_button_press_event), (gpointer) window);
+
+	  /* plugin menubar */
+	  gtk_menu_item_set_submenu((GtkMenuItem*) window->menu_bar->ladspa, (GtkWidget*) ags_ladspa_bridge_menu_new());
+	  gtk_menu_item_set_submenu((GtkMenuItem*) window->menu_bar->dssi, (GtkWidget*) ags_dssi_bridge_menu_new());
+	  gtk_menu_item_set_submenu((GtkMenuItem*) window->menu_bar->lv2, (GtkWidget*) ags_lv2_bridge_menu_new());
+
+	  gtk_menu_item_set_submenu((GtkMenuItem*) window->menu_bar->live_dssi, (GtkWidget*) ags_live_dssi_bridge_menu_new());
+	  gtk_menu_item_set_submenu((GtkMenuItem*) window->menu_bar->live_lv2, (GtkWidget*) ags_live_lv2_bridge_menu_new());
+	  
+	  gtk_window_set_default_size((GtkWindow *) window, 500, 500);
+	  gtk_paned_set_position((GtkPaned *) window->paned, 300);
+
+	  ags_connectable_connect(AGS_CONNECTABLE(window));
+
+	  /* filename */
+	  filename = NULL;
+
+	  pthread_mutex_lock(application_mutex);
+
+	  argv = AGS_APPLICATION_CONTEXT(application_context)->argv;
+	  argc = AGS_APPLICATION_CONTEXT(application_context)->argc;
+
+	  for(i = 0; i < argc; i++){
+	    if(!strncmp(argv[i], "--filename", 11)){
+	      filename = argv[i + 1];
+	      i++;
+	    }
+	  }
+
+	  pthread_mutex_unlock(application_mutex);
+
+	  if(filename != NULL){
+	    window->filename = filename;
+	  }
+    
+	  gtk_widget_show_all(window);
+
+	  g_hash_table_remove(ags_window_load_libags_audio,
+			      window);
+	}
+      }
+
+      ags_message_delivery_remove_message(message_delivery,
+					  "libags-audio",
+					  message->data);
+
+      message = message->next;
+    }
+
+    g_list_free_full(message_start,
+		     ags_message_envelope_free);
+    
+    return(TRUE);
+  }else{
+    return(FALSE);
+  }
 }
 
 /**

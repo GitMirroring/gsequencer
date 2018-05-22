@@ -1673,8 +1673,6 @@ ags_simple_file_read_machine(AgsSimpleFile *simple_file, xmlNode *node, AgsMachi
   AgsWindow *window;
   AgsMachine *gobject;
 
-  AgsResizeAudio *resize_audio;
-
   AgsConfig *config;
   GObject *soundcard;
 
@@ -1923,6 +1921,7 @@ ags_simple_file_read_machine(AgsSimpleFile *simple_file, xmlNode *node, AgsMachi
     audio_channels = g_ascii_strtoull(str,
 				      NULL,
 				      10);
+    gobject->audio->audio_channels = audio_channels;
   }
 
   str = xmlGetProp(node,
@@ -1932,6 +1931,10 @@ ags_simple_file_read_machine(AgsSimpleFile *simple_file, xmlNode *node, AgsMachi
     input_pads = g_ascii_strtoull(str,
 				  NULL,
 				  10);
+    ags_audio_set_pads(gobject->audio,
+		       AGS_TYPE_INPUT,
+		       input_pads);
+
     wait_input = TRUE;
   }
 
@@ -1942,19 +1945,14 @@ ags_simple_file_read_machine(AgsSimpleFile *simple_file, xmlNode *node, AgsMachi
     output_pads = g_ascii_strtoull(str,
 				   NULL,
 				   10);
+    ags_audio_set_pads(gobject->audio,
+		       AGS_TYPE_OUTPUT,
+		       output_pads);
+
     wait_output = TRUE;
   }
 
-  /* create task */
-  resize_audio = ags_resize_audio_new(gobject->audio,
-				      (guint) output_pads,
-				      (guint) input_pads,
-				      (guint) audio_channels);
-
-  /* append AgsResizeAudio */
-  ags_gui_thread_schedule_task(ags_ui_provider_get_gui_thread(AGS_UI_PROVIDER(simple_file->application_context)),
-			       resize_audio);
-
+  /* dispatch */
   while((wait_output && !wait_data[0]) ||
 	(wait_input && !wait_data[1])){
     usleep(1000000 / 30);

@@ -1014,8 +1014,6 @@ libags_audio_recall_h_sources = \
 	ags/audio/recall/ags_play_notation_audio_run.h \
 	ags/audio/recall/ags_play_note.h \
 	ags/audio/recall/ags_play_recycling.h \
-	ags/audio/recall/ags_play_wave_audio.h \
-	ags/audio/recall/ags_play_wave_audio_run.h \
 	ags/audio/recall/ags_prepare_audio_signal.h \
 	ags/audio/recall/ags_prepare_channel.h \
 	ags/audio/recall/ags_prepare_channel_run.h \
@@ -1097,8 +1095,6 @@ libags_audio_recall_c_sources = \
 	ags/audio/recall/ags_play_notation_audio_run.c \
 	ags/audio/recall/ags_play_note.c \
 	ags/audio/recall/ags_play_recycling.c \
-	ags/audio/recall/ags_play_wave_audio.c \
-	ags/audio/recall/ags_play_wave_audio_run.c \
 	ags/audio/recall/ags_prepare_audio_signal.c \
 	ags/audio/recall/ags_prepare_channel.c \
 	ags/audio/recall/ags_prepare_channel_run.c \
@@ -2081,6 +2077,7 @@ gen-symbols-ags-gui:
 	rm -f libags_gui.sym
 	touch libags_gui.sym
 	find ags/widget -name "*.h" | xargs grep --no-filename -o -P "(?<=\s)(ags_[a-z0-9_]+)(?=[\s]*\()" >> libags_gui.sym
+	find ags/widget -name "ags_widget_marshal.h" | xargs grep --no-filename -o -P "(ags_widget_cclosure_marshal_[a-zA-Z0-9_]+)" >> libags_gui.sym
 
 gen-symbols-all: gen-symbols-ags gen-symbols-ags-thread gen-symbols-ags-server gen-symbols-ags-audio gen-symbols-ags-gui
 	echo "Generated all symbols"

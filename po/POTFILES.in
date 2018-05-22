@@ -117,7 +117,6 @@
 ./ags/X/editor/ags_file_selection_callbacks.c
 ./ags/X/editor/ags_inline_player.c
 ./ags/X/editor/ags_inline_player_callbacks.c
-./ags/X/editor/ags_level_callbacks.c
 ./ags/X/editor/ags_machine_radio_button.c
 ./ags/X/editor/ags_machine_radio_button_callbacks.c
 ./ags/X/editor/ags_machine_selection.c
@@ -379,8 +378,6 @@
 ./ags/audio/recall/ags_play_notation_audio_run.c
 ./ags/audio/recall/ags_play_note.c
 ./ags/audio/recall/ags_play_recycling.c
-./ags/audio/recall/ags_play_wave_audio.c
-./ags/audio/recall/ags_play_wave_audio_run.c
 ./ags/audio/recall/ags_prepare_audio_signal.c
 ./ags/audio/recall/ags_prepare_channel.c
 ./ags/audio/recall/ags_prepare_channel_run.c

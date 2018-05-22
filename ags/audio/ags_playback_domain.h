@@ -61,7 +61,6 @@ typedef enum{
  * @AGS_PLAYBACK_DOMAIN_SCOPE_PLAYBACK: scope playback
  * @AGS_PLAYBACK_DOMAIN_SCOPE_SEQUENCER: scope sequencer
  * @AGS_PLAYBACK_DOMAIN_SCOPE_NOTATION: scope notation
- * @AGS_PLAYBACK_DOMAIN_SCOPE_NOTATION: scope wave
  * 
  * Enum values to specify playback domain scope.
  */
@@ -69,7 +68,6 @@ typedef enum{
   AGS_PLAYBACK_DOMAIN_SCOPE_PLAYBACK,
   AGS_PLAYBACK_DOMAIN_SCOPE_SEQUENCER,
   AGS_PLAYBACK_DOMAIN_SCOPE_NOTATION,
-  AGS_PLAYBACK_DOMAIN_SCOPE_WAVE,
 }AgsPlaybackDomainScope;
 
 struct _AgsPlaybackDomain

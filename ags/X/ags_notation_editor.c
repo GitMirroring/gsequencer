@@ -647,6 +647,8 @@ ags_notation_editor_add_note(AgsNotationEditor *notation_editor,
       }else{
 	notation = ags_notation_new(machine->audio,
 				    i);
+	notation->timestamp->timer.ags_offset.offset = timestamp->timer.ags_offset.offset;
+	
 	machine->audio->notation = ags_notation_add(machine->audio->notation,
 						    notation);
       }
@@ -1453,7 +1455,7 @@ ags_notation_editor_paste(AgsNotationEditor *notation_editor)
       if(audio_node->type == XML_ELEMENT_NODE){
 	if(!xmlStrncmp("audio", audio_node->name, 6)){
 	  notation_node = audio_node->children;
-	
+	  
 	  first_x = ags_notation_editor_paste_notation(audio_node);
 	
 	  break;

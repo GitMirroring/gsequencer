@@ -22,8 +22,6 @@
 #include <ags/libags.h>
 
 #include <ags/audio/ags_audio_signal.h>
-#include <ags/audio/ags_wave.h>
-#include <ags/audio/ags_buffer.h>
 #include <ags/audio/ags_audio_buffer_util.h>
 
 #include <math.h>
@@ -426,6 +424,33 @@ ags_playable_read(AgsPlayable *playable,
 }
 
 /**
+ * ags_playable_read_int:
+ * @playable: an #AgsPlayable
+ * @channel: nth channel
+ * @error: returned error
+ *
+ * Read audio buffer of playable audio data.
+ * 
+ * Returns: audio buffer
+ *
+ * Since: 1.4.23
+ */
+int*
+ags_playable_read_int(AgsPlayable *playable,
+		      guint channel,
+		      GError **error)
+{
+  AgsPlayableInterface *playable_interface;
+
+  g_return_val_if_fail(AGS_IS_PLAYABLE(playable),
+		       NULL);
+  playable_interface = AGS_PLAYABLE_GET_INTERFACE(playable);
+  g_return_val_if_fail(playable_interface->read_int,
+		       NULL);
+  return(playable_interface->read_int(playable, channel, error));
+}
+
+/**
  * ags_playable_write:
  * @playable: an #AgsPlayable
  * @buffer: audio data
@@ -445,6 +470,28 @@ ags_playable_write(AgsPlayable *playable,
   playable_interface = AGS_PLAYABLE_GET_INTERFACE(playable);
   g_return_if_fail(playable_interface->write);
   playable_interface->write(playable, buffer, buffer_length);
+}
+
+/**
+ * ags_playable_write_int:
+ * @playable: an #AgsPlayable
+ * @buffer: audio data
+ * @buffer_length: frame count
+ *
+ * Write @buffer_length of @buffer audio data.
+ *
+ * Since: 1.0.0
+ */
+void
+ags_playable_write_int(AgsPlayable *playable,
+		       int *buffer, guint buffer_length)
+{
+  AgsPlayableInterface *playable_interface;
+
+  g_return_if_fail(AGS_IS_PLAYABLE(playable));
+  playable_interface = AGS_PLAYABLE_GET_INTERFACE(playable);
+  g_return_if_fail(playable_interface->write_int);
+  playable_interface->write_int(playable, buffer, buffer_length);
 }
 
 /**
@@ -533,8 +580,8 @@ ags_playable_read_audio_signal(AgsPlayable *playable,
   
   gchar *str;
   
-  double *buffer;
-
+  int *buffer;
+  
   guint copy_mode;
   guint channels;
   guint frames;
@@ -583,8 +630,8 @@ ags_playable_read_audio_signal(AgsPlayable *playable,
     
     if(str != NULL){
       target_samplerate = g_ascii_strtoull(str,
-					   NULL,
-					   10);
+				    NULL,
+				    10);
 
       g_free(str);
     }else{
@@ -625,8 +672,8 @@ ags_playable_read_audio_signal(AgsPlayable *playable,
     
     if(str != NULL){
       format = g_ascii_strtoull(str,
-				NULL,
-				10);
+				     NULL,
+				     10);
       
       g_free(str);
     }else{
@@ -655,12 +702,16 @@ ags_playable_read_audio_signal(AgsPlayable *playable,
 
     pthread_mutex_unlock(soundcard_mutex);
   }
-
+  
+if(sizeof(int) == 8){
   copy_mode = ags_audio_buffer_util_get_copy_mode(ags_audio_buffer_util_format_from_soundcard(format),
-						  AGS_AUDIO_BUFFER_UTIL_DOUBLE);
+						  AGS_AUDIO_BUFFER_UTIL_S64);
+ }else{
+  copy_mode = ags_audio_buffer_util_get_copy_mode(ags_audio_buffer_util_format_from_soundcard(format),
+						  AGS_AUDIO_BUFFER_UTIL_S32);
+ }
+  
   samplerate = ags_playable_get_samplerate(playable);
-
-  resample = FALSE;
   
   if(target_samplerate != samplerate){
     resampled_frames = (target_samplerate / samplerate) * frames;
@@ -710,23 +761,31 @@ ags_playable_read_audio_signal(AgsPlayable *playable,
     //    audio_signal->format = AGS_SOUNDCARD_SIGNED_16_BIT;
 
     error = NULL;
-    buffer = ags_playable_read(playable,
-			       i,
-			       &error);
-
+    buffer = ags_playable_read_int(playable,
+				   i,
+				   &error);
+    
     if(error != NULL){
       g_error("%s", error->message);
     }
 
     if(buffer != NULL){
       if(resample){
-	double *tmp;
+	int *tmp;
 
 	tmp = buffer;
+	if(sizeof(int) == 8){
 	buffer = ags_audio_buffer_util_resample(buffer, 1,
-						AGS_AUDIO_BUFFER_UTIL_DOUBLE, samplerate,
+						AGS_AUDIO_BUFFER_UTIL_S64, samplerate,
 						frames,
 						target_samplerate);
+	}else{
+	buffer = ags_audio_buffer_util_resample(buffer, 1,
+						AGS_AUDIO_BUFFER_UTIL_S32, samplerate,
+						frames,
+						target_samplerate);
+	}
+	
 	free(tmp);
       }
       
@@ -753,293 +812,4 @@ ags_playable_read_audio_signal(AgsPlayable *playable,
   }
 
   return(list_beginning);
-}
-
-/**
- * ags_playable_read_wave:
- * @playable: an #AgsPlayable
- * @soundcard: the #AgsSoundcard defaulting to
- * @start_channel: read from channel
- * @channels_to_read: n-times
- *
- * Read the audio signal of @AgsPlayable.
- *
- * Returns: a #GList of #AgsWave
- *
- * Since: 1.5.0
- */
-GList*
-ags_playable_read_wave(AgsPlayable *playable,
-		       GObject *soundcard,
-		       guint start_channel, guint channels_to_read,
-		       guint64 x_offset,
-		       gdouble delay, guint attack)
-{
-  AgsWave *wave;
-  AgsBuffer *buffer;
-
-  AgsMutexManager *mutex_manager;
-
-  AgsConfig *config;    
-  
-  GList *list;
-
-  gchar *str;
-  gdouble *data;
-  
-  guint channels;
-  guint frames;
-  guint resampled_frames;
-  guint copied_frames;
-  guint64 current_offset;
-  guint samplerate;
-  guint data_samplerate;
-  guint buffer_size;
-  guint format;
-  guint copy_mode;
-  guint i, j;
-  gboolean resample;
-  
-  GError *error;
-
-  pthread_mutex_t *application_mutex;
-  pthread_mutex_t *soundcard_mutex;
-
-  g_return_val_if_fail(AGS_IS_PLAYABLE(playable),
-		       NULL);
-
-  mutex_manager = ags_mutex_manager_get_instance();
-  application_mutex = ags_mutex_manager_get_application_mutex(mutex_manager);
-
-  config = ags_config_get_instance();
-
-  /* get file's number of channels and frames */
-  error = NULL;
-  ags_playable_info(playable,
-		    &channels, &frames,
-		    NULL, NULL,
-		    &error);
-
-  if(channels == 0 ||
-     frames == 0 ||
-     channels_to_read == 0){
-    return(NULL);
-  }
-
-  if(soundcard == NULL){
-    /* samplerate */
-    str = ags_config_get_value(config,
-			       AGS_CONFIG_SOUNDCARD,
-			       "samplerate");
-
-    if(str == NULL){
-      str = ags_config_get_value(config,
-				 AGS_CONFIG_SOUNDCARD_0,
-				 "samplerate");
-    }
-    
-    if(str != NULL){
-      samplerate = g_ascii_strtoull(str,
-				    NULL,
-				    10);
-
-      g_free(str);
-    }else{
-      samplerate = AGS_SOUNDCARD_DEFAULT_SAMPLERATE;
-    }
-
-    /* buffer-size */
-    str = ags_config_get_value(config,
-			       AGS_CONFIG_SOUNDCARD,
-			       "buffer-size");
-
-    if(str == NULL){
-      str = ags_config_get_value(config,
-				 AGS_CONFIG_SOUNDCARD_0,
-				 "buffer-size");
-    }
-    
-    if(str != NULL){
-      buffer_size = g_ascii_strtoull(str,
-				     NULL,
-				     10);
-      
-      g_free(str);
-    }else{
-      buffer_size = AGS_SOUNDCARD_DEFAULT_BUFFER_SIZE;
-    }
-
-    /* format */
-    str = ags_config_get_value(config,
-			       AGS_CONFIG_SOUNDCARD,
-			       "format");
-
-    if(str == NULL){
-      str = ags_config_get_value(config,
-				 AGS_CONFIG_SOUNDCARD_0,
-				 "format");
-    }
-    
-    if(str != NULL){
-      format = g_ascii_strtoull(str,
-				NULL,
-				10);
-      
-      g_free(str);
-    }else{
-      format = AGS_SOUNDCARD_DEFAULT_FORMAT;
-    }
-  }else{
-    /* lookup soundcard mutex */
-    pthread_mutex_lock(application_mutex);
-    
-    soundcard_mutex = ags_mutex_manager_lookup(mutex_manager,
-					       soundcard);
-    
-    pthread_mutex_unlock(application_mutex);
-
-    /* get presets */
-    pthread_mutex_lock(soundcard_mutex);
-    
-    ags_soundcard_get_presets(AGS_SOUNDCARD(soundcard),
-			      NULL,
-			      &samplerate,
-			      &buffer_size,
-			      &format);
-
-    pthread_mutex_unlock(soundcard_mutex);
-  }
-  
-  /* instantiate wave and buffer */  
-  list = NULL;
-
-  copy_mode = ags_audio_buffer_util_get_copy_mode(ags_audio_buffer_util_format_from_soundcard(format),
-						  AGS_AUDIO_BUFFER_UTIL_DOUBLE);
-  
-  data_samplerate = ags_playable_get_samplerate(playable);
-
-  resample = FALSE;
-  
-  if(samplerate != data_samplerate){
-    resampled_frames = (samplerate / data_samplerate) * frames;
-    resample = TRUE;
-  }else{
-    resampled_frames = frames;
-  }
-  
-  for(i = 0; i < channels_to_read  && i < channels; i++){
-    wave = NULL;
-
-    current_offset = x_offset;
-
-    /* read audio data */
-    error = NULL;
-    data = ags_playable_read(playable,
-			     i,
-			     &error);
-    
-    if(error != NULL){
-      g_error("%s", error->message);
-    }
-
-    if(data != NULL){
-      if(resample){
-	double *tmp;
-
-	tmp = buffer;
-	buffer = ags_audio_buffer_util_resample(buffer, 1,
-						AGS_AUDIO_BUFFER_UTIL_DOUBLE, data_samplerate,
-						frames,
-						samplerate);
-	g_free(tmp);
-      }
-    }
-    
-    copied_frames = 0;
-    j = 0;
-    
-    while(copied_frames < resampled_frames){
-      if(wave == NULL){
-	wave = ags_wave_new(NULL,
-			    i);
-	wave->timestamp->timer.ags_offset.offset = floor(current_offset / AGS_WAVE_DEFAULT_OFFSET) * AGS_WAVE_DEFAULT_OFFSET;
-
-	ags_wave_set_samplerate(wave,
-				samplerate);
-	ags_wave_set_buffer_size(wave,
-				 buffer_size);
-	ags_wave_set_format(wave,
-			    format);
-	
-	list = ags_wave_add(list,
-			    wave);
-      }else{
-	if(current_offset % (guint64) AGS_WAVE_DEFAULT_OFFSET == 0){
-	  wave = ags_wave_new(NULL,
-			      i);
-	  wave->timestamp->timer.ags_offset.offset = floor(current_offset / AGS_WAVE_DEFAULT_OFFSET) * AGS_WAVE_DEFAULT_OFFSET;
-
-	  wave->samplerate = samplerate;
-	  wave->buffer_size = buffer_size;
-	  wave->format = format;
-	
-	  list = ags_wave_add(list,
-			      wave);
-	}
-      }
-
-      do{
-	buffer = ags_buffer_new();
-	buffer->x = current_offset;
-	
-	ags_buffer_set_samplerate(buffer,
-				  samplerate);
-	ags_buffer_set_buffer_size(buffer,
-				   buffer_size);
-	ags_buffer_set_format(buffer,
-			      format);
-
-	if(copied_frames == 0){
-	  guint count;
-
-	  if(buffer_size - attack < resampled_frames){
-	    count = buffer_size - attack;
-	  }else{
-	    count = resampled_frames;
-	  }
-	  
-	  ags_audio_buffer_util_copy_buffer_to_buffer(buffer->data, 1, attack,
-						      data, 1, copied_frames,
-						      count, copy_mode);
-
-	  copied_frames += count;
-	}else{
-	  guint count;
-
-	  if((j + 1) * buffer_size < resampled_frames){
-	    count = buffer_size;
-	  }else{
-	    count = resampled_frames - (j * buffer_size);
-	  }
-
-	  ags_audio_buffer_util_copy_buffer_to_buffer(buffer->data, 1, 0,
-						      data, 1, copied_frames,
-						      count, copy_mode);
-	  
-	  copied_frames += count;
-	}
-	
-	ags_wave_add_buffer(wave,
-			    buffer,
-			    FALSE);
-	
-	current_offset += 1;
-	j++;
-      }while(current_offset % (guint64) AGS_WAVE_DEFAULT_OFFSET != 0);
-    }
-
-    g_free(data);
-  }
-
-  return(list);
 }

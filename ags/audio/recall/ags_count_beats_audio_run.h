@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2018 Joël Krähemann
+ * Copyright (C) 2005-2015 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -48,14 +48,12 @@ struct _AgsCountBeatsAudioRun
   
   guint notation_counter;
   guint sequencer_counter;
-  guint wave_counter;
 
   guint recall_ref;
 
   guint hide_ref;
   guint notation_hide_ref_counter;
   guint sequencer_hide_ref_counter;
-  guint wave_hide_ref_counter;
 
   AgsDelayAudioRun *delay_audio_run;
 };
@@ -65,49 +63,35 @@ struct _AgsCountBeatsAudioRunClass
   AgsRecallAudioRunClass recall_audio_run;
   
   void (*notation_start)(AgsCountBeatsAudioRun *count_beats_audio_run,
-			 guint nth_run);
+			 guint run_order);
   void (*notation_loop)(AgsCountBeatsAudioRun *count_beats_audio_run,
-			guint nth_run);
+			guint run_order);
   void (*notation_stop)(AgsCountBeatsAudioRun *count_beats_audio_run,
-			guint nth_run);
+			guint run_order);
   
   void (*sequencer_start)(AgsCountBeatsAudioRun *count_beats_audio_run,
-			  guint nth_run);
+			  guint run_order);
   void (*sequencer_loop)(AgsCountBeatsAudioRun *count_beats_audio_run,
-			 guint nth_run);
+			 guint run_order);
   void (*sequencer_stop)(AgsCountBeatsAudioRun *count_beats_audio_run,
-			 guint nth_run);
-
-  void (*wave_start)(AgsCountBeatsAudioRun *count_beats_audio_run,
-		     guint nth_run);
-  void (*wave_loop)(AgsCountBeatsAudioRun *count_beats_audio_run,
-		    guint nth_run);
-  void (*wave_stop)(AgsCountBeatsAudioRun *count_beats_audio_run,
-		    guint nth_run);
+			 guint run_order);
 };
 
 GType ags_count_beats_audio_run_get_type();
 
 void ags_count_beats_audio_run_notation_start(AgsCountBeatsAudioRun *count_beats_audio_run,
-					      guint nth_run);
+					      guint run_order);
 void ags_count_beats_audio_run_notation_loop(AgsCountBeatsAudioRun *count_beats_audio_run,
-					     guint nth_run);
+					     guint run_order);
 void ags_count_beats_audio_run_notation_stop(AgsCountBeatsAudioRun *count_beats_audio_run,
-					     guint nth_run);
+					     guint run_order);
 
 void ags_count_beats_audio_run_sequencer_start(AgsCountBeatsAudioRun *count_beats_audio_run,
-					       guint nth_run);
+					       guint run_order);
 void ags_count_beats_audio_run_sequencer_loop(AgsCountBeatsAudioRun *count_beats_audio_run,
-					      guint nth_run);
+					      guint run_order);
 void ags_count_beats_audio_run_sequencer_stop(AgsCountBeatsAudioRun *count_beats_audio_run,
-					      guint nth_run);
-
-void ags_count_beats_audio_run_wave_start(AgsCountBeatsAudioRun *count_beats_audio_run,
-					  guint nth_run);
-void ags_count_beats_audio_run_wave_loop(AgsCountBeatsAudioRun *count_beats_audio_run,
-					 guint nth_run);
-void ags_count_beats_audio_run_wave_stop(AgsCountBeatsAudioRun *count_beats_audio_run,
-					 guint nth_run);
+					      guint run_order);
 
 AgsCountBeatsAudioRun* ags_count_beats_audio_run_new(AgsDelayAudioRun *delay_audio_run);
 
