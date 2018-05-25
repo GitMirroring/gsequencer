@@ -24,7 +24,7 @@
 #include <glib-object.h>
 #include <gtk/gtk.h>
 
-#include <ags/audio/ags_channel.h>
+#include <ags/libags-audio.h>
 
 #include <ags/X/ags_effect_pad.h>
 

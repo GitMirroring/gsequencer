@@ -25,6 +25,8 @@
 
 #include <gtk/gtk.h>
 
+#include <ags/libags-audio.h>
+
 #include <ags/X/ags_pad.h>
 
 #define AGS_TYPE_DRUM_INPUT_PAD                (ags_drum_input_pad_get_type())

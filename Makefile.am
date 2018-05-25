@@ -287,9 +287,9 @@ libags_server_la_LDFLAGS = $(LDFLAGS) -export-symbols $(top_srcdir)/libags_serve
 libags_server_la_LIBADD = libags_thread.la libags.la -ldl -lm -lcrypt $(LIBXML2_LIBS) $(GOBJECT_LIBS)
 
 # library libags-audio
-libags_audio_la_CFLAGS = $(CFLAGS) $(COMPILER_FLAGS) $(WARN_FLAGS) -O -I./ -I/usr/include $(CORE_AUDIO_CFLAGS) $(LIBASOUND2_CFLAGS) $(LIBXML2_CFLAGS) $(SAMPLERATE_CFLAGS) $(SNDFILE_CFLAGS) $(LIBINSTPATCH_CFLAGS) $(GOBJECT_CFLAGS) $(JACK_CFLAGS) $(PULSE_CFLAGS)
+libags_audio_la_CFLAGS = $(CFLAGS) $(COMPILER_FLAGS) $(WARN_FLAGS) -O -I./ -I/usr/include $(CORE_AUDIO_CFLAGS) $(LIBASOUND2_CFLAGS) $(FFTW_CFLAGS) $(LIBXML2_CFLAGS) $(SAMPLERATE_CFLAGS) $(SNDFILE_CFLAGS) $(LIBINSTPATCH_CFLAGS) $(GOBJECT_CFLAGS) $(JACK_CFLAGS) $(PULSE_CFLAGS)
 libags_audio_la_LDFLAGS = $(LDFLAGS) -export-symbols $(top_srcdir)/libags_audio.sym -version-info 1:0:0 -shared -fPIC -soname,libags_audio.so -pthread 
-libags_audio_la_LIBADD = libags_server.la libags_thread.la libags.la -ldl -lm $(CORE_AUDIO_LIBS) $(LIBASOUND2_LIBS) $(LIBXML2_LIBS) $(SAMPLERATE_LIBS) $(SNDFILE_LIBS) $(LIBINSTPATCH_LIBS) $(GOBJECT_LIBS) $(JACK_LIBS) $(PULSE_LIBS)
+libags_audio_la_LIBADD = libags_server.la libags_thread.la libags.la -ldl -lm $(CORE_AUDIO_LIBS) $(LIBASOUND2_LIBS) $(FFTW_LIBS) $(LIBXML2_LIBS) $(SAMPLERATE_LIBS) $(SNDFILE_LIBS) $(LIBINSTPATCH_LIBS) $(GOBJECT_LIBS) $(JACK_LIBS) $(PULSE_LIBS)
 
 # library libags-gui
 libags_gui_la_CFLAGS = $(CFLAGS) $(COMPILER_FLAGS) $(WARN_FLAGS) -O -I./ -I/usr/include $(GOBJECT_CFLAGS) $(GDKPIXBUF_CFLAGS) $(CAIRO_CFLAGS) $(GTK_CFLAGS)
@@ -960,6 +960,10 @@ deprecated_libags_audio_recall_h_sources =
 
 libags_audio_recall_h_sources = \
 	$(deprecated_libags_audio_recall_h_sources) \
+	ags/audio/recall/ags_analyse_audio_signal.h \
+	ags/audio/recall/ags_analyse_channel.h \
+	ags/audio/recall/ags_analyse_channel_run.h \
+	ags/audio/recall/ags_analyse_recycling.h \
 	ags/audio/recall/ags_buffer_audio_signal.h \
 	ags/audio/recall/ags_buffer_channel.h \
 	ags/audio/recall/ags_buffer_channel_run.h \
@@ -1041,6 +1045,10 @@ deprecated_libags_audio_recall_c_sources =
 
 libags_audio_recall_c_sources = \
 	$(deprecated_libags_audio_recall_c_sources) \
+	ags/audio/recall/ags_analyse_audio_signal.c \
+	ags/audio/recall/ags_analyse_channel.c \
+	ags/audio/recall/ags_analyse_channel_run.c \
+	ags/audio/recall/ags_analyse_recycling.c \
 	ags/audio/recall/ags_buffer_audio_signal.c \
 	ags/audio/recall/ags_buffer_channel.c \
 	ags/audio/recall/ags_buffer_channel_run.c \

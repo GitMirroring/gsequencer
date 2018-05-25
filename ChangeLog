@@ -1,3 +1,9 @@
+ags (1.5.0)
+
+	[ Joël Krähemann (Maintainer of Advanced Gtk+ Sequencer) ]
+	* TODO:JK: implemented AgsDesk
+	* TODO:JK: implemented AgsPlaylist
+
 ags (1.4.32)
 
 	[ Joël Krähemann (Maintainer of Advanced Gtk+ Sequencer) ]
