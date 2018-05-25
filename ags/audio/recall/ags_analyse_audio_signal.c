@@ -30,19 +30,13 @@ void ags_analyse_audio_signal_class_init(AgsAnalyseAudioSignalClass *analyse_aud
 void ags_analyse_audio_signal_connectable_interface_init(AgsConnectableInterface *connectable);
 void ags_analyse_audio_signal_dynamic_connectable_interface_init(AgsDynamicConnectableInterface *dynamic_connectable);
 void ags_analyse_audio_signal_init(AgsAnalyseAudioSignal *analyse_audio_signal);
-void ags_analyse_audio_signal_set_property(GObject *gobject,
-					   guint prop_id,
-					   const GValue *value,
-					   GParamSpec *param_spec);
-void ags_analyse_audio_signal_get_property(GObject *gobject,
-					   guint prop_id,
-					   GValue *value,
-					   GParamSpec *param_spec);
 void ags_analyse_audio_signal_connect(AgsConnectable *connectable);
 void ags_analyse_audio_signal_disconnect(AgsConnectable *connectable);
 void ags_analyse_audio_signal_connect_dynamic(AgsDynamicConnectable *dynamic_connectable);
 void ags_analyse_audio_signal_disconnect_dynamic(AgsDynamicConnectable *dynamic_connectable);
 void ags_analyse_audio_signal_finalize(GObject *gobject);
+
+void ags_analyse_audio_signal_run_inter(AgsRecall *recall);
 
 /**
  * SECTION:ags_analyse_audio_signal
@@ -53,10 +47,6 @@ void ags_analyse_audio_signal_finalize(GObject *gobject);
  *
  * The #AgsAnalyseAudioSignal class analyses the audio signal.
  */
-
-enum{
-  PROP_0,
-};
 
 static gpointer ags_analyse_audio_signal_parent_class = NULL;
 static AgsConnectableInterface *ags_analyse_audio_signal_parent_connectable_interface;
@@ -121,15 +111,14 @@ ags_analyse_audio_signal_class_init(AgsAnalyseAudioSignalClass *analyse_audio_si
   /* GObjectClass */
   gobject = (GObjectClass *) analyse_audio_signal;
 
-  gobject->set_property = ags_analyse_audio_signal_set_property;
-  gobject->get_property = ags_analyse_audio_signal_get_property;
-
   gobject->finalize = ags_analyse_audio_signal_finalize;
 
   /* properties */
 
   /* AgsRecallClass */
   recall = (AgsRecallClass *) analyse_audio_signal;
+
+  recall->run_inter = ags_analyse_audio_signal_run_inter;
 }
 
 void
@@ -168,40 +157,6 @@ ags_analyse_audio_signal_finalize(GObject *gobject)
   G_OBJECT_CLASS(ags_analyse_audio_signal_parent_class)->finalize(gobject);
 
   /* empty */
-}
-
-void
-ags_analyse_audio_signal_set_property(GObject *gobject,
-				      guint prop_id,
-				      const GValue *value,
-				      GParamSpec *param_spec)
-{
-  AgsAnalyseAudioSignal *analyse_audio_signal;
-
-  analyse_audio_signal = AGS_ANALYSE_AUDIO_SIGNAL(gobject);
-
-  switch(prop_id){
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(gobject, prop_id, param_spec);
-    break;
-  }
-}
-
-void
-ags_analyse_audio_signal_get_property(GObject *gobject,
-				      guint prop_id,
-				      GValue *value,
-				      GParamSpec *param_spec)
-{
-  AgsAnalyseAudioSignal *analyse_audio_signal;
-
-  analyse_audio_signal = AGS_ANALYSE_AUDIO_SIGNAL(gobject);
-
-  switch(prop_id){
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(gobject, prop_id, param_spec);
-    break;
-  }
 }
 
 void
@@ -246,6 +201,30 @@ ags_analyse_audio_signal_disconnect_dynamic(AgsDynamicConnectable *dynamic_conne
   ags_analyse_audio_signal_parent_dynamic_connectable_interface->disconnect_dynamic(dynamic_connectable);
 
   /* empty */
+}
+
+void
+ags_analyse_audio_signal_run_inter(AgsRecall *recall)
+{
+  AGS_RECALL_CLASS(ags_analyse_audio_signal_parent_class)->run_inter(recall);
+
+  if(AGS_RECALL_AUDIO_SIGNAL(recall)->source->stream_current != NULL){
+    AgsAnalyseChannel *analyse_channel;
+
+    AgsAudioSignal *audio_signal;
+    
+    analyse_channel = AGS_ANALYSE_CHANNEL(AGS_RECALL_CHANNEL_RUN(recall->parent->parent)->recall_channel);
+
+    audio_signal = AGS_RECALL_AUDIO_SIGNAL(recall)->source;
+    
+    ags_analyse_channel_buffer_add(analyse_channel,
+				   audio_signal->stream_current->data,
+				   audio_signal->samplerate,
+				   audio_signal->buffer_size,
+				   audio_signal->format);
+  }else{
+    ags_recall_done(recall);
+  }
 }
 
 /**

@@ -19,9 +19,7 @@
 
 #include <ags/audio/ags_port.h>
 
-#include <ags/object/ags_connectable.h>
-
-#include <ags/object/ags_marshal.h>
+#include <ags/libags.h>
 
 #include <ags/i18n.h>
 
@@ -831,6 +829,70 @@ ags_port_safe_write_raw(AgsPort *port, GValue *value)
       }else{
 	g_warning("ags_port.c: unknown type");
       }
+    }
+  }
+
+  pthread_mutex_unlock(port->mutex);
+}
+
+/**
+ * ags_port_safe_read_array:
+ * @port: the #AgsPort
+ * @value: the #GValue-struct
+ * @position: the position
+ * 
+ * Read array entry at @position.
+ * 
+ * Since: 1.5.0
+ */
+void
+ags_port_safe_read_array(AgsPort *port, GValue *value, guint position)
+{
+  pthread_mutex_lock(port->mutex);
+
+  if(port->port_value_is_pointer){
+    if(port->port_value_type == G_TYPE_BOOLEAN){
+      g_value_set_boolean(value, port->port_value.ags_port_boolean_ptr[position]);
+    }else if(port->port_value_type == G_TYPE_INT64){
+      g_value_set_int64(value, port->port_value.ags_port_int_ptr[position]);
+    }else if(port->port_value_type == G_TYPE_UINT64){
+      g_value_set_uint64(value, port->port_value.ags_port_uint_ptr[position]);
+    }else if(port->port_value_type == G_TYPE_FLOAT){
+      g_value_set_float(value, port->port_value.ags_port_float_ptr[position]);
+    }else if(port->port_value_type == G_TYPE_DOUBLE){
+      g_value_set_double(value, port->port_value.ags_port_double_ptr[position]);
+    }
+  }
+  
+  pthread_mutex_unlock(port->mutex);
+}
+
+/**
+ * ags_port_safe_write_array:
+ * @port: the #AgsPort
+ * @value: the #GValue-struct
+ * @position: the position
+ * 
+ * Write array entry at @position.
+ * 
+ * Since: 1.5.0
+ */
+void
+ags_port_safe_write_array(AgsPort *port, GValue *value, guint position)
+{
+  pthread_mutex_lock(port->mutex);
+
+  if(port->port_value_is_pointer){
+    if(port->port_value_type == G_TYPE_BOOLEAN){
+      port->port_value.ags_port_boolean_ptr[position] = g_value_get_boolean(value);
+    }else if(port->port_value_type == G_TYPE_INT64){
+      port->port_value.ags_port_int_ptr[position] = g_value_get_int64(value);
+    }else if(port->port_value_type == G_TYPE_UINT64){
+      port->port_value.ags_port_uint_ptr[position] = g_value_get_uint64(value);
+    }else if(port->port_value_type == G_TYPE_FLOAT){
+      port->port_value.ags_port_float_ptr[position] = g_value_get_float(value);
+    }else if(port->port_value_type == G_TYPE_DOUBLE){
+      port->port_value.ags_port_double_ptr[position] = g_value_get_double(value);
     }
   }
 

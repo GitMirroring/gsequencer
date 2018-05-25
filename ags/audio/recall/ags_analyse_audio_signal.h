@@ -23,9 +23,6 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include <complex.h>
-#include <fftw3.h>
-
 #include <ags/audio/ags_recall_audio_signal.h>
 
 #define AGS_TYPE_ANALYSE_AUDIO_SIGNAL                (ags_analyse_audio_signal_get_type())
@@ -41,12 +38,6 @@ typedef struct _AgsAnalyseAudioSignalClass AgsAnalyseAudioSignalClass;
 struct _AgsAnalyseAudioSignal
 {
   AgsRecallAudioSignal recall_audio_signal;
-
-  fftw_plan plan;
-  fftw_complex *comout;
-
-  fftw_input_type *in;
-  fftw_output_type *out;
 };
 
 struct _AgsAnalyseAudioSignalClass

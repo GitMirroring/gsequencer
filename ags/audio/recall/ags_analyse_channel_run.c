@@ -41,6 +41,7 @@ void ags_analyse_channel_run_finalize(GObject *gobject);
 AgsRecall* ags_analyse_channel_run_duplicate(AgsRecall *recall,
 					     AgsRecallID *recall_id,
 					     guint *n_params, GParameter *parameter);
+void ags_analyse_channel_run_run_pre(AgsRecall *recall);
 
 /**
  * SECTION:ags_analyse_channel_run
@@ -120,6 +121,7 @@ ags_analyse_channel_run_class_init(AgsAnalyseChannelRunClass *analyse_channel_ru
   recall = (AgsRecallClass *) analyse_channel_run;
 
   recall->duplicate = ags_analyse_channel_run_duplicate;
+  recall->run_pre = ags_analyse_channel_run_run_pre;
 }
 
 void
@@ -200,6 +202,53 @@ ags_analyse_channel_run_duplicate(AgsRecall *recall,
 												    n_params, parameter);
   
   return((AgsRecall *) copy);
+}
+
+void
+ags_analyse_channel_run_run_pre(AgsRecall *recall)
+{
+  AgsAnalyseChannel *analyse_channel;
+
+  gboolean buffer_computed;
+  
+  GValue value = {0,};
+
+  AGS_RECALL_CLASS(ags_analyse_channel_run_parent_class)->run_pre(recall);
+
+  /* calculate of previous run */
+  analyse_channel = AGS_RECALL_CHANNEL_RUN(recall)->recall_channel;
+
+  pthread_mutex_lock(analyse_channel->buffer_mutex);
+  
+  g_value_init(&value,
+	       G_TYPE_BOOLEAN);
+
+  ags_port_safe_read(analyse_channel->buffer_computed,
+		     &value);
+  buffer_computed = g_value_get_boolean(&value);
+
+  if(!buffer_computed){    
+    /* set buffer-computed port to TRUE */
+    g_value_set_boolean(&value,
+			TRUE);
+
+    ags_port_safe_write(analyse_channel->buffer_computed,
+			&value);
+  }
+  
+  pthread_mutex_unlock(analyse_channel->buffer_mutex);
+
+  /* lock free - buffer-computed reset by cyclic-task AgsResetAnalyse */
+  if(!buffer_computed){
+    /* retrieve analyse */    
+    ags_analyse_channel_retrieve_frequency_and_magnitude(analyse_channel);
+
+    /* clear buffer */
+    ags_audio_buffer_util_clear_double(analyse_channel->buffer, 1,
+				       analyse_channel->buffer_size);
+  }
+
+  g_value_unset(&value);
 }
 
 /**

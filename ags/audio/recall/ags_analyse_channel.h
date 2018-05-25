@@ -23,6 +23,9 @@
 #include <glib.h>
 #include <glib-object.h>
 
+#include <complex.h>
+#include <fftw3.h>
+
 #include <ags/audio/ags_recall_channel.h>
 #include <ags/audio/ags_channel.h>
 
@@ -40,6 +43,21 @@ struct _AgsAnalyseChannel
 {
   AgsRecallChannel recall_channel;
 
+  pthread_mutexattr_t *buffer_mutexattr;
+  pthread_mutex_t *buffer_mutex;
+  
+  guint samplerate;
+  guint buffer_size;
+  guint format;
+
+  void *buffer;
+
+  fftw_plan plan;
+  fftw_complex *comout;
+
+  fftw_input_type *in;
+  fftw_output_type *out;
+
   AgsPort *frequency_buffer;
   AgsPort *magnitude_buffer;
 };
@@ -50,6 +68,12 @@ struct _AgsAnalyseChannelClass
 };
 
 GType ags_analyse_channel_get_type();
+
+void ags_analyse_channel_buffer_add(AgsAnalyseChannel *analyse_channel,
+				    void *buffer,
+				    guint samplerate, guint buffer_size, guint format);
+
+void ags_analyse_channel_retrieve_frequency_and_magnitude(AgsAnalyseChannel *analyse_channel);
 
 AgsAnalyseChannel* ags_analyse_channel_new(AgsChannel *source);
 

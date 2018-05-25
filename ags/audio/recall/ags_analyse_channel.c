@@ -61,6 +61,8 @@ void ags_analyse_channel_finalize(GObject *gobject);
 
 enum{
   PROP_0,
+  PROP_BUFFER_CLEARED,
+  PROP_BUFFER_COMPUTED,
   PROP_FREQUENCY_BUFFER,
   PROP_MAGNITUDE_BUFFER,
 };
@@ -71,12 +73,16 @@ static AgsPluginInterface *ags_analyse_channel_parent_plugin_interface;
 
 static const gchar *ags_analyse_channel_plugin_name = "ags-analyse";
 static const gchar *ags_analyse_channel_plugin_specifier[] = {
+  "./buffer-cleared[0]",
+  "./buffer-computed[0]",
   "./frequency-buffer[0]",
   "./magnitude-buffer[0]",
 };
 static const gchar *ags_analyse_channel_plugin_control_port[] = {
-  "1/2",
-  "2/2",
+  "1/4",
+  "2/4",
+  "3/4",
+  "4/4",
 };
 
 GType
@@ -162,6 +168,38 @@ ags_analyse_channel_class_init(AgsAnalyseChannelClass *analyse_channel)
 
   /* properties */
   /**
+   * AgsAnalyseChannel:buffer-cleared:
+   * 
+   * The property indicating if buffer was cleared.
+   * 
+   * Since: 1.5.0
+   */
+  param_spec = g_param_spec_object("buffer-cleared",
+				   i18n_pspec("if buffer was cleared"),
+				   i18n_pspec("The buffer was cleared during this run"),
+				   AGS_TYPE_PORT,
+				   G_PARAM_READABLE | G_PARAM_WRITABLE);
+  g_object_class_install_property(gobject,
+				  PROP_BUFFER_CLEARED,
+				  param_spec);
+
+  /**
+   * AgsAnalyseChannel:buffer-computed:
+   * 
+   * The property indicating if buffer was computed.
+   * 
+   * Since: 1.5.0
+   */
+  param_spec = g_param_spec_object("buffer-computed",
+				   i18n_pspec("if buffer was computed"),
+				   i18n_pspec("The buffer was computed during this run"),
+				   AGS_TYPE_PORT,
+				   G_PARAM_READABLE | G_PARAM_WRITABLE);
+  g_object_class_install_property(gobject,
+				  PROP_BUFFER_COMPUTED,
+				  param_spec);
+
+  /**
    * AgsAnalyseChannel:frequency-buffer:
    * 
    * The frequency buffer.
@@ -216,14 +254,117 @@ ags_analyse_channel_init(AgsAnalyseChannel *analyse_channel)
 
   config = ags_config_get_instance();
 
+  /* buffer field */  
+  analyse_channel->buffer_mutexattr = 
+    attr = (pthread_mutexattr_t *) malloc(sizeof(pthread_mutexattr_t));
+  pthread_mutexattr_init(attr);
+  pthread_mutexattr_settype(attr,
+			    PTHREAD_MUTEX_RECURSIVE);
+
+#ifdef __linux__
+  pthread_mutexattr_setprotocol(attr,
+				PTHREAD_PRIO_INHERIT);
+#endif
+
+  analyse_channel->buffer_mutex = (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t));
+  pthread_mutex_init(analyse_channel->buffer_mutex,
+		     attr);
+
+  /* samplerate */
+  str = ags_config_get_value(config,
+			     AGS_CONFIG_SOUNDCARD,
+			     "samplerate");
+  
+  if(str == NULL){
+    str = ags_config_get_value(config,
+			       AGS_CONFIG_SOUNDCARD_0,
+			       "samplerate");
+  }  
+
+  if(str != NULL){
+    analyse_channel->samplerate = g_ascii_strtoull(str,
+						   NULL,
+						   10);
+    free(str);
+  }else{
+    analyse_channel->samplerate = AGS_SOUNDCARD_DEFAULT_SAMPLERATE;
+  }
+
+  /* buffer-size */
+  str = ags_config_get_value(config,
+			     AGS_CONFIG_SOUNDCARD,
+			     "buffer-size");
+
+  if(str == NULL){
+    str = ags_config_get_value(config,
+			       AGS_CONFIG_SOUNDCARD_0,
+			       "buffer-size");
+  }
+  
+  if(str != NULL){
+    analyse_channel->buffer_size = g_ascii_strtoull(str,
+						    NULL,
+						    10);
+    free(str);
+  }else{
+    analyse_channel->buffer_size = AGS_SOUNDCARD_DEFAULT_BUFFER_SIZE;
+  }
+
+  /* format */
+  analyse_channel->buffer = (double *) malloc(analyse_channel->buffer_size * sizeof(double));
+
+  /* FFTW */
+  analyse_channel->in = (fftw_input_type *) fftw_malloc(sizeof(fftw_input_type) * analyse_channel->buffer_size);
+  analyse_channel->out = (fftw_output_type *) fftw_malloc(sizeof(fftw_output_type) * analyse_channel->buffer_size);
+
+  analyse_channel->comout = (fftw_complex *) fftw_malloc(sizeof(*comout) * analyse_channel->buffer_size);
+
+  plan = fftw_plan_r2r_1d(analyse_channel->buffer_size, analyse_channel->in, analyse_channel->out, FFTW_DFT, FFTW_FORWARD);
+  
   /* ports */
   port = NULL;
 
+  /* buffer cleared */
+  analyse_channel->buffer_cleared = g_object_new(AGS_TYPE_PORT,
+					      "plugin-name", ags_analyse_channel_plugin_name,
+					      "specifier", ags_analyse_channel_plugin_specifier[0],
+					      "control-port", ags_analyse_channel_plugin_control_port[0],
+					      "port-value-is-pointer", FALSE,
+					      "port-value-type", G_TYPE_BOOLEAN,
+					      "port-value-size", sizeof(gboolean),
+					      "port-value-length", 1,
+					      NULL);
+  g_object_ref(analyse_channel->buffer_cleared);
+  
+  analyse_channel->buffer_cleared->port_value.ags_port_boolean = FALSE;
+
+  /* add to port */  
+  port = g_list_prepend(port, analyse_channel->buffer_cleared);
+  g_object_ref(analyse_channel->buffer_cleared);
+
+  /* buffer computed */
+  analyse_channel->buffer_computed = g_object_new(AGS_TYPE_PORT,
+					       "plugin-name", ags_analyse_channel_plugin_name,
+					       "specifier", ags_analyse_channel_plugin_specifier[1],
+					       "control-port", ags_analyse_channel_plugin_control_port[1],
+					       "port-value-is-pointer", FALSE,
+					       "port-value-type", G_TYPE_BOOLEAN,
+					       "port-value-size", sizeof(gboolean),
+					       "port-value-length", 1,
+					       NULL);
+  g_object_ref(analyse_channel->buffer_computed);
+  
+  analyse_channel->buffer_computed->port_value.ags_port_boolean = FALSE;
+
+  /* add to port */  
+  port = g_list_prepend(port, analyse_channel->buffer_computed);
+  g_object_ref(analyse_channel->buffer_computed);
+  
   /* frequency buffer */
   analyse_channel->frequency_buffer = g_object_new(AGS_TYPE_PORT,
 						   "plugin-name", ags_analyse_channel_plugin_name,
-						   "specifier", ags_analyse_channel_plugin_specifier[0],
-						   "control-port", ags_analyse_channel_plugin_control_port[0],
+						   "specifier", ags_analyse_channel_plugin_specifier[2],
+						   "control-port", ags_analyse_channel_plugin_control_port[2],
 						   "port-value-is-pointer", TRUE,
 						   "port-value-type", G_TYPE_DOUBLE,
 						   "port-value-size", sizeof(gdouble),
@@ -231,8 +372,10 @@ ags_analyse_channel_init(AgsAnalyseChannel *analyse_channel)
 						   NULL);
   g_object_ref(analyse_channel->frequency_buffer);
   
-  analyse_channel->frequency_buffer->port_value.ags_port_double = 0.0;
-
+  analyse_channel->frequency_buffer->port_value.ags_port_double_ptr = (double *) malloc(analyse_channel->buffer_size * sizeof(double));
+  ags_audio_buffer_util_clear_double(analyse_channel->frequency_buffer->port_value.ags_port_double_ptr, 1,
+				     analyse_channel->buffer_size);
+  
   /* add to port */  
   port = g_list_prepend(port, analyse_channel->frequency_buffer);
   g_object_ref(analyse_channel->frequency_buffer);
@@ -240,8 +383,8 @@ ags_analyse_channel_init(AgsAnalyseChannel *analyse_channel)
   /* magnitude buffer */
   analyse_channel->magnitude_buffer = g_object_new(AGS_TYPE_PORT,
 						   "plugin-name", ags_analyse_channel_plugin_name,
-						   "specifier", ags_analyse_channel_plugin_specifier[1],
-						   "control-port", ags_analyse_channel_plugin_control_port[1],
+						   "specifier", ags_analyse_channel_plugin_specifier[3],
+						   "control-port", ags_analyse_channel_plugin_control_port[3],
 						   "port-value-is-pointer", TRUE,
 						   "port-value-type", G_TYPE_DOUBLE,
 						   "port-value-size", sizeof(gdouble),
@@ -249,7 +392,9 @@ ags_analyse_channel_init(AgsAnalyseChannel *analyse_channel)
 						   NULL);
   g_object_ref(analyse_channel->magnitude_buffer);
   
-  analyse_channel->magnitude_buffer->port_value.ags_port_double = 0.0;
+  analyse_channel->magnitude_buffer->port_value.ags_port_double_ptr = (double *) malloc(analyse_channel->buffer_size * sizeof(double));
+  ags_audio_buffer_util_clear_double(analyse_channel->magnitude_buffer->port_value.ags_port_double_ptr, 1,
+				     analyse_channel->buffer_size);
 
   /* add to port */  
   port = g_list_prepend(port, analyse_channel->magnitude_buffer);
@@ -354,6 +499,20 @@ ags_analyse_channel_dispose(GObject *gobject)
 
   analyse_channel = AGS_ANALYSE_CHANNEL(gobject);
 
+  /* buffer cleared */
+  if(peak_channel->buffer_cleared != NULL){
+    g_object_unref(G_OBJECT(peak_channel->buffer_cleared));
+
+    peak_channel->buffer_cleared = NULL;
+  }
+
+  /* buffer computed */
+  if(peak_channel->buffer_computed != NULL){
+    g_object_unref(G_OBJECT(peak_channel->buffer_computed));
+
+    peak_channel->buffer_computed = NULL;
+  }
+
   /* frequency buffer */
   if(analyse_channel->frequency_buffer != NULL){
     g_object_unref(G_OBJECT(analyse_channel->frequency_buffer));
@@ -380,6 +539,29 @@ ags_analyse_channel_finalize(GObject *gobject)
   AgsResetAnalyse *reset_analyse;
 
   analyse_channel = AGS_ANALYSE_CHANNEL(gobject);
+
+  /* buffer field */
+  pthread_mutex_destroy(analyse_channel->buffer_mutex);
+  free(analyse_channel->buffer_mutex);
+
+  pthread_mutexattr_destroy(analyse_channel->buffer_mutexattr);
+  free(analyse_channel->buffer_mutexattr);
+  
+  free(analyse_channel->buffer);
+
+  fftw_destroy_plan(analyse_channel->plan);
+  fftw_free(analyse_channel->in);
+  fftw_free(analyse_channel->out);
+  
+  /* buffer cleared */
+  if(peak_channel->buffer_cleared != NULL){
+    g_object_unref(G_OBJECT(peak_channel->buffer_cleared));
+  }
+
+  /* buffer computed */
+  if(peak_channel->buffer_computed != NULL){
+    g_object_unref(G_OBJECT(peak_channel->buffer_computed));
+  }
 
   /* frequency buffer */
   if(analyse_channel->frequency_buffer != NULL){
@@ -426,8 +608,8 @@ ags_analyse_channel_set_ports(AgsPlugin *plugin, GList *port)
 		   "frequency-buffer", AGS_PORT(port->data),
 		   NULL);
     }else if(!strncmp(AGS_PORT(port->data)->specifier,
-		"./magnitude-buffer[0]",
-		22)){
+		      "./magnitude-buffer[0]",
+		      22)){
       g_object_set(G_OBJECT(plugin),
 		   "magnitude-buffer", AGS_PORT(port->data),
 		   NULL);
@@ -435,6 +617,93 @@ ags_analyse_channel_set_ports(AgsPlugin *plugin, GList *port)
 
     port = port->next;
   }
+}
+
+void
+ags_analyse_channel_buffer_add(AgsAnalyseChannel *analyse_channel,
+			       void *buffer,
+			       guint samplerate, guint buffer_size, guint format)
+{
+  void *buffer_source;
+  
+  guint copy_mode;
+  gboolean resample;
+
+  if(analyse_channel == NULL){
+    return;
+  }
+
+  resample = FALSE;
+  
+  pthread_mutex_lock(analyse_channel->buffer_mutex);
+
+  copy_mode = ags_audio_buffer_util_get_copy_mode(AGS_AUDIO_BUFFER_UTIL_DOUBLE,
+						  ags_audio_buffer_util_format_from_soundcard(format));
+
+  if(samplerate != analyse_channel->samplerate){
+    buffer_source = ags_audio_buffer_util_resample(buffer, 1,
+						   ags_audio_buffer_util_format_from_soundcard(format), samplerate,
+						   buffer_size,
+						   analyse_channel->samplerate);
+    
+    resample = TRUE;
+  }else{
+    buffer_source = buffer;
+  }
+  
+  ags_audio_buffer_util_copy_buffer_to_buffer(analyse_channel->buffer, 1, 0,
+					      buffer_source, 1, 0,
+					      analyse_channel->buffer_size, copy_mode);
+
+
+  pthread_mutex_unlock(analyse_channel->buffer_mutex);
+
+  if(resample){
+    free(buffer_source);
+  }
+}
+
+void
+ags_analyse_channel_retrieve_frequency_and_magnitude(AgsAnalyseChannel *analyse_channel)
+{
+  double frequency, magnitude;
+  double correction;
+  int m;
+  guint i;
+
+  GValue value = {0,};
+  
+  /* fill input buffer */
+  for(i = 0; i < analyse_channel->buffer_size; i++){
+    analyse_channel->in[i] = analyse_channel->buffer[i];
+  }
+
+  /* execute plan */
+  memset((void *) analyse_channel->out, 0, sizeof(fftw_output_type) * analyse_channel->buffer_size);
+  fftw_execute(analyse_channel->plan);
+
+  /* retrieve frequency and magnitude */
+  correction = (double) analyse_channel->samplerate / (double) analyse_channel->buffer_size;
+  
+  g_value_init(&value,
+	       G_TYPE_DOUBLE);
+  
+  for(i = 0; i < analyse_channel->buffer_size / 2; i++){
+    frequency = i * correction;
+    magnitude = out[i] * out[i] + out[(analyse_channel->buffer_size / 2) + 1 - i] * out[(analyse_channel->buffer_size / 2) + 1 - i];
+
+    /* frequency - write array position */
+    g_value_set_double(&value, frequency);
+    
+    ags_port_safe_write_array(analyse_channel->frequency, &value, i);
+    
+    /* magnitude - write array position */
+    g_value_set_double(&value, magnitude);
+    
+    ags_port_safe_write_array(analyse_channel->magnitude, &value, i);
+  }
+
+  g_value_unset(&value);
 }
 
 /**
