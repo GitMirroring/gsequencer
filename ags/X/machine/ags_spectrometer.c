@@ -272,7 +272,7 @@ ags_spectrometer_init(AgsSpectrometer *spectrometer)
   /* queue draw */
   g_hash_table_insert(ags_spectrometer_cartesian_queue_draw,
 		      cartesian, ags_spectrometer_cartesian_queue_draw_timeout);
-  g_timeout_add(1000 / 60, (GSourceFunc) ags_spectrometer_cartesian_queue_draw_timeout, (gpointer) cartesian);
+  g_timeout_add(1000 / 30, (GSourceFunc) ags_spectrometer_cartesian_queue_draw_timeout, (gpointer) cartesian);
 }
 
 void
