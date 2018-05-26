@@ -42,7 +42,7 @@
 #define AGS_SPECTROMETER_DEFAULT_Y_START (AGS_CARTESIAN_DEFAULT_Y_START)
 #define AGS_SPECTROMETER_DEFAULT_Y_END (239.0)
 
-#define AGS_SPECTROMETER_PLOT_DEFAULT_POINT_COUNT (24)
+#define AGS_SPECTROMETER_PLOT_DEFAULT_POINT_COUNT (48)
 
 typedef struct _AgsSpectrometer AgsSpectrometer;
 typedef struct _AgsSpectrometerClass AgsSpectrometerClass;

@@ -261,7 +261,7 @@ ags_spectrometer_resize_pads_callback(AgsSpectrometer *spectrometer,
   
   cartesian = spectrometer->cartesian;
   
-  if(pads_old == 0){
+  if(pads_old == 0 && channel_type == AGS_TYPE_INPUT){
     if((AGS_MACHINE_MAPPED_RECALL & (AGS_MACHINE(spectrometer)->flags)) != 0){
       AgsAudio *audio;
       AgsChannel *channel;
@@ -336,7 +336,7 @@ ags_spectrometer_resize_pads_callback(AgsSpectrometer *spectrometer,
 					       "./frequency-buffer[0]");
 
 	if(port != NULL){
-	  g_object_ref(port);
+ 	  g_object_ref(port);
 
 	  spectrometer->frequency_buffer_play_port = g_list_prepend(spectrometer->frequency_buffer_play_port,
 								    port);
@@ -381,7 +381,7 @@ ags_spectrometer_resize_pads_callback(AgsSpectrometer *spectrometer,
     }
   }
 
-  if(pads == 0){
+  if(pads == 0 && channel_type == AGS_TYPE_INPUT){
     GList *list_start, *list;
 
     list = 

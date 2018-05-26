@@ -676,10 +676,14 @@ ags_spectrometer_cartesian_queue_draw_timeout(GtkWidget *widget)
 
   if(g_hash_table_lookup(ags_spectrometer_cartesian_queue_draw,
 			 widget) != NULL){
+    AgsCartesian *cartesian;
+    
     GList *fg_plot;
     GList *frequency_buffer_port;
     GList *magnitude_buffer_port;
 
+    gdouble correction;
+    double frequency;
     double magnitude;
     guint i;
     guint j, j_stop;
@@ -687,36 +691,44 @@ ags_spectrometer_cartesian_queue_draw_timeout(GtkWidget *widget)
     guint nth;
       
     GValue value = {0,};
-    
+
+    cartesian = widget;
     spectrometer = gtk_widget_get_ancestor(widget,
 					   AGS_TYPE_SPECTROMETER);
 
     fg_plot = spectrometer->fg_plot;
+    correction = (double) 44100.0 / (double) AGS_SOUNDCARD_DEFAULT_BUFFER_SIZE;
 
     frequency_buffer_port = spectrometer->frequency_buffer_play_port;
     magnitude_buffer_port = spectrometer->magnitude_buffer_play_port;
-
-    g_value_init(&value, G_TYPE_POINTER);
       
     for(i = 0; fg_plot != NULL; i++){
+      g_value_init(&value, G_TYPE_POINTER);
+      
       g_value_set_pointer(&value, spectrometer->frequency_buffer);
       ags_port_safe_read(frequency_buffer_port->data, &value);
-      
+
+      g_value_reset(&value);
+
       g_value_set_pointer(&value, spectrometer->magnitude_buffer);
       ags_port_safe_read(magnitude_buffer_port->data, &value);
 
+      g_value_unset(&value);
+
       j_stop = AGS_SPECTROMETER_PLOT_DEFAULT_POINT_COUNT;
       
-      for(j = 1, nth = 1; j < j_stop && nth < spectrometer->buffer_size; j++){
+      for(j = 1, nth = 0; j < j_stop; j++){
 	magnitude = 0.0;
-	
-	k_stop = ((double) spectrometer->buffer_size / (double) j_stop);
 
-	for(k = 0; k < k_stop && nth < spectrometer->buffer_size; k++, nth++){
+	k_stop = spectrometer->buffer_size / j_stop;
+	
+	for(k = 0; k < k_stop; k++, nth++){	  
 	  magnitude += spectrometer->magnitude_buffer[nth];
 	}
 
-	AGS_PLOT(fg_plot->data)->point[j][1] = ((double) magnitude / (double) k_stop);
+	if(j != 0){
+	  AGS_PLOT(fg_plot->data)->point[j][1] = ((double) magnitude / (double) k);
+	}
       }
 
       /* iterate */

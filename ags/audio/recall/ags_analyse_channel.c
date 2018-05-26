@@ -706,18 +706,20 @@ ags_analyse_channel_retrieve_frequency_and_magnitude(AgsAnalyseChannel *analyse_
     magnitude = out[i] * out[i] + out[(analyse_channel->buffer_size / 2) + 1 - i] * out[(analyse_channel->buffer_size / 2) + 1 - i];
 
     analyse_channel->frequency_pre_buffer[i] = frequency;
-    analyse_channel->magnitude_pre_buffer[i] = magnitude;    
+    analyse_channel->magnitude_pre_buffer[i] = magnitude;
   }
   
+  /* frequency - write array position */
   g_value_init(&value,
 	       G_TYPE_POINTER);
 
-  /* frequency - write array position */
   g_value_set_pointer(&value, analyse_channel->frequency_pre_buffer);
-    
+
   ags_port_safe_write(analyse_channel->frequency_buffer, &value);
     
   /* magnitude - write array position */
+  g_value_reset(&value);
+  
   g_value_set_pointer(&value, analyse_channel->magnitude_pre_buffer);
   
   ags_port_safe_write(analyse_channel->magnitude_buffer, &value);
