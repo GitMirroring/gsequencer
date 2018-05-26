@@ -151,6 +151,7 @@ ags_desk_plugin_interface_init(AgsPluginInterface *plugin)
 void
 ags_desk_init(AgsDesk *desk)
 {
+  //TODO:JK: implement me
 }
 
 void

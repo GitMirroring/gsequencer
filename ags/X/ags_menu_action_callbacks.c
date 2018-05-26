@@ -41,6 +41,7 @@
 #include <ags/X/machine/ags_synth.h>
 #include <ags/X/machine/ags_syncsynth.h>
 #include <ags/X/machine/ags_ffplayer.h>
+#include <ags/X/machine/ags_spectrometer.h>
 #include <ags/X/machine/ags_audiorec.h>
 #include <ags/X/machine/ags_ladspa_bridge.h>
 #include <ags/X/machine/ags_dssi_bridge.h>
@@ -688,6 +689,60 @@ ags_menu_action_add_ffplayer_callback(GtkWidget *menu_item, gpointer data)
   ags_audio_set_pads(AGS_MACHINE(ffplayer)->audio, AGS_TYPE_OUTPUT, 1);  
 
   gtk_widget_show_all((GtkWidget *) ffplayer);
+}
+
+void
+ags_menu_action_add_spectrometer_callback(GtkWidget *menu_item, gpointer data)
+{
+  AgsApplicationContext *application_context;
+  AgsWindow *window;
+  AgsSpectrometer *spectrometer;
+
+  AgsAddAudio *add_audio;
+
+  AgsMutexManager *mutex_manager;
+  AgsThread *main_loop;
+  AgsGuiThread *gui_thread;
+
+  pthread_mutex_t *application_mutex;
+  
+  application_context = ags_application_context_get_instance();
+  window = ags_ui_provider_get_window(AGS_UI_PROVIDER(application_context));
+
+  spectrometer = ags_spectrometer_new(G_OBJECT(window->soundcard));
+
+  mutex_manager = ags_mutex_manager_get_instance();
+  application_mutex = ags_mutex_manager_get_application_mutex(mutex_manager);    
+
+  /* get audio loop */
+  pthread_mutex_lock(application_mutex);
+
+  main_loop = (AgsThread *) AGS_APPLICATION_CONTEXT(application_context)->main_loop;
+
+  pthread_mutex_unlock(application_mutex);
+
+  /* get task thread */
+  gui_thread = (AgsGuiThread *) ags_thread_find_type(main_loop,
+						     AGS_TYPE_GUI_THREAD);
+
+  add_audio = ags_add_audio_new(window->soundcard,
+				AGS_MACHINE(spectrometer)->audio);
+  ags_gui_thread_schedule_task(gui_thread,
+			       add_audio);
+
+  gtk_box_pack_start((GtkBox *) window->machines,
+		     (GtkWidget *) spectrometer,
+		     FALSE, FALSE,
+		     0);
+
+  ags_connectable_connect(AGS_CONNECTABLE(spectrometer));
+
+  spectrometer->machine.audio->audio_channels = 2;
+
+  ags_audio_set_pads(AGS_MACHINE(spectrometer)->audio, AGS_TYPE_INPUT, 1);
+  ags_audio_set_pads(AGS_MACHINE(spectrometer)->audio, AGS_TYPE_OUTPUT, 1);  
+
+  gtk_widget_show_all((GtkWidget *) spectrometer);
 }
 
 void

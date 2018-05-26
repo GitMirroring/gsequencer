@@ -50,13 +50,17 @@ struct _AgsAnalyseChannel
   guint buffer_size;
   guint format;
 
-  void *buffer;
-
   fftw_plan plan;
   fftw_complex *comout;
 
-  fftw_input_type *in;
-  fftw_output_type *out;
+  double *in;
+  double *out;
+
+  double *frequency_pre_buffer;
+  double *magnitude_pre_buffer;
+
+  AgsPort *buffer_cleared;
+  AgsPort *buffer_computed;
 
   AgsPort *frequency_buffer;
   AgsPort *magnitude_buffer;

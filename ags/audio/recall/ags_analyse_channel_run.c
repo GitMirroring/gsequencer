@@ -244,7 +244,7 @@ ags_analyse_channel_run_run_pre(AgsRecall *recall)
     ags_analyse_channel_retrieve_frequency_and_magnitude(analyse_channel);
 
     /* clear buffer */
-    ags_audio_buffer_util_clear_double(analyse_channel->buffer, 1,
+    ags_audio_buffer_util_clear_double(analyse_channel->in, 1,
 				       analyse_channel->buffer_size);
   }
 

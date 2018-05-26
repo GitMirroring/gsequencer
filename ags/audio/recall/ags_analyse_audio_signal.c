@@ -143,11 +143,6 @@ void
 ags_analyse_audio_signal_init(AgsAnalyseAudioSignal *analyse_audio_signal)
 {
   AGS_RECALL(analyse_audio_signal)->child_type = G_TYPE_NONE;
-
-  analyse_audio_signal->comout = NULL;
-
-  analyse_audio_signal->in = NULL;
-  analyse_audio_signal->out = NULL;
 }
 
 void

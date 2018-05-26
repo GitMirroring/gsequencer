@@ -617,7 +617,7 @@ ags_port_real_safe_read(AgsPort *port, GValue *value)
     }else if(port->port_value_type == G_TYPE_OBJECT){
       data = port->port_value.ags_port_object;
     }else{
-      data = (gpointer) malloc(overall_size);
+      data = (gpointer) g_value_get_pointer(value);
 
       if(port->port_value_type == G_TYPE_BOOLEAN){
 	memcpy(data, port->port_value.ags_port_boolean_ptr, overall_size);
@@ -639,8 +639,6 @@ ags_port_real_safe_read(AgsPort *port, GValue *value)
 	}
       }
     }
-   
-    g_value_set_pointer(value, data);
   }
   
   pthread_mutex_unlock(port->mutex);

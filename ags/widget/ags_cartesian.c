@@ -1335,7 +1335,7 @@ ags_cartesian_draw(AgsCartesian *cartesian)
       break;
 
     case 2:
-      *(unsigned short int *)p = pixel;
+      *(gint16 *)p = pixel;
       break;
 
     case 3:
@@ -1345,12 +1345,13 @@ ags_cartesian_draw(AgsCartesian *cartesian)
       break;
 
     case 4:
-      *(unsigned long int *)p = pixel;
+      *(gint32 *)p = pixel;
       break;
     }
   }
   
   void ags_cartesian_draw_plot(AgsPlot *plot){
+    unsigned char *data;
     guint i;
 
     cairo_set_source_rgb(cr,
@@ -1394,10 +1395,10 @@ ags_cartesian_draw(AgsCartesian *cartesian)
 	}
       }
     }
-
+    
     cairo_stroke(cr);
     cairo_fill(cr);
-    
+
     /* bitmaps */
     for(i = 0; i < plot->n_bitmaps; i++){
       if(plot->bitmap[i] != NULL){
@@ -1416,7 +1417,7 @@ ags_cartesian_draw(AgsCartesian *cartesian)
 	
 	for(y = 0, nth = 0; y < height; y++){
 	  for(x = 0; x < width; x++, nth++){
-	    if(((1 << (nth % 8)) & (plot->bitmap[i][(guint) floor(nth / 8.0)]))  != 0){
+	    if(((1 << (nth % 8)) & (plot->bitmap[i][(guint) floor(nth / 8.0)])) != 0){
 	      ags_cartesian_draw_putpixel(x, y, pixel);
 	    }
 	  }
@@ -1866,7 +1867,7 @@ ags_cartesian_reallocate_label(AgsCartesian *cartesian,
     }else{
       /* reallocate */
       cartesian->x_label = (gchar **) realloc(cartesian->x_label,
-					      i_stop);
+					      (i_stop + 1) * sizeof(gchar *));
 
       /* iteration control */
       i_start = g_strv_length(cartesian->x_label);
@@ -1906,7 +1907,7 @@ ags_cartesian_reallocate_label(AgsCartesian *cartesian,
     }else{
       /* reallocate */
       cartesian->y_label = (gchar **) realloc(cartesian->y_label,
-					      i_stop);
+					      (i_stop + 1) * sizeof(gchar *));
 
       /* iteration control */
       i_start = g_strv_length(cartesian->y_label);

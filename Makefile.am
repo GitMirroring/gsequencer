@@ -1190,6 +1190,7 @@ libags_audio_task_h_sources = \
 	ags/audio/task/recall/ags_apply_bpm.h \
 	ags/audio/task/recall/ags_apply_sequencer_length.h \
 	ags/audio/task/recall/ags_apply_tact.h \
+	ags/audio/task/recall/ags_reset_amplitude.h \
 	ags/audio/task/recall/ags_reset_peak.h \
 	ags/audio/task/recall/ags_set_muted.h
 
@@ -1256,6 +1257,7 @@ libags_audio_task_c_sources = \
 	ags/audio/task/recall/ags_apply_bpm.c \
 	ags/audio/task/recall/ags_apply_sequencer_length.c \
 	ags/audio/task/recall/ags_apply_tact.c \
+	ags/audio/task/recall/ags_reset_amplitude.c \
 	ags/audio/task/recall/ags_reset_peak.c \
 	ags/audio/task/recall/ags_set_muted.c
 
@@ -1721,6 +1723,8 @@ libgsequencer_machine_h_sources = \
 	ags/X/machine/ags_panel_input_pad.h \
 	ags/X/machine/ags_pattern_box_callbacks.h \
 	ags/X/machine/ags_pattern_box.h \
+	ags/X/machine/ags_spectrometer.h \
+	ags/X/machine/ags_spectrometer_callbacks.h \
 	ags/X/machine/ags_synth_callbacks.h \
 	ags/X/machine/ags_syncsynth.h \
 	ags/X/machine/ags_syncsynth_callbacks.h \
@@ -1786,6 +1790,8 @@ libgsequencer_machine_c_sources = \
 	ags/X/machine/ags_panel_input_pad.c \
 	ags/X/machine/ags_pattern_box_callbacks.c \
 	ags/X/machine/ags_pattern_box.c \
+	ags/X/machine/ags_spectrometer.c \
+	ags/X/machine/ags_spectrometer_callbacks.c \
 	ags/X/machine/ags_syncsynth.c \
 	ags/X/machine/ags_syncsynth_callbacks.c \
 	ags/X/machine/ags_synth.c \
