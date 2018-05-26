@@ -715,19 +715,27 @@ ags_spectrometer_cartesian_queue_draw_timeout(GtkWidget *widget)
 
       g_value_unset(&value);
 
-      j_stop = AGS_SPECTROMETER_PLOT_DEFAULT_POINT_COUNT;
-      
-      for(j = 1, nth = 0; j < j_stop; j++){
-	magnitude = 0.0;
+      magnitude = 0.0;
 
-	k_stop = spectrometer->buffer_size / j_stop;
+      for(nth = 0, j = 1; nth < spectrometer->buffer_size; nth++){
+	frequency = nth * correction;
+
+	magnitude += spectrometer->magnitude_buffer[nth];
+	k++;
 	
-	for(k = 0; k < k_stop; k++, nth++){	  
-	  magnitude += spectrometer->magnitude_buffer[nth];
-	}
+	if(frequency > ((correction / 2.0) * (exp(((nth / spectrometer->buffer_size) * 18.0) / 12.0) - 1.0))){
+	  if(k != 0){
+	    AGS_PLOT(fg_plot->data)->point[j][1] = ((double) magnitude / (double) k) / 1.25;
+	  }
+	  
+	  j++;
 
-	if(j != 0){
-	  AGS_PLOT(fg_plot->data)->point[j][1] = ((double) magnitude / (double) k);
+	  if(j >= AGS_SPECTROMETER_PLOT_DEFAULT_POINT_COUNT){
+	    break;
+	  }
+	  
+	  magnitude = 0.0;
+	  k = 0;
 	}
       }
 
