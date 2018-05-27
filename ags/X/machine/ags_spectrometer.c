@@ -717,7 +717,7 @@ ags_spectrometer_cartesian_queue_draw_timeout(GtkWidget *widget)
 
       magnitude = 0.0;
 
-      for(nth = 0, j = 1; nth < spectrometer->buffer_size; nth++){
+      for(nth = 1, j = 1; nth < spectrometer->buffer_size; nth++){
 	frequency = nth * correction;
 
 	magnitude += spectrometer->magnitude_buffer[nth];
@@ -725,7 +725,7 @@ ags_spectrometer_cartesian_queue_draw_timeout(GtkWidget *widget)
 	
 	if(frequency > ((correction / 2.0) * (exp(((nth / spectrometer->buffer_size) * 18.0) / 12.0) - 1.0))){
 	  if(k != 0){
-	    AGS_PLOT(fg_plot->data)->point[j][1] = ((double) magnitude / (double) k) / 1.25;
+	    AGS_PLOT(fg_plot->data)->point[j][1] = 20.0 * log10(((double) magnitude / (double) k) + 1.0) * AGS_SPECTROMETER_EXTRA_SCALE;
 	  }
 	  
 	  j++;

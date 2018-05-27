@@ -703,7 +703,7 @@ ags_analyse_channel_retrieve_frequency_and_magnitude(AgsAnalyseChannel *analyse_
   
   for(i = 0; i < analyse_channel->buffer_size / 2; i++){
     frequency = i * correction;
-    magnitude = out[i] * out[i] + out[(analyse_channel->buffer_size / 2) + 1 - i] * out[(analyse_channel->buffer_size / 2) + 1 - i];
+    magnitude = sqrt(out[i] * out[i] + out[(analyse_channel->buffer_size / 2) + 1 - i] * out[(analyse_channel->buffer_size / 2) + 1 - i]);
 
     analyse_channel->frequency_pre_buffer[i] = frequency;
     analyse_channel->magnitude_pre_buffer[i] = magnitude;

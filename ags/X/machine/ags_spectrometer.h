@@ -43,6 +43,7 @@
 #define AGS_SPECTROMETER_DEFAULT_Y_END (239.0)
 
 #define AGS_SPECTROMETER_PLOT_DEFAULT_POINT_COUNT (48)
+#define AGS_SPECTROMETER_EXTRA_SCALE (5.0)
 
 typedef struct _AgsSpectrometer AgsSpectrometer;
 typedef struct _AgsSpectrometerClass AgsSpectrometerClass;
