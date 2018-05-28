@@ -43,7 +43,7 @@ void ags_wave_finalize(GObject *gobject);
 void ags_wave_insert_native_level_from_clipboard(AgsWave *wave,
 						 xmlNode *root_node, char *version,
 						 char *x_boundary,
-						 gboolean reset_x_offset, guint x_offset,
+						 gboolean reset_x_offset, guint64 x_offset,
 						 gdouble delay, guint attack,
 						 gboolean match_channel, gboolean do_replace);
 
@@ -866,8 +866,8 @@ ags_wave_is_buffer_selected(AgsWave *wave, AgsBuffer *buffer)
  */
 GList*
 ags_wave_find_region(AgsWave *wave,
-		     guint x0,
-		     guint x1,
+		     guint64 x0,
+		     guint64 x1,
 		     gboolean use_selection_list)
 {
   AgsBuffer *buffer;
@@ -963,7 +963,7 @@ ags_wave_add_all_to_selection(AgsWave *wave)
  */
 void
 ags_wave_add_region_to_selection(AgsWave *wave,
-				 guint x0, guint x1,
+				 guint64 x0, guint64 x1,
 				 gboolean replace_current_selection)
 {
   AgsBuffer *buffer;
@@ -1021,7 +1021,7 @@ ags_wave_add_region_to_selection(AgsWave *wave,
  */ 
 void
 ags_wave_remove_region_from_selection(AgsWave *wave,
-				      guint x0, guint x1)
+				      guint64 x0, guint64 x1)
 {
   AgsBuffer *buffer;
   
@@ -1067,7 +1067,7 @@ ags_wave_copy_selection(AgsWave *wave)
 
   xmlChar *str;
   
-  guint x_boundary, y_boundary;
+  guint64 x_boundary, y_boundary;
 
   selection = wave->selection;
 
@@ -1287,7 +1287,7 @@ void
 ags_wave_insert_native_level_from_clipboard(AgsWave *wave,
 					    xmlNode *root_node, char *version,
 					    char *x_boundary,
-					    gboolean reset_x_offset, guint x_offset,
+					    gboolean reset_x_offset, guint64 x_offset,
 					    gdouble delay, guint attack,
 					    gboolean match_channel, gboolean do_replace)
 {
@@ -1303,8 +1303,8 @@ ags_wave_insert_native_level_from_clipboard(AgsWave *wave,
     gchar *offset;
     char *endptr;
 
-    guint x_boundary_val;
-    guint x_val;
+    guint64 x_boundary_val;
+    guint64 x_val;
     guint base_x_difference;
     guint offset_val;
     gboolean subtract_x;
@@ -1392,7 +1392,7 @@ ags_wave_insert_native_level_from_clipboard(AgsWave *wave,
 void
 ags_wave_insert_from_clipboard(AgsWave *wave,
 			       xmlNode *wave_node,
-			       gboolean reset_x_offset, guint x_offset,
+			       gboolean reset_x_offset, guint64 x_offset,
 			       gdouble delay, guint attack)
 {
   ags_wave_insert_from_clipboard_extended(wave,
@@ -1420,7 +1420,7 @@ ags_wave_insert_from_clipboard(AgsWave *wave,
 void
 ags_wave_insert_from_clipboard_extended(AgsWave *wave,
 					xmlNode *wave_node,
-					gboolean reset_x_offset, guint x_offset,
+					gboolean reset_x_offset, guint64 x_offset,
 					gdouble delay, guint attack,
 					gboolean match_audio_channel, gboolean do_replace)
 {
