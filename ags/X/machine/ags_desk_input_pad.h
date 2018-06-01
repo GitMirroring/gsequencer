@@ -29,8 +29,6 @@
 #include <ags/libags-audio.h>
 #include <ags/libags-gui.h>
 
-#include <ags/X/ags_pad.h>
-
 #define AGS_TYPE_DESK_INPUT_PAD                (ags_desk_input_pad_get_type())
 #define AGS_DESK_INPUT_PAD(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_DESK_INPUT_PAD, AgsDeskInputPad))
 #define AGS_DESK_INPUT_PAD_CLASS(class)        (G_TYPE_CHECK_CLASS_CAST((class), AGS_TYPE_DESK_INPUT_PAD, AgsDeskInputPadClass))
@@ -56,13 +54,15 @@ struct _AgsDeskInputPad
 
   AgsChannel *channel;
 
+  GtkLabel *position_time;
+  GtkScale *position;
+  
+  GtkToggleButton *play;
   GtkEntry *filename;
   GtkButton *grab_filename;
   
-  GtkToggleButton *play;
-
-  GtkScale *volume;
   AgsIndicator *indicator;
+  GtkScale *volume;
 };
 
 struct _AgsDeskInputPadClass

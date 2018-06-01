@@ -35,6 +35,7 @@ void ags_menu_action_add_callback(GtkWidget *menu_item, gpointer data);
 
 void ags_menu_action_add_panel_callback(GtkWidget *menu_item, gpointer data);
 void ags_menu_action_add_mixer_callback(GtkWidget *menu_item, gpointer data);
+void ags_menu_action_add_desk_callback(GtkWidget *menu_item, gpointer data);
 void ags_menu_action_add_drum_callback(GtkWidget *menu_item, gpointer data);
 void ags_menu_action_add_matrix_callback(GtkWidget *menu_item, gpointer data);
 void ags_menu_action_add_synth_callback(GtkWidget *menu_item, gpointer data);

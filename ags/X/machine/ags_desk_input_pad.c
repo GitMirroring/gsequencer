@@ -46,7 +46,6 @@ void ags_desk_input_pad_set_name(AgsPlugin *plugin, gchar *name);
 gchar* ags_desk_input_pad_get_xml_type(AgsPlugin *plugin);
 void ags_desk_input_pad_set_xml_type(AgsPlugin *plugin, gchar *xml_type);
 void ags_desk_input_pad_read(AgsFile *file, xmlNode *node, AgsPlugin *plugin);
-void ags_desk_input_pad_launch_task(AgsFileLaunch *file_launch, AgsDeskInputPad *desk_input_pad);
 xmlNode* ags_desk_input_pad_write(AgsFile *file, xmlNode *parent, AgsPlugin *plugin);
 
 
@@ -143,7 +142,80 @@ ags_desk_input_pad_plugin_interface_init(AgsPluginInterface *plugin)
 void
 ags_desk_input_pad_init(AgsDeskInputPad *desk_input_pad)
 {
-  //TODO:JK: implement me
+  GtkHBox *hbox;
+
+  desk_input_pad->name = NULL;
+  desk_input_pad->xml_type = "ags-desk-input-pad";
+
+  /* position */
+  desk_input_pad->position_time = (GtkLabel *) gtk_label_new("00:00.000");
+  gtk_box_pack_start((GtkBox *) desk_input_pad,
+		     (GtkWidget *) desk_input_pad->position_time,
+		     FALSE, FALSE,
+		     0);
+  
+  hbox = (GtkHBox *) gtk_hbox_new(FALSE,
+				  0);
+  gtk_box_pack_start((GtkBox *) desk_input_pad,
+		     (GtkWidget *) hbox,
+		     FALSE, FALSE,
+		     0);
+  
+  desk_input_pad->position = (GtkScale *) gtk_hscale_new_with_range(0.0, 1.0, 0.001);
+  gtk_box_pack_start((GtkBox *) hbox,
+		     (GtkWidget *) desk_input_pad->position,
+		     TRUE, TRUE,
+		     0);
+
+  /* filename */
+  hbox = (GtkHBox *) gtk_hbox_new(FALSE,
+				  0);
+  gtk_box_pack_start((GtkBox *) desk_input_pad,
+		     (GtkWidget *) hbox,
+		     FALSE, FALSE,
+		     0);
+
+  /* play */
+  desk_input_pad->play = (GtkToggleButton *) g_object_new(GTK_TYPE_TOGGLE_BUTTON,
+							  "image", (GtkWidget *) gtk_image_new_from_stock(GTK_STOCK_MEDIA_PLAY, GTK_ICON_SIZE_BUTTON),
+							  NULL);
+  gtk_box_pack_start((GtkBox *) hbox,
+		     (GtkWidget *) desk_input_pad->play,
+		     FALSE, FALSE,
+		     0);
+
+  desk_input_pad->filename = (GtkEntry *) gtk_entry_new();
+  gtk_box_pack_start((GtkBox *) hbox,
+		     (GtkWidget *) desk_input_pad->filename,
+		     FALSE, FALSE,
+		     0);
+  
+  desk_input_pad->grab_filename = (GtkButton *) gtk_button_new_with_label(i18n("grab"));
+  gtk_box_pack_start((GtkBox *) hbox,
+		     (GtkWidget *) desk_input_pad->grab_filename,
+		     FALSE, FALSE,
+		     0);
+
+  /* volume */
+  hbox = (GtkHBox *) gtk_hbox_new(FALSE,
+				  0);
+  gtk_box_pack_start((GtkBox *) desk_input_pad,
+		     (GtkWidget *) hbox,
+		     FALSE, FALSE,
+		     0);
+
+  /* controls */
+  desk_input_pad->indicator = (AgsIndicator *) ags_vindicator_new();
+  gtk_box_pack_start((GtkBox *) hbox,
+		     (GtkWidget *) desk_input_pad->indicator,
+		     FALSE, FALSE,
+		     0);
+
+  desk_input_pad->volume = (GtkScale *) gtk_vscale_new_with_range(0.0, 2.0, 0.1);
+  gtk_box_pack_start((GtkBox *) hbox,
+		     (GtkWidget *) desk_input_pad->volume,
+		     FALSE, FALSE,
+		     0);
 }
 
 static void
@@ -156,6 +228,17 @@ ags_desk_input_pad_finalize(GObject *gobject)
   G_OBJECT_CLASS(ags_desk_input_pad_parent_class)->finalize(gobject);
 }
 
+void
+ags_desk_input_pad_connect(AgsConnectable *connectable)
+{
+  //TODO:JK: implement me
+}
+
+void
+ags_desk_input_pad_disconnect(AgsConnectable *connectable)
+{
+  //TODO:JK: implement me
+}
 
 gchar*
 ags_desk_input_pad_get_name(AgsPlugin *plugin)
@@ -185,7 +268,6 @@ void
 ags_desk_input_pad_read(AgsFile *file, xmlNode *node, AgsPlugin *plugin)
 {
   AgsDeskInputPad *gobject;
-  AgsFileLaunch *file_launch;
 
   gobject = AGS_DESK_INPUT_PAD(plugin);
 
@@ -197,31 +279,6 @@ ags_desk_input_pad_read(AgsFile *file, xmlNode *node, AgsPlugin *plugin)
 				   "xpath", g_strdup_printf("xpath=//*[@id='%s']", xmlGetProp(node, AGS_FILE_ID_PROP)),
 				   "reference", gobject,
 				   NULL));
-  
-  /*  */
-  file_launch = (AgsFileLaunch *) g_object_new(AGS_TYPE_FILE_LAUNCH,
-					       "node", node,
-					       "file", file,
-					       NULL);
-  g_signal_connect(G_OBJECT(file_launch), "start",
-		   G_CALLBACK(ags_desk_input_pad_launch_task), gobject);
-  ags_file_add_launch(file,
-		      (GObject *) file_launch);
-}
-
-void
-ags_desk_input_pad_launch_task(AgsFileLaunch *file_launch, AgsDeskInputPad *desk_input_pad)
-{
-  xmlNode *node;
-
-  node = file_launch->node;
-
-  if(!xmlStrncmp(xmlGetProp(node,
-			    "edit"),
-		 AGS_FILE_TRUE,
-		 5)){
-    gtk_button_clicked((GtkButton *) desk_input_pad->edit);
-  }
 }
 
 xmlNode*
@@ -233,32 +290,6 @@ ags_desk_input_pad_write(AgsFile *file, xmlNode *parent, AgsPlugin *plugin)
 
   desk_input_pad = AGS_DESK_INPUT_PAD(plugin);
   node = NULL;
-
-  if(gtk_toggle_button_get_active(desk_input_pad->edit)){
-    id = ags_id_generator_create_uuid();
-  
-    node = xmlNewNode(NULL,
-		      "ags-desk-input-pad");
-    xmlNewProp(node,
-	       AGS_FILE_ID_PROP,
-	       id);
-
-    ags_file_add_id_ref(file,
-			g_object_new(AGS_TYPE_FILE_ID_REF,
-				     "application-context", file->application_context,
-				     "file", file,
-				     "node", node,
-				     "xpath", g_strdup_printf("xpath=//*[@id='%s']", id),
-				     "reference", desk_input_pad,
-				     NULL));
-
-    xmlNewProp(node,
-	       "edit",
-	       g_strdup_printf("%s", AGS_FILE_TRUE));
-
-    xmlAddChild(parent,
-		node);  
-  }
 
   return(node);
 }

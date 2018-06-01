@@ -27,6 +27,8 @@
 
 #include <ags/X/ags_machine.h>
 
+#include <ags/X/machine/ags_desk_input_pad.h>
+
 #define AGS_TYPE_DESK                (ags_desk_get_type())
 #define AGS_DESK(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_DESK, AgsDesk))
 #define AGS_DESK_CLASS(class)        (G_TYPE_CHECK_CLASS_CAST((class), AGS_TYPE_DESK, AgsDeskClass))
@@ -41,8 +43,15 @@ struct _AgsDesk
 {
   AgsMachine machine;
 
+  gchar *name;
+  gchar *xml_type;
+
+  GtkVBox *vbox;
+  
   AgsDeskInputPad *left_pad;
 
+  GtkVBox *console;
+  
   GtkButton *move_left;
   GtkScale *balance;
   GtkButton *move_right;

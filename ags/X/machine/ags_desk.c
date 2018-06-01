@@ -24,6 +24,8 @@
 #include <ags/libags-audio.h>
 #include <ags/libags-gui.h>
 
+#include <ags/i18n.h>
+
 void ags_desk_class_init(AgsDeskClass *desk);
 void ags_desk_connectable_interface_init(AgsConnectableInterface *connectable);
 void ags_desk_plugin_interface_init(AgsPluginInterface *plugin);
@@ -116,12 +118,6 @@ ags_desk_class_init(AgsDeskClass *desk)
 
   gobject->finalize = ags_desk_finalize;
 
-  /* GtkWidget */
-  widget = (GtkWidgetClass *) desk;
-
-  widget->show = ags_desk_show;
-  widget->show_all = ags_desk_show_all;
-
   /*  */
   machine = (AgsMachineClass *) desk;
 
@@ -151,7 +147,90 @@ ags_desk_plugin_interface_init(AgsPluginInterface *plugin)
 void
 ags_desk_init(AgsDesk *desk)
 {
-  //TODO:JK: implement me
+  GtkHBox *hbox;
+  GtkAlignment *alignment;
+  GtkHBox *balance_hbox;
+  
+  desk->name = NULL;
+  desk->xml_type = "ags-desk";
+
+  /* create widgets */
+  desk->vbox = (GtkVBox *) gtk_vbox_new(FALSE,
+					0);
+  gtk_container_add((GtkContainer*) gtk_bin_get_child((GtkBin *) desk),
+		    (GtkWidget *) desk->vbox);
+
+  hbox = (GtkHBox *) gtk_hbox_new(FALSE,
+				  0);
+  gtk_box_pack_start((GtkBox *) desk->vbox,
+		     (GtkWidget *) hbox,
+		     FALSE, FALSE,
+		     0);
+
+  /* left pad */
+  desk->left_pad = ags_desk_input_pad_new(NULL);
+  gtk_box_pack_start((GtkBox *) hbox,
+		     (GtkWidget *) desk->left_pad,
+		     FALSE, FALSE,
+		     0);
+
+  /* console */
+  alignment = gtk_alignment_new(0.0,
+				0.0,
+				0.0,
+				0.0);
+  gtk_box_pack_start((GtkBox *) hbox,
+		     (GtkWidget *) alignment,
+		     FALSE, FALSE,
+		     0);
+  
+  desk->console = (GtkVBox *) gtk_vbox_new(FALSE,
+					   0);
+  gtk_container_add(alignment,
+		    desk->console);
+  
+  balance_hbox = (GtkHBox *) gtk_hbox_new(FALSE,
+					  0);
+  gtk_box_pack_start((GtkBox *) desk->console,
+		     (GtkWidget *) balance_hbox,
+		     FALSE, FALSE,
+		     0);
+  
+  desk->move_left = (GtkButton *) gtk_button_new_with_label(i18n("left"));
+  gtk_box_pack_start((GtkBox *) balance_hbox,
+		     (GtkWidget *) desk->move_left,
+		     FALSE, FALSE,
+		     0);
+
+  desk->balance = (GtkScale *) gtk_hscale_new_with_range(-1.0, 1.0, 0.1);
+  gtk_widget_set_size_request(desk->balance,
+			      200, -1);
+  gtk_box_pack_start((GtkBox *) balance_hbox,
+		     (GtkWidget *) desk->balance,
+		     FALSE, FALSE,
+		     0);
+
+  desk->move_right = (GtkButton *) gtk_button_new_with_label(i18n("right"));
+  gtk_box_pack_start((GtkBox *) balance_hbox,
+		     (GtkWidget *) desk->move_right,
+		     FALSE, FALSE,
+		     0);
+
+  /* left pad */
+  desk->right_pad = ags_desk_input_pad_new(NULL);
+  gtk_box_pack_start((GtkBox *) hbox,
+		     (GtkWidget *) desk->right_pad,
+		     FALSE, FALSE,
+		     0);
+
+  /* file chooser */
+  desk->file_chooser = gtk_file_chooser_widget_new(GTK_FILE_CHOOSER_ACTION_OPEN);
+  gtk_widget_set_size_request(desk->file_chooser,
+			      -1, 400);
+  gtk_box_pack_start((GtkBox *) desk->vbox,
+		     (GtkWidget *) desk->file_chooser,
+		     FALSE, FALSE,
+		     0);
 }
 
 void

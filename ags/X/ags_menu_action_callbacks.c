@@ -36,6 +36,7 @@
 
 #include <ags/X/machine/ags_panel.h>
 #include <ags/X/machine/ags_mixer.h>
+#include <ags/X/machine/ags_desk.h>
 #include <ags/X/machine/ags_drum.h>
 #include <ags/X/machine/ags_matrix.h>
 #include <ags/X/machine/ags_synth.h>
@@ -413,6 +414,60 @@ ags_menu_action_add_mixer_callback(GtkWidget *menu_item, gpointer data)
 		     AGS_TYPE_OUTPUT, 1);
 
   gtk_widget_show_all(GTK_WIDGET(mixer));
+}
+
+void
+ags_menu_action_add_desk_callback(GtkWidget *menu_item, gpointer data)
+{
+  AgsApplicationContext *application_context;
+  AgsWindow *window;
+  AgsDesk *desk;
+
+  AgsAddAudio *add_audio;
+
+  AgsMutexManager *mutex_manager;
+  AgsThread *main_loop;
+  AgsGuiThread *gui_thread;
+
+  pthread_mutex_t *application_mutex;
+  
+  application_context = ags_application_context_get_instance();
+  window = ags_ui_provider_get_window(AGS_UI_PROVIDER(application_context));
+
+  desk = ags_desk_new(G_OBJECT(window->soundcard));
+
+  mutex_manager = ags_mutex_manager_get_instance();
+  application_mutex = ags_mutex_manager_get_application_mutex(mutex_manager);    
+
+  /* get audio loop */
+  pthread_mutex_lock(application_mutex);
+
+  main_loop = (AgsThread *) AGS_APPLICATION_CONTEXT(application_context)->main_loop;
+
+  pthread_mutex_unlock(application_mutex);
+
+  /* get task thread */
+  gui_thread = (AgsGuiThread *) ags_thread_find_type(main_loop,
+						     AGS_TYPE_GUI_THREAD);
+
+  add_audio = ags_add_audio_new(window->soundcard,
+				AGS_MACHINE(desk)->audio);
+  ags_gui_thread_schedule_task(gui_thread,
+			       add_audio);
+
+  gtk_box_pack_start((GtkBox *) window->machines,
+		     (GtkWidget *) desk,
+		     FALSE, FALSE,
+		     0);
+
+  ags_connectable_connect(AGS_CONNECTABLE(desk));
+
+  desk->machine.audio->audio_channels = 2;
+
+  ags_audio_set_pads(AGS_MACHINE(desk)->audio, AGS_TYPE_INPUT, 1);
+  ags_audio_set_pads(AGS_MACHINE(desk)->audio, AGS_TYPE_OUTPUT, 1);  
+
+  gtk_widget_show_all((GtkWidget *) desk);
 }
 
 void

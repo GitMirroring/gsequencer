@@ -174,6 +174,9 @@ ags_menu_bar_init(AgsMenuBar *menu_bar)
   item = (GtkImageMenuItem *) gtk_image_menu_item_new_with_label(i18n("Mixer"));
   gtk_menu_shell_append((GtkMenuShell*) menu_bar->add, (GtkWidget*) item);
 
+  item = (GtkImageMenuItem *) gtk_image_menu_item_new_with_label(i18n("Desk"));
+  gtk_menu_shell_append((GtkMenuShell*) menu_bar->add, (GtkWidget*) item);
+
   item = (GtkImageMenuItem *) gtk_image_menu_item_new_with_label(i18n("Drum"));
   gtk_menu_shell_append((GtkMenuShell*) menu_bar->add, (GtkWidget*) item);
 
@@ -341,6 +344,10 @@ ags_menu_bar_connect(AgsConnectable *connectable)
 
   g_signal_connect (G_OBJECT (list2->data), "activate",
                     G_CALLBACK (ags_menu_action_add_mixer_callback), (gpointer) menu_bar);
+  list2 = list2->next;
+
+  g_signal_connect (G_OBJECT (list2->data), "activate",
+                    G_CALLBACK (ags_menu_action_add_desk_callback), (gpointer) menu_bar);
   list2 = list2->next;
 
   g_signal_connect (G_OBJECT (list2->data), "activate",
