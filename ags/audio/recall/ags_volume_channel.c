@@ -320,6 +320,8 @@ ags_volume_channel_dispose(GObject *gobject)
   /* volume */
   if(volume_channel->volume != NULL){
     g_object_unref(G_OBJECT(volume_channel->volume));
+
+    volume_channel->volume = NULL;
   }
 
   /* call parent */
