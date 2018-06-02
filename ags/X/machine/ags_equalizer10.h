@@ -55,16 +55,35 @@ struct _AgsEqualizer10
   GtkScale *peak_7168hz;
   GtkScale *peak_14336hz;
   
-  GList *peak_28hz_port;
-  GList *peak_56hz_port;
-  GList *peak_112hz_port;
-  GList *peak_224hz_port;
-  GList *peak_448hz_port;
-  GList *peak_896hz_port;
-  GList *peak_1792hz_port;
-  GList *peak_3548hz_port;
-  GList *peak_7168hz_port;
-  GList *peak_14336hz_port;
+  GList *peak_28hz_play_port;
+  GList *peak_28hz_recall_port;
+
+  GList *peak_56hz_play_port;
+  GList *peak_56hz_recall_port;
+
+  GList *peak_112hz_play_port;
+  GList *peak_112hz_recall_port;
+
+  GList *peak_224hz_play_port;
+  GList *peak_224hz_recall_port;
+
+  GList *peak_448hz_play_port;
+  GList *peak_448hz_recall_port;
+
+  GList *peak_896hz_play_port;
+  GList *peak_896hz_recall_port;
+
+  GList *peak_1792hz_play_port;
+  GList *peak_1792hz_recall_port;
+
+  GList *peak_3548hz_play_port;
+  GList *peak_3548hz_recall_port;
+
+  GList *peak_7168hz_play_port;
+  GList *peak_7168hz_recall_port;
+
+  GList *peak_14336hz_play_port;
+  GList *peak_14336hz_recall_port;
 };
 
 struct _AgsEqualizer10Class
@@ -73,6 +92,8 @@ struct _AgsEqualizer10Class
 };
 
 GType ags_equalizer10_get_type(void);
+
+AgsPort* ags_equalizer10_find_specifier(GList *recall, gchar *specifier);
 
 AgsEqualizer10* ags_equalizer10_new(GObject *soundcard);
 

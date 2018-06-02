@@ -35,6 +35,7 @@
 #include <ags/X/file/ags_simple_file.h>
 
 #include <ags/X/machine/ags_panel.h>
+#include <ags/X/machine/ags_equalizer10.h>
 #include <ags/X/machine/ags_mixer.h>
 #include <ags/X/machine/ags_desk.h>
 #include <ags/X/machine/ags_drum.h>
@@ -359,6 +360,61 @@ ags_menu_action_add_panel_callback(GtkWidget *menu_item, gpointer data)
 		     AGS_TYPE_OUTPUT, 1);
 
   gtk_widget_show_all(GTK_WIDGET(panel));
+}
+
+void
+ags_menu_action_add_equalizer10_callback(GtkWidget *menu_item, gpointer data)
+{
+  AgsApplicationContext *application_context;
+  AgsWindow *window;
+  AgsEqualizer10 *equalizer10;
+
+  AgsAddAudio *add_audio;
+
+  AgsMutexManager *mutex_manager;
+  AgsThread *main_loop;
+  AgsGuiThread *gui_thread;
+
+  pthread_mutex_t *application_mutex;
+    
+  application_context = ags_application_context_get_instance();
+  window = ags_ui_provider_get_window(AGS_UI_PROVIDER(application_context));
+
+  mutex_manager = ags_mutex_manager_get_instance();
+  application_mutex = ags_mutex_manager_get_application_mutex(mutex_manager);
+  
+  /* get audio loop */
+  pthread_mutex_lock(application_mutex);
+
+  main_loop = (AgsThread *) AGS_APPLICATION_CONTEXT(application_context)->main_loop;
+
+  pthread_mutex_unlock(application_mutex);
+
+  /* get task thread */
+  gui_thread = (AgsGuiThread *) ags_thread_find_type(main_loop,
+						     AGS_TYPE_GUI_THREAD);
+
+  equalizer10 = ags_equalizer10_new(G_OBJECT(window->soundcard));
+
+  add_audio = ags_add_audio_new(window->soundcard,
+				AGS_MACHINE(equalizer10)->audio);
+  ags_gui_thread_schedule_task(gui_thread,
+			       add_audio);
+
+  gtk_box_pack_start((GtkBox *) window->machines,
+		     GTK_WIDGET(equalizer10),
+		     FALSE, FALSE,
+		     0);
+
+  ags_connectable_connect(AGS_CONNECTABLE(equalizer10));
+
+  equalizer10->machine.audio->audio_channels = 2;
+  ags_audio_set_pads(equalizer10->machine.audio,
+		     AGS_TYPE_INPUT, 1);
+  ags_audio_set_pads(equalizer10->machine.audio,
+		     AGS_TYPE_OUTPUT, 1);
+
+  gtk_widget_show_all(GTK_WIDGET(equalizer10));
 }
 
 void

@@ -54,8 +54,6 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
   AgsAudio *audio;
 
   guint i;
-
-  cartesian = equalizer10->cartesian;
   
   audio = AGS_MACHINE(equalizer10)->audio;
   
@@ -116,11 +114,7 @@ ags_equalizer10_resize_pads_callback(AgsEqualizer10 *equalizer10,
 				      GType channel_type,
 				      guint pads, guint pads_old,
 				      gpointer data)
-{
-  AgsCartesian *cartesian;
-  
-  cartesian = equalizer10->cartesian;
-  
+{  
   if(pads_old == 0 && channel_type == AGS_TYPE_INPUT){
     if((AGS_MACHINE_MAPPED_RECALL & (AGS_MACHINE(equalizer10)->flags)) != 0){
       AgsAudio *audio;

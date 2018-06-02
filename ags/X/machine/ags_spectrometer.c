@@ -297,7 +297,7 @@ ags_spectrometer_finalize(GObject *gobject)
   g_free(spectrometer->frequency_buffer);
   g_free(spectrometer->magnitude_buffer);
   
-  /*  */
+  /* call parent */
   G_OBJECT_CLASS(ags_spectrometer_parent_class)->finalize(gobject);
 }
 
@@ -614,7 +614,8 @@ ags_spectrometer_y_label_func(gdouble value,
 }
   
 AgsPort*
-ags_spectrometer_find_specifier(GList *recall, gchar *specifier){
+ags_spectrometer_find_specifier(GList *recall, gchar *specifier)
+{
   GList *port;
     
   while(recall != NULL){
