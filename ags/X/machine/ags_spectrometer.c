@@ -277,7 +277,27 @@ ags_spectrometer_init(AgsSpectrometer *spectrometer)
 
 void
 ags_spectrometer_finalize(GObject *gobject)
-{  
+{
+  AgsSpectrometer *spectrometer;
+
+  spectrometer = (AgsSpectrometer *) gobject;
+  
+  g_list_free_full(spectrometer->frequency_buffer_play_port,
+		   g_object_unref);
+
+  g_list_free_full(spectrometer->frequency_buffer_recall_port,
+		   g_object_unref);
+
+  g_list_free_full(spectrometer->magnitude_buffer_play_port,
+		   g_object_unref);
+
+  g_list_free_full(spectrometer->magnitude_buffer_recall_port,
+		   g_object_unref);
+
+  g_free(spectrometer->frequency_buffer);
+  g_free(spectrometer->magnitude_buffer);
+  
+  /*  */
   G_OBJECT_CLASS(ags_spectrometer_parent_class)->finalize(gobject);
 }
 
@@ -285,8 +305,6 @@ void
 ags_spectrometer_connect(AgsConnectable *connectable)
 {
   AgsSpectrometer *spectrometer;
-
-  int i;
 
   if((AGS_MACHINE_CONNECTED & (AGS_MACHINE(connectable)->flags)) != 0){
     return;
@@ -308,8 +326,6 @@ void
 ags_spectrometer_disconnect(AgsConnectable *connectable)
 {
   AgsSpectrometer *spectrometer;
-
-  int i;
 
   if((AGS_MACHINE_CONNECTED & (AGS_MACHINE(connectable)->flags)) == 0){
     return;

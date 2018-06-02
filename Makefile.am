@@ -988,6 +988,10 @@ libags_audio_recall_h_sources = \
 	ags/audio/recall/ags_envelope_channel.h \
 	ags/audio/recall/ags_envelope_channel_run.h \
 	ags/audio/recall/ags_envelope_recycling.h \
+	ags/audio/recall/ags_eq10_audio_signal.h \
+	ags/audio/recall/ags_eq10_channel.h \
+	ags/audio/recall/ags_eq10_channel_run.h \
+	ags/audio/recall/ags_eq10_recycling.h \
 	ags/audio/recall/ags_feed_audio_signal.h \
 	ags/audio/recall/ags_feed_channel.h \
 	ags/audio/recall/ags_feed_channel_run.h \
@@ -1073,6 +1077,10 @@ libags_audio_recall_c_sources = \
 	ags/audio/recall/ags_envelope_channel.c \
 	ags/audio/recall/ags_envelope_channel_run.c \
 	ags/audio/recall/ags_envelope_recycling.c \
+	ags/audio/recall/ags_eq10_audio_signal.c \
+	ags/audio/recall/ags_eq10_channel.c \
+	ags/audio/recall/ags_eq10_channel_run.c \
+	ags/audio/recall/ags_eq10_recycling.c \
 	ags/audio/recall/ags_feed_audio_signal.c \
 	ags/audio/recall/ags_feed_channel.c \
 	ags/audio/recall/ags_feed_channel_run.c \
@@ -1690,6 +1698,8 @@ libgsequencer_machine_h_sources = \
 	ags/X/machine/ags_drum_output_pad.h \
 	ags/X/machine/ags_dssi_bridge_callbacks.h \
 	ags/X/machine/ags_dssi_bridge.h \
+	ags/X/machine/ags_equalizer10.h \
+	ags/X/machine/ags_equalizer10_callbacks.h \
 	ags/X/machine/ags_ffplayer_callbacks.h \
 	ags/X/machine/ags_ffplayer.h \
 	ags/X/machine/ags_ffplayer_bridge_callbacks.h \
@@ -1761,6 +1771,8 @@ libgsequencer_machine_c_sources = \
 	ags/X/machine/ags_drum_output_pad_callbacks.c \
 	ags/X/machine/ags_dssi_bridge.c \
 	ags/X/machine/ags_dssi_bridge_callbacks.c \
+	ags/X/machine/ags_equalizer10.c \
+	ags/X/machine/ags_equalizer10_callbacks.c \
 	ags/X/machine/ags_ffplayer.c \
 	ags/X/machine/ags_ffplayer_callbacks.c \
 	ags/X/machine/ags_ffplayer_bridge.c \
