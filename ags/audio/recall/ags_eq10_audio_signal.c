@@ -27,6 +27,8 @@
 #include <ags/audio/ags_recall_channel_run.h>
 #include <ags/audio/ags_audio_buffer_util.h>
 
+#include <math.h>
+
 void ags_eq10_audio_signal_class_init(AgsEq10AudioSignalClass *eq10_audio_signal);
 void ags_eq10_audio_signal_connectable_interface_init(AgsConnectableInterface *connectable);
 void ags_eq10_audio_signal_dynamic_connectable_interface_init(AgsDynamicConnectableInterface *dynamic_connectable);
@@ -37,10 +39,13 @@ void ags_eq10_audio_signal_connect_dynamic(AgsDynamicConnectable *dynamic_connec
 void ags_eq10_audio_signal_disconnect_dynamic(AgsDynamicConnectable *dynamic_connectable);
 void ags_eq10_audio_signal_finalize(GObject *gobject);
 
+void ags_eq10_audio_signal_run_init_pre(AgsRecall *recall);
 void ags_eq10_audio_signal_run_inter(AgsRecall *recall);
 AgsRecall* ags_eq10_audio_signal_duplicate(AgsRecall *recall,
 					   AgsRecallID *recall_id,
 					   guint *n_params, GParameter *parameter);
+
+#define AGS_EQ10_AUDIO_SIGNAL_2_POLE_FILTER(output, input,)
 
 /**
  * SECTION:ags_eq10_audio_signal
@@ -120,6 +125,7 @@ ags_eq10_audio_signal_class_init(AgsEq10AudioSignalClass *eq10_audio_signal)
   /* AgsRecallClass */
   recall = (AgsRecallClass *) eq10_audio_signal;
 
+  recall->run_init_pre = ags_eq10_audio_signal_run_init_pre;
   recall->run_inter = ags_eq10_audio_signal_run_inter;
 }
 
@@ -149,15 +155,45 @@ ags_eq10_audio_signal_init(AgsEq10AudioSignal *eq10_audio_signal)
   AGS_RECALL(eq10_audio_signal)->build_id = AGS_RECALL_DEFAULT_BUILD_ID;
   AGS_RECALL(eq10_audio_signal)->xml_type = "ags-eq10-audio-signal";
   AGS_RECALL(eq10_audio_signal)->port = NULL;
+
+  eq10_audio_signal->buffer_28hz = NULL;
+  eq10_audio_signal->buffer_56hz = NULL;
+  eq10_audio_signal->buffer_112hz = NULL;
+  eq10_audio_signal->buffer_224hz = NULL;
+  eq10_audio_signal->buffer_448hz = NULL;
+  eq10_audio_signal->buffer_896hz = NULL;
+  eq10_audio_signal->buffer_1792hz = NULL;
+  eq10_audio_signal->buffer_3548hz = NULL;
+  eq10_audio_signal->buffer_7168hz = NULL;
+  eq10_audio_signal->buffer_14336hz = NULL;
+
+  eq10_audio_signal->output_buffer = NULL;
+  eq10_audio_signal->input_bufer = NULL;  
 }
 
 void
 ags_eq10_audio_signal_finalize(GObject *gobject)
 {
+  AgsEq10 *eq10;
+
+  eq10 = (AgsEq10 *) gobject;
+  
+  g_free(eq10->buffer_28hz);
+  g_free(eq10->buffer_56hz);
+  g_free(eq10->buffer_112hz);
+  g_free(eq10->buffer_224hz);
+  g_free(eq10->buffer_448hz);
+  g_free(eq10->buffer_896hz);
+  g_free(eq10->buffer_1792hz);
+  g_free(eq10->buffer_3548hz);
+  g_free(eq10->buffer_7168hz);
+  g_free(eq10->buffer_14336hz);
+
+  g_free(eq10->output_buffer);
+  g_free(eq10->input_buffer);
+  
   /* call parent */
   G_OBJECT_CLASS(ags_eq10_audio_signal_parent_class)->finalize(gobject);
-
-  /* empty */
 }
 
 void
@@ -197,25 +233,211 @@ ags_eq10_audio_signal_disconnect_dynamic(AgsDynamicConnectable *dynamic_connecta
 }
 
 void
+ags_eq10_audio_signal_run_init_pre(AgsRecall *recall)
+{
+  AgsAudioSignal *source;
+
+  AgsEq10AudioSignal *eq10_audio_signal;
+
+  guint buffer_size;
+
+  eq10_audio_signal = recall;
+
+  /* call parent */
+  AGS_RECALL_CLASS(ags_eq10_audio_signal_parent_class)->run_init_pre(recall);
+
+  source = AGS_RECALL_AUDIO_SIGNAL(eq10_audio_signal)->source;
+
+  buffer_size = source->buffer_size;
+  
+  eq10_audio_signal->buffer_28hz = (double *) malloc(buffer_size * sizeof(double));
+  eq10_audio_signal->buffer_56hz = (double *) malloc(buffer_size * sizeof(double));
+  eq10_audio_signal->buffer_112hz = (double *) malloc(buffer_size * sizeof(double));
+  eq10_audio_signal->buffer_224hz = (double *) malloc(buffer_size * sizeof(double));
+  eq10_audio_signal->buffer_448hz = (double *) malloc(buffer_size * sizeof(double));
+  eq10_audio_signal->buffer_896hz = (double *) malloc(buffer_size * sizeof(double));
+  eq10_audio_signal->buffer_1792hz = (double *) malloc(buffer_size * sizeof(double));
+  eq10_audio_signal->buffer_3548hz = (double *) malloc(buffer_size * sizeof(double));
+  eq10_audio_signal->buffer_7168hz = (double *) malloc(buffer_size * sizeof(double));
+  eq10_audio_signal->buffer_14336hz = (double *) malloc(buffer_size * sizeof(double));
+
+  eq10_audio_signal->output_buffer = (double *) malloc(buffer_size * sizeof(double));
+  eq10_audio_signal->input_bufer = (double *) malloc(buffer_size * sizeof(double));  
+
+  /* initially empty */
+  ags_audio_buffer_util_clear_double(eq10_audio_signal->buffer_28hz, 1,
+				     buffer_size);
+  ags_audio_buffer_util_clear_double(eq10_audio_signal->buffer_56hz, 1,
+				     buffer_size);
+  ags_audio_buffer_util_clear_double(eq10_audio_signal->buffer_112hz, 1,
+				     buffer_size);
+  ags_audio_buffer_util_clear_double(eq10_audio_signal->buffer_224hz, 1,
+				     buffer_size);
+  ags_audio_buffer_util_clear_double(eq10_audio_signal->buffer_448hz, 1,
+				     buffer_size);
+  ags_audio_buffer_util_clear_double(eq10_audio_signal->buffer_896hz, 1,
+				     buffer_size);
+  ags_audio_buffer_util_clear_double(eq10_audio_signal->buffer_1792hz, 1,
+				     buffer_size);
+  ags_audio_buffer_util_clear_double(eq10_audio_signal->buffer_3548hz, 1,
+				     buffer_size);
+  ags_audio_buffer_util_clear_double(eq10_audio_signal->buffer_7168hz, 1,
+				     buffer_size);
+  ags_audio_buffer_util_clear_double(eq10_audio_signal->buffer_14336hz, 1,
+				     buffer_size);
+}
+
+void
 ags_eq10_audio_signal_run_inter(AgsRecall *recall)
 {
+  AgsAudioSignal *source;
+
+  AgsEq10Channel *eq10_channel;
+  AgsEq10AudioSignal *eq10_audio_signal;
+
+  GList *stream_source;
+
+  gfloat peak_28hz;
+  gfloat peak_56hz;
+  gfloat peak_112hz;
+  gfloat peak_224hz;
+  gfloat peak_448hz;
+  gfloat peak_896hz;
+  gfloat peak_1792hz;
+  gfloat peak_3548hz;
+  gfloat peak_7192hz;
+  gfloat peak_14336hz;
+  
+  guint output_copy_mode;
+  guint input_copy_mode;
+  guint buffer_size;
+  guint samplerate;
+  guint i;
+
+  GValue value = {0,};
+  
+  eq10_audio_signal = recall;
+
+  /* call parent */
   AGS_RECALL_CLASS(ags_eq10_audio_signal_parent_class)->run_inter(recall);
+
+  source = AGS_RECALL_AUDIO_SIGNAL(eq10_audio_signal)->source;
 
   if(recall->rt_safe &&
      recall->recall_id->recycling_context->parent != NULL &&
-     AGS_RECALL_AUDIO_SIGNAL(recall)->source->note == NULL){
+     source->note == NULL){
     return;
   }
-  
-  if(AGS_RECALL_AUDIO_SIGNAL(recall)->source->stream_current != NULL){
-    AgsEq10Channel *eq10_channel;
 
-    eq10_channel = AGS_EQ10_CHANNEL(AGS_RECALL_CHANNEL_RUN(recall->parent->parent)->recall_channel);
+  stream_source = source->stream_current;
 
-    //TODO:JK: implement me
-  }else{
+  if(stream_source == NULL){
     ags_recall_done(recall);
+
+    return;
   }
+
+  eq10_channel = AGS_EQ10_CHANNEL(AGS_RECALL_CHANNEL_RUN(recall->parent->parent)->recall_channel);
+
+  /* copy mode */
+  output_copy_mode = ags_audio_buffer_util_get_copy_mode(ags_audio_buffer_util_format_from_soundcard(source->format),
+							 AGS_AUDIO_BUFFER_UTIL_DOUBLE);
+
+  input_copy_mode = ags_audio_buffer_util_get_copy_mode(AGS_AUDIO_BUFFER_UTIL_DOUBLE,
+							ags_audio_buffer_util_format_from_soundcard(source->format));
+
+  buffer_size = source->buffer_size;
+  samplerate = source->samplerate;
+  
+  /* clear buffer */
+  ags_audio_buffer_util_clear_double(eq10_audio_signal->output_buffer, 1,
+				     buffer_size);
+  ags_audio_buffer_util_clear_double(eq10_audio_signal->input_buffer, 1,
+				     buffer_size);
+
+  /* copy input */
+  ags_audio_buffer_util_copy_buffer_to_buffer(eq10_audio_signal->input_buffer, 1, 0,
+					      stream_source->data, 1, 0,
+					      buffer_size, copy_mode);
+
+  /* retrieve port values */
+  g_value_init(&value, G_TYPE_FLOAT);
+  
+  ags_port_safe_read(eq10_channel->peak_28hz, &value);
+  
+  peak_28hz = g_value_get_float(&value);
+  g_value_reset(&value);
+
+  ags_port_safe_read(eq10_channel->peak_56hz, &value);
+  
+  peak_56hz = g_value_get_float(&value);
+  g_value_reset(&value);
+
+  ags_port_safe_read(eq10_channel->peak_112hz, &value);
+  
+  peak_112hz = g_value_get_float(&value);
+  g_value_reset(&value);
+
+  ags_port_safe_read(eq10_channel->peak_224hz, &value);
+  
+  peak_224hz = g_value_get_float(&value);
+  g_value_reset(&value);
+
+  ags_port_safe_read(eq10_channel->peak_448hz, &value);
+  
+  peak_448hz = g_value_get_float(&value);
+  g_value_reset(&value);
+  
+  ags_port_safe_read(eq10_channel->peak_896hz, &value);
+  
+  peak_896hz = g_value_get_float(&value);
+  g_value_reset(&value);
+
+  ags_port_safe_read(eq10_channel->peak_1792hz, &value);
+  
+  peak_1792hz = g_value_get_float(&value);
+  g_value_reset(&value);
+
+  ags_port_safe_read(eq10_channel->peak_3548hz, &value);
+  
+  peak_3548hz = g_value_get_float(&value);
+  g_value_reset(&value);
+
+  ags_port_safe_read(eq10_channel->peak_7168hz, &value);
+  
+  peak_7168hz = g_value_get_float(&value);
+  g_value_reset(&value);
+
+  ags_port_safe_read(eq10_channel->peak_14336hz, &value);
+  
+  peak_14336hz = g_value_get_float(&value);
+
+  g_value_unset(&value);
+  
+  /* equalizer */
+  for(i = 0; i < buffer_size; i++){
+    gdouble x0, y1, y2;
+    gdouble c, cs, csp1;
+    gdouble Bc, gbc;
+    gdouble nrm;
+    
+    /* 28 hz */
+    c = cot(M_PI * 28.0 / (gdouble) samplerate);
+    cs = c * c;
+    csp1 = cs + 1.0;
+
+    Bc = (28.0 / (gdouble) samplerate) * c;
+
+    gBc = peak_28hz * Bc;
+
+    nrm = 1.0 / (csp1 + Bc);
+    
+  }
+
+  /* copy output */
+  ags_audio_buffer_util_copy_buffer_to_buffer(stream_source->data, 1, 0,
+					      eq10_audio_signal->output_buffer, 1, 0,
+					      buffer_size, copy_mode);
 }
 
 /**

@@ -32,12 +32,28 @@
 #define AGS_IS_EQ10_AUDIO_SIGNAL_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE ((class), AGS_TYPE_EQ10_AUDIO_SIGNAL))
 #define AGS_EQ10_AUDIO_SIGNAL_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS ((obj), AGS_TYPE_EQ10_AUDIO_SIGNAL, AgsEq10AudioSignalClass))
 
+#define AGS_EQ10_AUDIO_SIGNAL_FILTER_FRAME_COUNT (3)
+
 typedef struct _AgsEq10AudioSignal AgsEq10AudioSignal;
 typedef struct _AgsEq10AudioSignalClass AgsEq10AudioSignalClass;
 
 struct _AgsEq10AudioSignal
 {
   AgsRecallAudioSignal recall_audio_signal;
+
+  double *buffer_28hz;
+  double *buffer_56hz;
+  double *buffer_112hz;
+  double *buffer_224hz;
+  double *buffer_448hz;
+  double *buffer_896hz;
+  double *buffer_1792hz;
+  double *buffer_3548hz;
+  double *buffer_7168hz;
+  double *buffer_14336hz;
+
+  double *output_buffer;
+  double *input_buffer;
 };
 
 struct _AgsEq10AudioSignalClass
