@@ -102,10 +102,525 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 				 AGS_RECALL_FACTORY_ADD),
 				0);
 
-      //TODO:JK: implement me
+      channel = ags_channel_nth(channel, audio_channels_old);
+      
+      for(i = audio_channels_old; i < audio_channels; i++){
+	/* lookup channel mutex */
+	pthread_mutex_lock(application_mutex);
+
+	channel_mutex = ags_mutex_manager_lookup(mutex_manager,
+						 (GObject *) channel);
+    
+	pthread_mutex_unlock(application_mutex);
+
+	/* peak 28Hz  - find port */
+	pthread_mutex_lock(channel_mutex);
+
+	port = ags_equalizer10_find_specifier(channel->play,
+					      "./peak-28hz[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->peak_28hz_play_port = g_list_prepend(equalizer10->peak_28hz_play_port,
+							    port);
+	}
+
+	port = ags_equalizer10_find_specifier(channel->recall,
+					      "./peak-28hz[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->peak_28hz_recall_port = g_list_prepend(equalizer10->peak_28hz_recall_port,
+							      port);
+	}
+
+	/* peak 56Hz  - find port */
+	pthread_mutex_lock(channel_mutex);
+
+	port = ags_equalizer10_find_specifier(channel->play,
+					      "./peak-56hz[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->peak_56hz_play_port = g_list_prepend(equalizer10->peak_56hz_play_port,
+							    port);
+	}
+
+	port = ags_equalizer10_find_specifier(channel->recall,
+					      "./peak-56hz[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->peak_56hz_recall_port = g_list_prepend(equalizer10->peak_56hz_recall_port,
+							      port);
+	}
+
+	/* peak 112Hz  - find port */
+	pthread_mutex_lock(channel_mutex);
+
+	port = ags_equalizer10_find_specifier(channel->play,
+					      "./peak-112hz[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->peak_112hz_play_port = g_list_prepend(equalizer10->peak_112hz_play_port,
+							     port);
+	}
+
+	port = ags_equalizer10_find_specifier(channel->recall,
+					      "./peak-112hz[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->peak_112hz_recall_port = g_list_prepend(equalizer10->peak_112hz_recall_port,
+							       port);
+	}
+
+	/* peak 224Hz  - find port */
+	pthread_mutex_lock(channel_mutex);
+
+	port = ags_equalizer10_find_specifier(channel->play,
+					      "./peak-224hz[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->peak_224hz_play_port = g_list_prepend(equalizer10->peak_224hz_play_port,
+							     port);
+	}
+
+	port = ags_equalizer10_find_specifier(channel->recall,
+					      "./peak-224hz[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->peak_224hz_recall_port = g_list_prepend(equalizer10->peak_224hz_recall_port,
+							       port);
+	}
+
+	/* peak 448Hz  - find port */
+	pthread_mutex_lock(channel_mutex);
+
+	port = ags_equalizer10_find_specifier(channel->play,
+					      "./peak-448hz[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->peak_448hz_play_port = g_list_prepend(equalizer10->peak_448hz_play_port,
+							     port);
+	}
+
+	port = ags_equalizer10_find_specifier(channel->recall,
+					      "./peak-448hz[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->peak_448hz_recall_port = g_list_prepend(equalizer10->peak_448hz_recall_port,
+							       port);
+	}
+
+	/* peak 896Hz  - find port */
+	pthread_mutex_lock(channel_mutex);
+
+	port = ags_equalizer10_find_specifier(channel->play,
+					      "./peak-896hz[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->peak_896hz_play_port = g_list_prepend(equalizer10->peak_896hz_play_port,
+							     port);
+	}
+
+	port = ags_equalizer10_find_specifier(channel->recall,
+					      "./peak-896hz[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->peak_896hz_recall_port = g_list_prepend(equalizer10->peak_896hz_recall_port,
+							       port);
+	}
+
+	/* peak 1792Hz  - find port */
+	pthread_mutex_lock(channel_mutex);
+
+	port = ags_equalizer10_find_specifier(channel->play,
+					      "./peak-1792hz[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->peak_1792hz_play_port = g_list_prepend(equalizer10->peak_1792hz_play_port,
+							      port);
+	}
+
+	port = ags_equalizer10_find_specifier(channel->recall,
+					      "./peak-1792hz[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->peak_1792hz_recall_port = g_list_prepend(equalizer10->peak_1792hz_recall_port,
+								port);
+	}
+
+	/* peak 3548Hz  - find port */
+	pthread_mutex_lock(channel_mutex);
+
+	port = ags_equalizer10_find_specifier(channel->play,
+					      "./peak-3548hz[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->peak_3548hz_play_port = g_list_prepend(equalizer10->peak_3548hz_play_port,
+							      port);
+	}
+
+	port = ags_equalizer10_find_specifier(channel->recall,
+					      "./peak-3548hz[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->peak_3548hz_recall_port = g_list_prepend(equalizer10->peak_3548hz_recall_port,
+								port);
+	}
+
+	/* peak 7168Hz  - find port */
+	pthread_mutex_lock(channel_mutex);
+
+	port = ags_equalizer10_find_specifier(channel->play,
+					      "./peak-7168hz[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->peak_7168hz_play_port = g_list_prepend(equalizer10->peak_7168hz_play_port,
+							      port);
+	}
+
+	port = ags_equalizer10_find_specifier(channel->recall,
+					      "./peak-7168hz[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->peak_7168hz_recall_port = g_list_prepend(equalizer10->peak_7168hz_recall_port,
+								port);
+	}
+
+	/* peak 14336Hz  - find port */
+	pthread_mutex_lock(channel_mutex);
+
+	port = ags_equalizer10_find_specifier(channel->play,
+					      "./peak-14336hz[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->peak_14336hz_play_port = g_list_prepend(equalizer10->peak_14336hz_play_port,
+							       port);
+	}
+
+	port = ags_equalizer10_find_specifier(channel->recall,
+					      "./peak-14336hz[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->peak_14336hz_recall_port = g_list_prepend(equalizer10->peak_14336hz_recall_port,
+								 port);
+	}
+
+	/* iterate */
+	channel = channel->next;
+    
+	pthread_mutex_unlock(channel_mutex);
+      }
     }
   }else{
-    //TODO:JK: implement me
+    GList *list_start, *list;
+
+    /* peak 28Hz - port */
+    list = 
+      list_start = g_list_copy(spectrometer->peak_28hz_play_port);
+
+    for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
+      spectrometer->peak_28hz_play_port = g_list_remove(spectrometer->peak_28hz_play_port,
+							       list->data);
+      g_object_unref(list->data);
+      
+      list = list->next;
+    }
+
+    g_list_free(list_start);
+
+    list = 
+      list_start = g_list_copy(spectrometer->peak_28hz_recall_port);
+
+    for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
+      spectrometer->peak_28hz_recall_port = g_list_remove(spectrometer->peak_28hz_recall_port,
+								 list->data);
+      g_object_unref(list->data);
+      
+      list = list->next;
+    }
+
+    g_list_free(list_start);
+
+    /* peak 56Hz - port */
+    list = 
+      list_start = g_list_copy(spectrometer->peak_56hz_play_port);
+
+    for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
+      spectrometer->peak_56hz_play_port = g_list_remove(spectrometer->peak_56hz_play_port,
+							       list->data);
+      g_object_unref(list->data);
+      
+      list = list->next;
+    }
+
+    g_list_free(list_start);
+
+    list = 
+      list_start = g_list_copy(spectrometer->peak_56hz_recall_port);
+
+    for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
+      spectrometer->peak_56hz_recall_port = g_list_remove(spectrometer->peak_56hz_recall_port,
+								 list->data);
+      g_object_unref(list->data);
+      
+      list = list->next;
+    }
+
+    g_list_free(list_start);
+
+    /* peak 112Hz - port */
+    list = 
+      list_start = g_list_copy(spectrometer->peak_112hz_play_port);
+
+    for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
+      spectrometer->peak_112hz_play_port = g_list_remove(spectrometer->peak_112hz_play_port,
+							       list->data);
+      g_object_unref(list->data);
+      
+      list = list->next;
+    }
+
+    g_list_free(list_start);
+
+    list = 
+      list_start = g_list_copy(spectrometer->peak_112hz_recall_port);
+
+    for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
+      spectrometer->peak_112hz_recall_port = g_list_remove(spectrometer->peak_112hz_recall_port,
+								 list->data);
+      g_object_unref(list->data);
+      
+      list = list->next;
+    }
+
+    g_list_free(list_start);
+
+    /* peak 224Hz - port */
+    list = 
+      list_start = g_list_copy(spectrometer->peak_224hz_play_port);
+
+    for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
+      spectrometer->peak_224hz_play_port = g_list_remove(spectrometer->peak_224hz_play_port,
+							       list->data);
+      g_object_unref(list->data);
+      
+      list = list->next;
+    }
+
+    g_list_free(list_start);
+
+    list = 
+      list_start = g_list_copy(spectrometer->peak_224hz_recall_port);
+
+    for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
+      spectrometer->peak_224hz_recall_port = g_list_remove(spectrometer->peak_224hz_recall_port,
+								 list->data);
+      g_object_unref(list->data);
+      
+      list = list->next;
+    }
+
+    g_list_free(list_start);
+
+    /* peak 448Hz - port */
+    list = 
+      list_start = g_list_copy(spectrometer->peak_448hz_play_port);
+
+    for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
+      spectrometer->peak_448hz_play_port = g_list_remove(spectrometer->peak_448hz_play_port,
+							       list->data);
+      g_object_unref(list->data);
+      
+      list = list->next;
+    }
+
+    g_list_free(list_start);
+
+    list = 
+      list_start = g_list_copy(spectrometer->peak_448hz_recall_port);
+
+    for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
+      spectrometer->peak_448hz_recall_port = g_list_remove(spectrometer->peak_448hz_recall_port,
+								 list->data);
+      g_object_unref(list->data);
+      
+      list = list->next;
+    }
+
+    g_list_free(list_start);
+
+    /* peak 896Hz - port */
+    list = 
+      list_start = g_list_copy(spectrometer->peak_896hz_play_port);
+
+    for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
+      spectrometer->peak_896hz_play_port = g_list_remove(spectrometer->peak_896hz_play_port,
+							       list->data);
+      g_object_unref(list->data);
+      
+      list = list->next;
+    }
+
+    g_list_free(list_start);
+
+    list = 
+      list_start = g_list_copy(spectrometer->peak_896hz_recall_port);
+
+    for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
+      spectrometer->peak_896hz_recall_port = g_list_remove(spectrometer->peak_896hz_recall_port,
+								 list->data);
+      g_object_unref(list->data);
+      
+      list = list->next;
+    }
+
+    g_list_free(list_start);
+
+    /* peak 1792Hz - port */
+    list = 
+      list_start = g_list_copy(spectrometer->peak_1792hz_play_port);
+
+    for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
+      spectrometer->peak_1792hz_play_port = g_list_remove(spectrometer->peak_1792hz_play_port,
+							       list->data);
+      g_object_unref(list->data);
+      
+      list = list->next;
+    }
+
+    g_list_free(list_start);
+
+    list = 
+      list_start = g_list_copy(spectrometer->peak_1792hz_recall_port);
+
+    for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
+      spectrometer->peak_1792hz_recall_port = g_list_remove(spectrometer->peak_1792hz_recall_port,
+								 list->data);
+      g_object_unref(list->data);
+      
+      list = list->next;
+    }
+
+    g_list_free(list_start);
+
+    /* peak 3548Hz - port */
+    list = 
+      list_start = g_list_copy(spectrometer->peak_3548hz_play_port);
+
+    for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
+      spectrometer->peak_3548hz_play_port = g_list_remove(spectrometer->peak_3548hz_play_port,
+							       list->data);
+      g_object_unref(list->data);
+      
+      list = list->next;
+    }
+
+    g_list_free(list_start);
+
+    list = 
+      list_start = g_list_copy(spectrometer->peak_3548hz_recall_port);
+
+    for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
+      spectrometer->peak_3548hz_recall_port = g_list_remove(spectrometer->peak_3548hz_recall_port,
+								 list->data);
+      g_object_unref(list->data);
+      
+      list = list->next;
+    }
+
+    g_list_free(list_start);
+
+    /* peak 7168Hz - port */
+    list = 
+      list_start = g_list_copy(spectrometer->peak_7168hz_play_port);
+
+    for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
+      spectrometer->peak_7168hz_play_port = g_list_remove(spectrometer->peak_7168hz_play_port,
+							       list->data);
+      g_object_unref(list->data);
+      
+      list = list->next;
+    }
+
+    g_list_free(list_start);
+
+    list = 
+      list_start = g_list_copy(spectrometer->peak_7168hz_recall_port);
+
+    for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
+      spectrometer->peak_7168hz_recall_port = g_list_remove(spectrometer->peak_7168hz_recall_port,
+								 list->data);
+      g_object_unref(list->data);
+      
+      list = list->next;
+    }
+
+    g_list_free(list_start);
+
+    /* peak 14336Hz - port */
+    list = 
+      list_start = g_list_copy(spectrometer->peak_14336hz_play_port);
+
+    for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
+      spectrometer->peak_14336hz_play_port = g_list_remove(spectrometer->peak_14336hz_play_port,
+							       list->data);
+      g_object_unref(list->data);
+      
+      list = list->next;
+    }
+
+    g_list_free(list_start);
+
+    list = 
+      list_start = g_list_copy(spectrometer->peak_14336hz_recall_port);
+
+    for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
+      spectrometer->peak_14336hz_recall_port = g_list_remove(spectrometer->peak_14336hz_recall_port,
+								 list->data);
+      g_object_unref(list->data);
+      
+      list = list->next;
+    }
+
+    g_list_free(list_start);
   }
 }
 
@@ -164,11 +679,322 @@ ags_equalizer10_resize_pads_callback(AgsEqualizer10 *equalizer10,
 				 AGS_RECALL_FACTORY_ADD),
 				0);
 
-      //TODO:JK: implement me
+      for(i = 0; i < audio_channels; i++){
+	/* lookup channel mutex */
+	pthread_mutex_lock(application_mutex);
+
+	channel_mutex = ags_mutex_manager_lookup(mutex_manager,
+						 (GObject *) channel);
+    
+	pthread_mutex_unlock(application_mutex);
+
+	/* peak 28Hz  - find port */
+	pthread_mutex_lock(channel_mutex);
+
+	port = ags_equalizer10_find_specifier(channel->play,
+					      "./peak-28hz[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->peak_28hz_play_port = g_list_prepend(equalizer10->peak_28hz_play_port,
+							    port);
+	}
+
+	port = ags_equalizer10_find_specifier(channel->recall,
+					      "./peak-28hz[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->peak_28hz_recall_port = g_list_prepend(equalizer10->peak_28hz_recall_port,
+							      port);
+	}
+
+	/* peak 56Hz  - find port */
+	pthread_mutex_lock(channel_mutex);
+
+	port = ags_equalizer10_find_specifier(channel->play,
+					      "./peak-56hz[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->peak_56hz_play_port = g_list_prepend(equalizer10->peak_56hz_play_port,
+							    port);
+	}
+
+	port = ags_equalizer10_find_specifier(channel->recall,
+					      "./peak-56hz[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->peak_56hz_recall_port = g_list_prepend(equalizer10->peak_56hz_recall_port,
+							      port);
+	}
+
+	/* peak 112Hz  - find port */
+	pthread_mutex_lock(channel_mutex);
+
+	port = ags_equalizer10_find_specifier(channel->play,
+					      "./peak-112hz[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->peak_112hz_play_port = g_list_prepend(equalizer10->peak_112hz_play_port,
+							     port);
+	}
+
+	port = ags_equalizer10_find_specifier(channel->recall,
+					      "./peak-112hz[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->peak_112hz_recall_port = g_list_prepend(equalizer10->peak_112hz_recall_port,
+							       port);
+	}
+
+	/* peak 224Hz  - find port */
+	pthread_mutex_lock(channel_mutex);
+
+	port = ags_equalizer10_find_specifier(channel->play,
+					      "./peak-224hz[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->peak_224hz_play_port = g_list_prepend(equalizer10->peak_224hz_play_port,
+							     port);
+	}
+
+	port = ags_equalizer10_find_specifier(channel->recall,
+					      "./peak-224hz[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->peak_224hz_recall_port = g_list_prepend(equalizer10->peak_224hz_recall_port,
+							       port);
+	}
+
+	/* peak 448Hz  - find port */
+	pthread_mutex_lock(channel_mutex);
+
+	port = ags_equalizer10_find_specifier(channel->play,
+					      "./peak-448hz[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->peak_448hz_play_port = g_list_prepend(equalizer10->peak_448hz_play_port,
+							     port);
+	}
+
+	port = ags_equalizer10_find_specifier(channel->recall,
+					      "./peak-448hz[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->peak_448hz_recall_port = g_list_prepend(equalizer10->peak_448hz_recall_port,
+							       port);
+	}
+
+	/* peak 896Hz  - find port */
+	pthread_mutex_lock(channel_mutex);
+
+	port = ags_equalizer10_find_specifier(channel->play,
+					      "./peak-896hz[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->peak_896hz_play_port = g_list_prepend(equalizer10->peak_896hz_play_port,
+							     port);
+	}
+
+	port = ags_equalizer10_find_specifier(channel->recall,
+					      "./peak-896hz[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->peak_896hz_recall_port = g_list_prepend(equalizer10->peak_896hz_recall_port,
+							       port);
+	}
+
+	/* peak 1792Hz  - find port */
+	pthread_mutex_lock(channel_mutex);
+
+	port = ags_equalizer10_find_specifier(channel->play,
+					      "./peak-1792hz[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->peak_1792hz_play_port = g_list_prepend(equalizer10->peak_1792hz_play_port,
+							      port);
+	}
+
+	port = ags_equalizer10_find_specifier(channel->recall,
+					      "./peak-1792hz[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->peak_1792hz_recall_port = g_list_prepend(equalizer10->peak_1792hz_recall_port,
+								port);
+	}
+
+	/* peak 3548Hz  - find port */
+	pthread_mutex_lock(channel_mutex);
+
+	port = ags_equalizer10_find_specifier(channel->play,
+					      "./peak-3548hz[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->peak_3548hz_play_port = g_list_prepend(equalizer10->peak_3548hz_play_port,
+							      port);
+	}
+
+	port = ags_equalizer10_find_specifier(channel->recall,
+					      "./peak-3548hz[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->peak_3548hz_recall_port = g_list_prepend(equalizer10->peak_3548hz_recall_port,
+								port);
+	}
+
+	/* peak 7168Hz  - find port */
+	pthread_mutex_lock(channel_mutex);
+
+	port = ags_equalizer10_find_specifier(channel->play,
+					      "./peak-7168hz[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->peak_7168hz_play_port = g_list_prepend(equalizer10->peak_7168hz_play_port,
+							      port);
+	}
+
+	port = ags_equalizer10_find_specifier(channel->recall,
+					      "./peak-7168hz[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->peak_7168hz_recall_port = g_list_prepend(equalizer10->peak_7168hz_recall_port,
+								port);
+	}
+
+	/* peak 14336Hz  - find port */
+	pthread_mutex_lock(channel_mutex);
+
+	port = ags_equalizer10_find_specifier(channel->play,
+					      "./peak-14336hz[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->peak_14336hz_play_port = g_list_prepend(equalizer10->peak_14336hz_play_port,
+							       port);
+	}
+
+	port = ags_equalizer10_find_specifier(channel->recall,
+					      "./peak-14336hz[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->peak_14336hz_recall_port = g_list_prepend(equalizer10->peak_14336hz_recall_port,
+								 port);
+	}
+
+	/* iterate */
+	channel = channel->next;
+    
+	pthread_mutex_unlock(channel_mutex);
+      }
     }
   }
 
   if(pads == 0 && channel_type == AGS_TYPE_INPUT){
-    //TODO:JK: implement me
+    /* peak 28Hz - ports */
+    g_list_free_full(spectrometer->peak_28hz_play_port, g_object_unref);
+    spectrometer->peak_28hz_play_port = NULL;
+    
+    g_list_free_full(spectrometer->peak_28hz_recall_port, g_object_unref);
+    spectrometer->peak_28hz_recall_port = NULL;
+
+    /* peak 56Hz - ports */
+    g_list_free_full(spectrometer->peak_56hz_play_port, g_object_unref);
+    spectrometer->peak_56hz_play_port = NULL;
+    
+    g_list_free_full(spectrometer->peak_56hz_recall_port, g_object_unref);
+    spectrometer->peak_56hz_recall_port = NULL;
+
+    /* peak 112Hz - ports */
+    g_list_free_full(spectrometer->peak_112hz_play_port, g_object_unref);
+    spectrometer->peak_112hz_play_port = NULL;
+    
+    g_list_free_full(spectrometer->peak_112hz_recall_port, g_object_unref);
+    spectrometer->peak_112hz_recall_port = NULL;
+
+    /* peak 224Hz - ports */
+    g_list_free_full(spectrometer->peak_224hz_play_port, g_object_unref);
+    spectrometer->peak_224hz_play_port = NULL;
+    
+    g_list_free_full(spectrometer->peak_224hz_recall_port, g_object_unref);
+    spectrometer->peak_224hz_recall_port = NULL;
+
+    /* peak 448Hz - ports */
+    g_list_free_full(spectrometer->peak_448hz_play_port, g_object_unref);
+    spectrometer->peak_448hz_play_port = NULL;
+    
+    g_list_free_full(spectrometer->peak_448hz_recall_port, g_object_unref);
+    spectrometer->peak_448hz_recall_port = NULL;
+
+    /* peak 896Hz - ports */
+    g_list_free_full(spectrometer->peak_896hz_play_port, g_object_unref);
+    spectrometer->peak_896hz_play_port = NULL;
+    
+    g_list_free_full(spectrometer->peak_896hz_recall_port, g_object_unref);
+    spectrometer->peak_896hz_recall_port = NULL;
+
+    /* peak 1792Hz - ports */
+    g_list_free_full(spectrometer->peak_1792hz_play_port, g_object_unref);
+    spectrometer->peak_1792hz_play_port = NULL;
+    
+    g_list_free_full(spectrometer->peak_1792hz_recall_port, g_object_unref);
+    spectrometer->peak_1792hz_recall_port = NULL;
+
+    /* peak 3548Hz - ports */
+    g_list_free_full(spectrometer->peak_3548hz_play_port, g_object_unref);
+    spectrometer->peak_3548hz_play_port = NULL;
+    
+    g_list_free_full(spectrometer->peak_3548hz_recall_port, g_object_unref);
+    spectrometer->peak_3548hz_recall_port = NULL;
+
+    /* peak 7168Hz - ports */
+    g_list_free_full(spectrometer->peak_7168hz_play_port, g_object_unref);
+    spectrometer->peak_7168hz_play_port = NULL;
+    
+    g_list_free_full(spectrometer->peak_7168hz_recall_port, g_object_unref);
+    spectrometer->peak_7168hz_recall_port = NULL;
+
+    /* peak 14336Hz - ports */
+    g_list_free_full(spectrometer->peak_14336hz_play_port, g_object_unref);
+    spectrometer->peak_14336hz_play_port = NULL;
+    
+    g_list_free_full(spectrometer->peak_14336hz_recall_port, g_object_unref);
+    spectrometer->peak_14336hz_recall_port = NULL;
   }
 }
