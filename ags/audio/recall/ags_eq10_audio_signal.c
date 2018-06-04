@@ -420,6 +420,8 @@ ags_eq10_audio_signal_run_inter(AgsRecall *recall)
     gdouble c, cs, csp1;
     gdouble Bc, gbc;
     gdouble nrm;
+    gdouble a0, a1, a2; // denominator
+    gdouble b0, b1, b2; // numerator
     
     /* 28 hz */
     c = cot(M_PI * 28.0 / (gdouble) samplerate);
@@ -431,7 +433,14 @@ ags_eq10_audio_signal_run_inter(AgsRecall *recall)
     gBc = peak_28hz * Bc;
 
     nrm = 1.0 / (csp1 + Bc);
-    
+
+    /* coefficients */
+    b0 =  (csp1 + gBc) * nrm;
+    b1 =  2.0 * (1.0 - cs) * nrm;
+    b2 =  (csp1 - gBc) * nrm;
+    a0 =  1.0;
+    a1 =  b1;
+    a2 =  (csp1 - Bc) * nrm;
   }
 
   /* copy output */
