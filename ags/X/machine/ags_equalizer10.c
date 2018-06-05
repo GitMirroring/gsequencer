@@ -181,6 +181,8 @@ ags_equalizer10_init(AgsEqualizer10 *equalizer10)
 		     0);
 
   equalizer10->peak_28hz = (GtkScale *) gtk_vscale_new_with_range(0.0, 2.0, 0.01);
+  gtk_range_set_inverted(equalizer10->peak_28hz,
+			 TRUE);
   gtk_range_set_value((GtkRange *) equalizer10->peak_28hz,
 		      1.0);
   gtk_widget_set_size_request((GtkWidget *) equalizer10->peak_28hz,
@@ -205,6 +207,8 @@ ags_equalizer10_init(AgsEqualizer10 *equalizer10)
 		     0);
 
   equalizer10->peak_56hz = (GtkScale *) gtk_vscale_new_with_range(0.0, 2.0, 0.01);
+  gtk_range_set_inverted(equalizer10->peak_56hz,
+			 TRUE);
   gtk_range_set_value((GtkRange *) equalizer10->peak_56hz,
 		      1.0);
   gtk_widget_set_size_request((GtkWidget *) equalizer10->peak_56hz,
@@ -229,6 +233,8 @@ ags_equalizer10_init(AgsEqualizer10 *equalizer10)
 		     0);
 
   equalizer10->peak_112hz = (GtkScale *) gtk_vscale_new_with_range(0.0, 2.0, 0.01);
+  gtk_range_set_inverted(equalizer10->peak_112hz,
+			 TRUE);
   gtk_range_set_value((GtkRange *) equalizer10->peak_112hz,
 		      1.0);
   gtk_widget_set_size_request((GtkWidget *) equalizer10->peak_112hz,
@@ -253,6 +259,8 @@ ags_equalizer10_init(AgsEqualizer10 *equalizer10)
 		     0);
 
   equalizer10->peak_224hz = (GtkScale *) gtk_vscale_new_with_range(0.0, 2.0, 0.01);
+  gtk_range_set_inverted(equalizer10->peak_224hz,
+			 TRUE);
   gtk_range_set_value((GtkRange *) equalizer10->peak_224hz,
 		      1.0);
   gtk_widget_set_size_request((GtkWidget *) equalizer10->peak_224hz,
@@ -277,6 +285,8 @@ ags_equalizer10_init(AgsEqualizer10 *equalizer10)
 		     0);
 
   equalizer10->peak_448hz = (GtkScale *) gtk_vscale_new_with_range(0.0, 2.0, 0.01);
+  gtk_range_set_inverted(equalizer10->peak_448hz,
+			 TRUE);
   gtk_range_set_value((GtkRange *) equalizer10->peak_448hz,
 		      1.0);
   gtk_widget_set_size_request((GtkWidget *) equalizer10->peak_448hz,
@@ -301,6 +311,8 @@ ags_equalizer10_init(AgsEqualizer10 *equalizer10)
 		     0);
 
   equalizer10->peak_896hz = (GtkScale *) gtk_vscale_new_with_range(0.0, 2.0, 0.01);
+  gtk_range_set_inverted(equalizer10->peak_896hz,
+			 TRUE);
   gtk_range_set_value((GtkRange *) equalizer10->peak_896hz,
 		      1.0);
   gtk_widget_set_size_request((GtkWidget *) equalizer10->peak_896hz,
@@ -325,6 +337,8 @@ ags_equalizer10_init(AgsEqualizer10 *equalizer10)
 		     0);
 
   equalizer10->peak_1792hz = (GtkScale *) gtk_vscale_new_with_range(0.0, 2.0, 0.01);
+  gtk_range_set_inverted(equalizer10->peak_1792hz,
+			 TRUE);
   gtk_range_set_value((GtkRange *) equalizer10->peak_1792hz,
 		      1.0);
   gtk_widget_set_size_request((GtkWidget *) equalizer10->peak_1792hz,
@@ -349,6 +363,8 @@ ags_equalizer10_init(AgsEqualizer10 *equalizer10)
 		     0);
 
   equalizer10->peak_3584hz = (GtkScale *) gtk_vscale_new_with_range(0.0, 2.0, 0.01);
+  gtk_range_set_inverted(equalizer10->peak_3584hz,
+			 TRUE);
   gtk_range_set_value((GtkRange *) equalizer10->peak_3584hz,
 		      1.0);
   gtk_widget_set_size_request((GtkWidget *) equalizer10->peak_3584hz,
@@ -373,6 +389,8 @@ ags_equalizer10_init(AgsEqualizer10 *equalizer10)
 		     0);
 
   equalizer10->peak_7168hz = (GtkScale *) gtk_vscale_new_with_range(0.0, 2.0, 0.01);
+  gtk_range_set_inverted(equalizer10->peak_7168hz,
+			 TRUE);
   gtk_range_set_value((GtkRange *) equalizer10->peak_7168hz,
 		      1.0);
   gtk_widget_set_size_request((GtkWidget *) equalizer10->peak_7168hz,
@@ -397,6 +415,8 @@ ags_equalizer10_init(AgsEqualizer10 *equalizer10)
 		     0);
 
   equalizer10->peak_14336hz = (GtkScale *) gtk_vscale_new_with_range(0.0, 2.0, 0.01);
+  gtk_range_set_inverted(equalizer10->peak_14336hz,
+			 TRUE);
   gtk_range_set_value((GtkRange *) equalizer10->peak_14336hz,
 		      1.0);
   gtk_widget_set_size_request((GtkWidget *) equalizer10->peak_14336hz,
@@ -411,6 +431,65 @@ ags_equalizer10_init(AgsEqualizer10 *equalizer10)
 		     (GtkWidget *) label,
 		     FALSE, FALSE,
 		     0);
+
+  /* pressure */
+  control_vbox = (GtkVBox *) gtk_vbox_new(FALSE,
+					  0);
+  gtk_box_pack_start((GtkBox *) hbox,
+		     (GtkWidget *) control_vbox,
+		     FALSE, FALSE,
+		     0);
+
+  equalizer10->pressure = (GtkScale *) gtk_vscale_new_with_range(0.0, 2.0, 0.01);
+  gtk_range_set_inverted(equalizer10->pressure,
+			 TRUE);
+  gtk_range_set_value((GtkRange *) equalizer10->pressure,
+		      1.0);
+  gtk_widget_set_size_request((GtkWidget *) equalizer10->pressure,
+			      -1, 100);
+  gtk_box_pack_start((GtkBox *) control_vbox,
+		     (GtkWidget *) equalizer10->pressure,
+		     FALSE, FALSE,
+		     0);
+
+  label = (GtkLabel *) gtk_label_new(i18n("pressure"));
+  gtk_box_pack_start((GtkBox *) control_vbox,
+		     (GtkWidget *) label,
+		     FALSE, FALSE,
+		     0);
+
+  equalizer10->peak_28hz_play_port = NULL;
+  equalizer10->peak_28hz_recall_port = NULL;
+
+  equalizer10->peak_56hz_play_port = NULL;
+  equalizer10->peak_56hz_recall_port = NULL;
+
+  equalizer10->peak_112hz_play_port = NULL;
+  equalizer10->peak_112hz_recall_port = NULL;
+
+  equalizer10->peak_224hz_play_port = NULL;
+  equalizer10->peak_224hz_recall_port = NULL;
+
+  equalizer10->peak_448hz_play_port = NULL;
+  equalizer10->peak_448hz_recall_port = NULL;
+
+  equalizer10->peak_896hz_play_port = NULL;
+  equalizer10->peak_896hz_recall_port = NULL;
+
+  equalizer10->peak_1792hz_play_port = NULL;
+  equalizer10->peak_1792hz_recall_port = NULL;
+
+  equalizer10->peak_3584hz_play_port = NULL;
+  equalizer10->peak_3584hz_recall_port = NULL;
+
+  equalizer10->peak_7168hz_play_port = NULL;
+  equalizer10->peak_7168hz_recall_port = NULL;
+
+  equalizer10->peak_14336hz_play_port = NULL;
+  equalizer10->peak_14336hz_recall_port = NULL;
+
+  equalizer10->pressure_play_port = NULL;
+  equalizer10->pressure_recall_port = NULL;
 }
 
 void
@@ -473,6 +552,12 @@ ags_equalizer10_finalize(GObject *gobject)
 
   g_list_free_full(equalizer10->peak_14336hz_recall_port,
 		   g_object_unref);
+
+  g_list_free_full(equalizer10->pressure_play_port,
+		   g_object_unref);
+
+  g_list_free_full(equalizer10->pressure_recall_port,
+		   g_object_unref);
   
   /* call parent */
   G_OBJECT_CLASS(ags_equalizer10_parent_class)->finalize(gobject);
@@ -526,6 +611,9 @@ ags_equalizer10_connect(AgsConnectable *connectable)
   g_signal_connect_after(equalizer10->peak_14336hz, "value-changed",
 			 G_CALLBACK(ags_equalizer10_peak_14336hz_callback), equalizer10);
   
+  g_signal_connect_after(equalizer10->pressure, "value-changed",
+			 G_CALLBACK(ags_equalizer10_pressure_callback), equalizer10);
+
   /* call parent */
   ags_equalizer10_parent_connectable_interface->connect(connectable);
 }
@@ -613,6 +701,12 @@ ags_equalizer10_disconnect(AgsConnectable *connectable)
   g_object_disconnect(equalizer10->peak_14336hz,
 		      "value-changed",
 		      G_CALLBACK(ags_equalizer10_peak_14336hz_callback),
+		      equalizer10,
+		      NULL);
+
+  g_object_disconnect(equalizer10->pressure,
+		      "value-changed",
+		      G_CALLBACK(ags_equalizer10_pressure_callback),
 		      equalizer10,
 		      NULL);
 
@@ -894,6 +988,29 @@ ags_equalizer10_map_recall(AgsMachine *machine)
 
       equalizer10->peak_14336hz_recall_port = g_list_prepend(equalizer10->peak_14336hz_recall_port,
 							     port);
+    }
+
+    /* pressure  - find port */
+    pthread_mutex_lock(channel_mutex);
+
+    port = ags_equalizer10_find_specifier(channel->play,
+					  "./pressure[0]");
+
+    if(port != NULL){
+      g_object_ref(port);
+
+      equalizer10->pressure_play_port = g_list_prepend(equalizer10->pressure_play_port,
+						       port);
+    }
+
+    port = ags_equalizer10_find_specifier(channel->recall,
+					  "./pressure[0]");
+
+    if(port != NULL){
+      g_object_ref(port);
+
+      equalizer10->pressure_recall_port = g_list_prepend(equalizer10->pressure_recall_port,
+							 port);
     }
 
     /* iterate */

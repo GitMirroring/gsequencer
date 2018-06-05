@@ -67,6 +67,7 @@ enum{
   PROP_PEAK_3584HZ,
   PROP_PEAK_7168HZ,
   PROP_PEAK_14336HZ,
+  PROP_PRESSURE,
 };
 
 static gpointer ags_eq10_channel_parent_class = NULL;
@@ -74,28 +75,30 @@ static AgsConnectableInterface *ags_eq10_channel_parent_connectable_interface;
 
 static const gchar *ags_eq10_channel_plugin_name = "ags-eq10";
 static const gchar *ags_eq10_channel_specifier[] = {
-  "./peak-28hz[0]"
-  "./peak-56hz[0]"
-  "./peak-112hz[0]"
-  "./peak-224hz[0]"
-  "./peak-448hz[0]"
-  "./peak-896hz[0]"
-  "./peak-1792hz[0]"
-  "./peak-3584hz[0]"
-  "./peak-7168hz[0]"
-  "./peak-14336hz[0]"
+  "./peak-28hz[0]",
+  "./peak-56hz[0]",
+  "./peak-112hz[0]",
+  "./peak-224hz[0]",
+  "./peak-448hz[0]",
+  "./peak-896hz[0]",
+  "./peak-1792hz[0]",
+  "./peak-3584hz[0]",
+  "./peak-7168hz[0]",
+  "./peak-14336hz[0]",
+  "./pressure[0]",
 };
 static const gchar *ags_eq10_channel_control_port[] = {
-  "1/10"
-  "2/10"
-  "3/10"
-  "4/10"
-  "5/10"
-  "6/10"
-  "7/10"
-  "8/10"
-  "9/10"
-  "10/10"
+  "1/11",
+  "2/11",
+  "3/11",
+  "4/11",
+  "5/11",
+  "6/11",
+  "7/11",
+  "8/11",
+  "9/11",
+  "10/11",
+  "11/11",
 };
 
 GType
@@ -338,6 +341,22 @@ ags_eq10_channel_class_init(AgsEq10ChannelClass *eq10_channel)
   g_object_class_install_property(gobject,
 				  PROP_PEAK_14336HZ,
 				  param_spec);
+
+  /**
+   * AgsEq10Channel:pressure:
+   * 
+   * The pressure port.
+   * 
+   * Since: 1.5.0 
+   */
+  param_spec = g_param_spec_object("pressure",
+				   i18n_pspec("pressure to apply"),
+				   i18n_pspec("The pressure to apply on the channel"),
+				   AGS_TYPE_PORT,
+				   G_PARAM_READABLE | G_PARAM_WRITABLE);
+  g_object_class_install_property(gobject,
+				  PROP_PRESSURE,
+				  param_spec);
 }
 
 void
@@ -562,6 +581,27 @@ ags_eq10_channel_init(AgsEq10Channel *eq10_channel)
   /* add to port */  
   port = g_list_prepend(port, eq10_channel->peak_14336hz);
   g_object_ref(eq10_channel->peak_14336hz);
+
+  /* pressure */
+  eq10_channel->pressure = g_object_new(AGS_TYPE_PORT,
+					"plugin-name", "ags-eq10",
+					"specifier", "./pressure[0]",
+					"control-port", "1/1",
+					"port-value-is-pointer", FALSE,
+					"port-value-type", G_TYPE_FLOAT,
+					"port-value-size", sizeof(gfloat),
+					"port-value-length", 1,
+					NULL);
+  g_object_ref(eq10_channel->pressure);
+  
+  eq10_channel->pressure->port_value.ags_port_float = 1.0;
+
+  /* port descriptor */
+  eq10_channel->pressure->port_descriptor = ags_eq10_channel_get_peak_generic_port_descriptor();
+
+  /* add to port */  
+  port = g_list_prepend(port, eq10_channel->pressure);
+  g_object_ref(eq10_channel->pressure);
 
   /* set port */
   AGS_RECALL(eq10_channel)->port = port;
@@ -788,6 +828,27 @@ ags_eq10_channel_set_property(GObject *gobject,
       eq10_channel->peak_14336hz = port;
     }
     break;
+  case PROP_PRESSURE:
+    {
+      AgsPort *port;
+
+      port = (AgsPort *) g_value_get_object(value);
+
+      if(port == eq10_channel->pressure){
+	return;
+      }
+
+      if(eq10_channel->pressure != NULL){
+	g_object_unref(G_OBJECT(eq10_channel->pressure));
+      }
+      
+      if(port != NULL){
+	g_object_ref(G_OBJECT(port));
+      }
+
+      eq10_channel->pressure = port;
+    }
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(gobject, prop_id, param_spec);
     break;
@@ -853,6 +914,11 @@ ags_eq10_channel_get_property(GObject *gobject,
   case PROP_PEAK_14336HZ:
     {
       g_value_set_object(value, eq10_channel->peak_14336hz);
+    }
+    break;
+  case PROP_PRESSURE:
+    {
+      g_value_set_object(value, eq10_channel->pressure);
     }
     break;
   default:
@@ -1034,6 +1100,13 @@ ags_eq10_channel_dispose(GObject *gobject)
 
     eq10_channel->peak_14336hz = NULL;
   }
+
+  /* pressure */
+  if(eq10_channel->pressure != NULL){
+    g_object_unref(G_OBJECT(eq10_channel->pressure));
+
+    eq10_channel->pressure = NULL;
+  }
   
   /* call parent */
   G_OBJECT_CLASS(ags_eq10_channel_parent_class)->dispose(gobject);
@@ -1095,6 +1168,11 @@ ags_eq10_channel_finalize(GObject *gobject)
   if(eq10_channel->peak_14336hz != NULL){
     g_object_unref(G_OBJECT(eq10_channel->peak_14336hz));
   }
+
+  /* pressure */
+  if(eq10_channel->pressure != NULL){
+    g_object_unref(G_OBJECT(eq10_channel->pressure));
+  }
   
   /* call parent */
   G_OBJECT_CLASS(ags_eq10_channel_parent_class)->finalize(gobject);
@@ -1139,7 +1217,7 @@ ags_eq10_channel_get_peak_generic_port_descriptor()
  *
  * Returns: a new #AgsEq10Channel
  *
- * Since: 1.0.0
+ * Since: 1.5.0
  */
 AgsEq10Channel*
 ags_eq10_channel_new()

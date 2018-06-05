@@ -49,6 +49,8 @@ struct _AgsEq10Channel
   AgsPort *peak_3584hz;
   AgsPort *peak_7168hz;
   AgsPort *peak_14336hz;
+
+  AgsPort *pressure;
 };
 
 struct _AgsEq10ChannelClass

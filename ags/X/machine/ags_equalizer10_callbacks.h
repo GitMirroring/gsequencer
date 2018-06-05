@@ -58,4 +58,7 @@ void ags_equalizer10_peak_7168hz_callback(GtkRange *range,
 void ags_equalizer10_peak_14336hz_callback(GtkRange *range,
 					   AgsEqualizer10 *equalizer10);
 
+void ags_equalizer10_pressure_callback(GtkRange *range,
+				       AgsEqualizer10 *equalizer10);
+
 #endif /*__AGS_EQUALIZER10_CALLBACKS_H__*/

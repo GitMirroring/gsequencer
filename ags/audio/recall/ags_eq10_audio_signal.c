@@ -262,6 +262,7 @@ ags_eq10_audio_signal_run_inter(AgsRecall *recall)
 
   GList *stream_source;
 
+  gfloat pressure;
   gfloat peak_28hz;
   gfloat peak_56hz;
   gfloat peak_112hz;
@@ -316,55 +317,60 @@ ags_eq10_audio_signal_run_inter(AgsRecall *recall)
   
   /* retrieve port values */
   g_value_init(&value, G_TYPE_FLOAT);
+
+  ags_port_safe_read(eq10_channel->pressure, &value);
+  
+  pressure = g_value_get_float(&value) / 10.0;
+  g_value_reset(&value);
   
   ags_port_safe_read(eq10_channel->peak_28hz, &value);
   
-  peak_28hz = g_value_get_float(&value) / 2.0;
+  peak_28hz = g_value_get_float(&value) / 2.0 - 0.01;
   g_value_reset(&value);
 
   ags_port_safe_read(eq10_channel->peak_56hz, &value);
   
-  peak_56hz = g_value_get_float(&value) / 2.0;
+  peak_56hz = g_value_get_float(&value) / 2.0 - 0.01;
   g_value_reset(&value);
 
   ags_port_safe_read(eq10_channel->peak_112hz, &value);
   
-  peak_112hz = g_value_get_float(&value) / 2.0;
+  peak_112hz = g_value_get_float(&value) / 2.0 - 0.01;
   g_value_reset(&value);
 
   ags_port_safe_read(eq10_channel->peak_224hz, &value);
   
-  peak_224hz = g_value_get_float(&value) / 2.0;
+  peak_224hz = g_value_get_float(&value) / 2.0 - 0.01;
   g_value_reset(&value);
 
   ags_port_safe_read(eq10_channel->peak_448hz, &value);
   
-  peak_448hz = g_value_get_float(&value) / 2.0;
+  peak_448hz = g_value_get_float(&value) / 2.0 - 0.01;
   g_value_reset(&value);
   
   ags_port_safe_read(eq10_channel->peak_896hz, &value);
   
-  peak_896hz = g_value_get_float(&value) / 2.0;
+  peak_896hz = g_value_get_float(&value) / 2.0 - 0.01;
   g_value_reset(&value);
 
   ags_port_safe_read(eq10_channel->peak_1792hz, &value);
   
-  peak_1792hz = g_value_get_float(&value) / 2.0;
+  peak_1792hz = g_value_get_float(&value) / 2.0 - 0.01;
   g_value_reset(&value);
 
   ags_port_safe_read(eq10_channel->peak_3584hz, &value);
   
-  peak_3584hz = g_value_get_float(&value) / 2.0;
+  peak_3584hz = g_value_get_float(&value) / 2.0 - 0.01;
   g_value_reset(&value);
 
   ags_port_safe_read(eq10_channel->peak_7168hz, &value);
   
-  peak_7168hz = g_value_get_float(&value) / 2.0;
+  peak_7168hz = g_value_get_float(&value) / 2.0 - 0.01;
   g_value_reset(&value);
 
   ags_port_safe_read(eq10_channel->peak_14336hz, &value);
   
-  peak_14336hz = g_value_get_float(&value) / 2.0;
+  peak_14336hz = g_value_get_float(&value) / 2.0 - 0.01;
 
   g_value_unset(&value);
 
@@ -819,7 +825,7 @@ ags_eq10_audio_signal_run_inter(AgsRecall *recall)
   /* apply boost */
   ags_audio_buffer_util_volume_double(eq10_audio_signal->output_buffer, 1,
 				      buffer_size,
-				      0.2);
+				      pressure);
   
   /* copy output */
   ags_audio_buffer_util_copy_buffer_to_buffer(stream_source->data, 1, 0,

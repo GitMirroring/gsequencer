@@ -325,6 +325,27 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 								 port);
 	}
 
+	/* pressure  - find port */
+	port = ags_equalizer10_find_specifier(channel->play,
+					      "./pressure[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->pressure_play_port = g_list_prepend(equalizer10->pressure_play_port,
+							    port);
+	}
+
+	port = ags_equalizer10_find_specifier(channel->recall,
+					      "./pressure[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->pressure_recall_port = g_list_prepend(equalizer10->pressure_recall_port,
+							      port);
+	}
+
 	/* iterate */
 	channel = channel->next;
     
@@ -597,6 +618,33 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
     for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
       equalizer10->peak_14336hz_recall_port = g_list_remove(equalizer10->peak_14336hz_recall_port,
 							     list->data);
+      g_object_unref(list->data);
+      
+      list = list->next;
+    }
+
+    g_list_free(list_start);
+
+    /* pressure - port */
+    list = 
+      list_start = g_list_copy(equalizer10->pressure_play_port);
+
+    for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
+      equalizer10->pressure_play_port = g_list_remove(equalizer10->pressure_play_port,
+							list->data);
+      g_object_unref(list->data);
+      
+      list = list->next;
+    }
+
+    g_list_free(list_start);
+
+    list = 
+      list_start = g_list_copy(equalizer10->pressure_recall_port);
+
+    for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
+      equalizer10->pressure_recall_port = g_list_remove(equalizer10->pressure_recall_port,
+							  list->data);
       g_object_unref(list->data);
       
       list = list->next;
@@ -882,6 +930,27 @@ ags_equalizer10_resize_pads_callback(AgsEqualizer10 *equalizer10,
 								 port);
 	}
 
+	/* pressure  - find port */
+	port = ags_equalizer10_find_specifier(channel->play,
+					      "./pressure[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->pressure_play_port = g_list_prepend(equalizer10->pressure_play_port,
+							    port);
+	}
+
+	port = ags_equalizer10_find_specifier(channel->recall,
+					      "./pressure[0]");
+
+	if(port != NULL){
+	  g_object_ref(port);
+
+	  equalizer10->pressure_recall_port = g_list_prepend(equalizer10->pressure_recall_port,
+							      port);
+	}
+
 	/* iterate */
 	channel = channel->next;
     
@@ -960,6 +1029,13 @@ ags_equalizer10_resize_pads_callback(AgsEqualizer10 *equalizer10,
     
     g_list_free_full(equalizer10->peak_14336hz_recall_port, g_object_unref);
     equalizer10->peak_14336hz_recall_port = NULL;
+
+    /* pressure - ports */
+    g_list_free_full(equalizer10->pressure_play_port, g_object_unref);
+    equalizer10->pressure_play_port = NULL;
+    
+    g_list_free_full(equalizer10->pressure_recall_port, g_object_unref);
+    equalizer10->pressure_recall_port = NULL;
   }
 }
 
@@ -1312,6 +1388,42 @@ ags_equalizer10_peak_14336hz_callback(GtkRange *range,
 
   /* recall port */
   list = equalizer10->peak_14336hz_recall_port;
+  
+  while(list != NULL){
+    ags_port_safe_write(list->data,
+			&value);
+
+    list = list->next;
+  }
+  
+  g_value_unset(&value);
+}
+
+void
+ags_equalizer10_pressure_callback(GtkRange *range,
+				  AgsEqualizer10 *equalizer10)
+{
+  GList *list;
+
+  GValue value = {0,};
+
+  g_value_init(&value,
+	       G_TYPE_FLOAT);
+  
+  g_value_set_float(&value, gtk_range_get_value(range));
+
+  /* play port */
+  list = equalizer10->pressure_play_port;
+  
+  while(list != NULL){
+    ags_port_safe_write(list->data,
+			&value);
+
+    list = list->next;
+  }
+
+  /* recall port */
+  list = equalizer10->pressure_recall_port;
   
   while(list != NULL){
     ags_port_safe_write(list->data,
