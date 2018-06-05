@@ -37,4 +37,25 @@ void ags_equalizer10_resize_pads_callback(AgsEqualizer10 *equalizer10,
 					  guint pads, guint pads_old,
 					  gpointer data);
 
+void ags_equalizer10_peak_28hz_callback(GtkRange *range,
+					AgsEqualizer10 *equalizer10);
+void ags_equalizer10_peak_56hz_callback(GtkRange *range,
+					AgsEqualizer10 *equalizer10);
+void ags_equalizer10_peak_112hz_callback(GtkRange *range,
+					 AgsEqualizer10 *equalizer10);
+void ags_equalizer10_peak_224hz_callback(GtkRange *range,
+					 AgsEqualizer10 *equalizer10);
+void ags_equalizer10_peak_448hz_callback(GtkRange *range,
+					 AgsEqualizer10 *equalizer10);
+void ags_equalizer10_peak_896hz_callback(GtkRange *range,
+					 AgsEqualizer10 *equalizer10);
+void ags_equalizer10_peak_1792hz_callback(GtkRange *range,
+					  AgsEqualizer10 *equalizer10);
+void ags_equalizer10_peak_3548hz_callback(GtkRange *range,
+					  AgsEqualizer10 *equalizer10);
+void ags_equalizer10_peak_7168hz_callback(GtkRange *range,
+					  AgsEqualizer10 *equalizer10);
+void ags_equalizer10_peak_14336hz_callback(GtkRange *range,
+					   AgsEqualizer10 *equalizer10);
+
 #endif /*__AGS_EQUALIZER10_CALLBACKS_H__*/

@@ -48,8 +48,8 @@ ags_equalizer10_parent_set_callback(GtkWidget *widget, GtkObject *old_parent, Ag
 
 void
 ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
-						guint audio_channels, guint audio_channels_old,
-						gpointer data)
+					       guint audio_channels, guint audio_channels_old,
+					       gpointer data)
 {
   AgsAudio *audio;
 
@@ -358,7 +358,7 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 
     for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
       spectrometer->peak_28hz_play_port = g_list_remove(spectrometer->peak_28hz_play_port,
-							       list->data);
+							list->data);
       g_object_unref(list->data);
       
       list = list->next;
@@ -371,7 +371,7 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 
     for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
       spectrometer->peak_28hz_recall_port = g_list_remove(spectrometer->peak_28hz_recall_port,
-								 list->data);
+							  list->data);
       g_object_unref(list->data);
       
       list = list->next;
@@ -385,7 +385,7 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 
     for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
       spectrometer->peak_56hz_play_port = g_list_remove(spectrometer->peak_56hz_play_port,
-							       list->data);
+							list->data);
       g_object_unref(list->data);
       
       list = list->next;
@@ -398,7 +398,7 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 
     for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
       spectrometer->peak_56hz_recall_port = g_list_remove(spectrometer->peak_56hz_recall_port,
-								 list->data);
+							  list->data);
       g_object_unref(list->data);
       
       list = list->next;
@@ -412,7 +412,7 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 
     for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
       spectrometer->peak_112hz_play_port = g_list_remove(spectrometer->peak_112hz_play_port,
-							       list->data);
+							 list->data);
       g_object_unref(list->data);
       
       list = list->next;
@@ -425,7 +425,7 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 
     for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
       spectrometer->peak_112hz_recall_port = g_list_remove(spectrometer->peak_112hz_recall_port,
-								 list->data);
+							   list->data);
       g_object_unref(list->data);
       
       list = list->next;
@@ -439,7 +439,7 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 
     for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
       spectrometer->peak_224hz_play_port = g_list_remove(spectrometer->peak_224hz_play_port,
-							       list->data);
+							 list->data);
       g_object_unref(list->data);
       
       list = list->next;
@@ -452,7 +452,7 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 
     for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
       spectrometer->peak_224hz_recall_port = g_list_remove(spectrometer->peak_224hz_recall_port,
-								 list->data);
+							   list->data);
       g_object_unref(list->data);
       
       list = list->next;
@@ -466,7 +466,7 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 
     for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
       spectrometer->peak_448hz_play_port = g_list_remove(spectrometer->peak_448hz_play_port,
-							       list->data);
+							 list->data);
       g_object_unref(list->data);
       
       list = list->next;
@@ -479,7 +479,7 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 
     for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
       spectrometer->peak_448hz_recall_port = g_list_remove(spectrometer->peak_448hz_recall_port,
-								 list->data);
+							   list->data);
       g_object_unref(list->data);
       
       list = list->next;
@@ -493,7 +493,7 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 
     for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
       spectrometer->peak_896hz_play_port = g_list_remove(spectrometer->peak_896hz_play_port,
-							       list->data);
+							 list->data);
       g_object_unref(list->data);
       
       list = list->next;
@@ -506,7 +506,7 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 
     for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
       spectrometer->peak_896hz_recall_port = g_list_remove(spectrometer->peak_896hz_recall_port,
-								 list->data);
+							   list->data);
       g_object_unref(list->data);
       
       list = list->next;
@@ -520,7 +520,7 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 
     for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
       spectrometer->peak_1792hz_play_port = g_list_remove(spectrometer->peak_1792hz_play_port,
-							       list->data);
+							  list->data);
       g_object_unref(list->data);
       
       list = list->next;
@@ -533,7 +533,7 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 
     for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
       spectrometer->peak_1792hz_recall_port = g_list_remove(spectrometer->peak_1792hz_recall_port,
-								 list->data);
+							    list->data);
       g_object_unref(list->data);
       
       list = list->next;
@@ -547,7 +547,7 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 
     for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
       spectrometer->peak_3548hz_play_port = g_list_remove(spectrometer->peak_3548hz_play_port,
-							       list->data);
+							  list->data);
       g_object_unref(list->data);
       
       list = list->next;
@@ -560,7 +560,7 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 
     for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
       spectrometer->peak_3548hz_recall_port = g_list_remove(spectrometer->peak_3548hz_recall_port,
-								 list->data);
+							    list->data);
       g_object_unref(list->data);
       
       list = list->next;
@@ -574,7 +574,7 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 
     for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
       spectrometer->peak_7168hz_play_port = g_list_remove(spectrometer->peak_7168hz_play_port,
-							       list->data);
+							  list->data);
       g_object_unref(list->data);
       
       list = list->next;
@@ -587,7 +587,7 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 
     for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
       spectrometer->peak_7168hz_recall_port = g_list_remove(spectrometer->peak_7168hz_recall_port,
-								 list->data);
+							    list->data);
       g_object_unref(list->data);
       
       list = list->next;
@@ -601,7 +601,7 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 
     for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
       spectrometer->peak_14336hz_play_port = g_list_remove(spectrometer->peak_14336hz_play_port,
-							       list->data);
+							   list->data);
       g_object_unref(list->data);
       
       list = list->next;
@@ -614,7 +614,7 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 
     for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
       spectrometer->peak_14336hz_recall_port = g_list_remove(spectrometer->peak_14336hz_recall_port,
-								 list->data);
+							     list->data);
       g_object_unref(list->data);
       
       list = list->next;
@@ -626,9 +626,9 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 
 void
 ags_equalizer10_resize_pads_callback(AgsEqualizer10 *equalizer10,
-				      GType channel_type,
-				      guint pads, guint pads_old,
-				      gpointer data)
+				     GType channel_type,
+				     guint pads, guint pads_old,
+				     gpointer data)
 {  
   if(pads_old == 0 && channel_type == AGS_TYPE_INPUT){
     if((AGS_MACHINE_MAPPED_RECALL & (AGS_MACHINE(equalizer10)->flags)) != 0){
@@ -997,4 +997,364 @@ ags_equalizer10_resize_pads_callback(AgsEqualizer10 *equalizer10,
     g_list_free_full(spectrometer->peak_14336hz_recall_port, g_object_unref);
     spectrometer->peak_14336hz_recall_port = NULL;
   }
+}
+
+void
+ags_equalizer10_peak_28hz_callback(GtkRange *range,
+				   AgsEqualizer10 *equalizer10)
+{
+  GList *list;
+
+  GValue value = {0,};
+
+  g_value_init(&value,
+	       G_TYPE_FLOAT);
+  
+  g_value_set_float(&value, gtk_range_get_value(range));
+
+  /* play port */
+  list = equalizer10->peak_28hz_play_port;
+  
+  while(list != NULL){
+    ags_port_safe_write(list->data,
+			&value);
+
+    list = list->next;
+  }
+
+  /* recall port */
+  list = equalizer10->peak_28hz_recall_port;
+  
+  while(list != NULL){
+    ags_port_safe_write(list->data,
+			&value);
+
+    list = list->next;
+  }
+  
+  g_value_unset(&value);
+}
+
+void
+ags_equalizer10_peak_56hz_callback(GtkRange *range,
+				   AgsEqualizer10 *equalizer10)
+{
+  GList *list;
+
+  GValue value = {0,};
+
+  g_value_init(&value,
+	       G_TYPE_FLOAT);
+  
+  g_value_set_float(&value, gtk_range_get_value(range));
+
+  /* play port */
+  list = equalizer10->peak_56hz_play_port;
+  
+  while(list != NULL){
+    ags_port_safe_write(list->data,
+			&value);
+
+    list = list->next;
+  }
+
+  /* recall port */
+  list = equalizer10->peak_56hz_recall_port;
+  
+  while(list != NULL){
+    ags_port_safe_write(list->data,
+			&value);
+
+    list = list->next;
+  }
+  
+  g_value_unset(&value);
+}
+
+void
+ags_equalizer10_peak_112hz_callback(GtkRange *range,
+				    AgsEqualizer10 *equalizer10)
+{
+  GList *list;
+
+  GValue value = {0,};
+
+  g_value_init(&value,
+	       G_TYPE_FLOAT);
+  
+  g_value_set_float(&value, gtk_range_get_value(range));
+
+  /* play port */
+  list = equalizer10->peak_112hz_play_port;
+  
+  while(list != NULL){
+    ags_port_safe_write(list->data,
+			&value);
+
+    list = list->next;
+  }
+
+  /* recall port */
+  list = equalizer10->peak_112hz_recall_port;
+  
+  while(list != NULL){
+    ags_port_safe_write(list->data,
+			&value);
+
+    list = list->next;
+  }
+  
+  g_value_unset(&value);
+}
+
+void
+ags_equalizer10_peak_224hz_callback(GtkRange *range,
+				    AgsEqualizer10 *equalizer10)
+{
+  GList *list;
+
+  GValue value = {0,};
+
+  g_value_init(&value,
+	       G_TYPE_FLOAT);
+  
+  g_value_set_float(&value, gtk_range_get_value(range));
+
+  /* play port */
+  list = equalizer10->peak_224hz_play_port;
+  
+  while(list != NULL){
+    ags_port_safe_write(list->data,
+			&value);
+
+    list = list->next;
+  }
+
+  /* recall port */
+  list = equalizer10->peak_224hz_recall_port;
+  
+  while(list != NULL){
+    ags_port_safe_write(list->data,
+			&value);
+
+    list = list->next;
+  }
+  
+  g_value_unset(&value);
+}
+
+void
+ags_equalizer10_peak_448hz_callback(GtkRange *range,
+				    AgsEqualizer10 *equalizer10)
+{
+  GList *list;
+
+  GValue value = {0,};
+
+  g_value_init(&value,
+	       G_TYPE_FLOAT);
+  
+  g_value_set_float(&value, gtk_range_get_value(range));
+
+  /* play port */
+  list = equalizer10->peak_448hz_play_port;
+  
+  while(list != NULL){
+    ags_port_safe_write(list->data,
+			&value);
+
+    list = list->next;
+  }
+
+  /* recall port */
+  list = equalizer10->peak_448hz_recall_port;
+  
+  while(list != NULL){
+    ags_port_safe_write(list->data,
+			&value);
+
+    list = list->next;
+  }
+  
+  g_value_unset(&value);
+}
+
+void
+ags_equalizer10_peak_896hz_callback(GtkRange *range,
+				    AgsEqualizer10 *equalizer10)
+{
+  GList *list;
+
+  GValue value = {0,};
+
+  g_value_init(&value,
+	       G_TYPE_FLOAT);
+  
+  g_value_set_float(&value, gtk_range_get_value(range));
+
+  /* play port */
+  list = equalizer10->peak_896hz_play_port;
+  
+  while(list != NULL){
+    ags_port_safe_write(list->data,
+			&value);
+
+    list = list->next;
+  }
+
+  /* recall port */
+  list = equalizer10->peak_896hz_recall_port;
+  
+  while(list != NULL){
+    ags_port_safe_write(list->data,
+			&value);
+
+    list = list->next;
+  }
+  
+  g_value_unset(&value);
+}
+
+void
+ags_equalizer10_peak_1792hz_callback(GtkRange *range,
+				     AgsEqualizer10 *equalizer10)
+{
+  GList *list;
+
+  GValue value = {0,};
+
+  g_value_init(&value,
+	       G_TYPE_FLOAT);
+  
+  g_value_set_float(&value, gtk_range_get_value(range));
+
+  /* play port */
+  list = equalizer10->peak_1792hz_play_port;
+  
+  while(list != NULL){
+    ags_port_safe_write(list->data,
+			&value);
+
+    list = list->next;
+  }
+
+  /* recall port */
+  list = equalizer10->peak_1792hz_recall_port;
+  
+  while(list != NULL){
+    ags_port_safe_write(list->data,
+			&value);
+
+    list = list->next;
+  }
+  
+  g_value_unset(&value);
+}
+
+void
+ags_equalizer10_peak_3548hz_callback(GtkRange *range,
+				     AgsEqualizer10 *equalizer10)
+{
+  GList *list;
+
+  GValue value = {0,};
+
+  g_value_init(&value,
+	       G_TYPE_FLOAT);
+  
+  g_value_set_float(&value, gtk_range_get_value(range));
+
+  /* play port */
+  list = equalizer10->peak_3548hz_play_port;
+  
+  while(list != NULL){
+    ags_port_safe_write(list->data,
+			&value);
+
+    list = list->next;
+  }
+
+  /* recall port */
+  list = equalizer10->peak_3548hz_recall_port;
+  
+  while(list != NULL){
+    ags_port_safe_write(list->data,
+			&value);
+
+    list = list->next;
+  }
+  
+  g_value_unset(&value);
+}
+
+void
+ags_equalizer10_peak_7168hz_callback(GtkRange *range,
+				     AgsEqualizer10 *equalizer10)
+{
+  GList *list;
+
+  GValue value = {0,};
+
+  g_value_init(&value,
+	       G_TYPE_FLOAT);
+  
+  g_value_set_float(&value, gtk_range_get_value(range));
+
+  /* play port */
+  list = equalizer10->peak_7168hz_play_port;
+  
+  while(list != NULL){
+    ags_port_safe_write(list->data,
+			&value);
+
+    list = list->next;
+  }
+
+  /* recall port */
+  list = equalizer10->peak_7168hz_recall_port;
+  
+  while(list != NULL){
+    ags_port_safe_write(list->data,
+			&value);
+
+    list = list->next;
+  }
+  
+  g_value_unset(&value);
+}
+
+void
+ags_equalizer10_peak_14336hz_callback(GtkRange *range,
+				      AgsEqualizer10 *equalizer10)
+{
+  GList *list;
+
+  GValue value = {0,};
+
+  g_value_init(&value,
+	       G_TYPE_FLOAT);
+  
+  g_value_set_float(&value, gtk_range_get_value(range));
+
+  /* play port */
+  list = equalizer10->peak_14336hz_play_port;
+  
+  while(list != NULL){
+    ags_port_safe_write(list->data,
+			&value);
+
+    list = list->next;
+  }
+
+  /* recall port */
+  list = equalizer10->peak_14336hz_recall_port;
+  
+  while(list != NULL){
+    ags_port_safe_write(list->data,
+			&value);
+
+    list = list->next;
+  }
+  
+  g_value_unset(&value);
 }

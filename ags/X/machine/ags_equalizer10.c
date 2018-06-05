@@ -495,6 +495,37 @@ ags_equalizer10_connect(AgsConnectable *connectable)
   g_signal_connect_after(equalizer10, "resize-pads",
 			 G_CALLBACK(ags_equalizer10_resize_pads_callback), NULL);
 
+  /* controls */
+  g_signal_connect_after(equalizer10->peak_28hz, "value-changed",
+			 G_CALLBACK(ags_equalizer10_peak_28hz_callback), equalizer10);
+
+  g_signal_connect_after(equalizer10->peak_56hz, "value-changed",
+			 G_CALLBACK(ags_equalizer10_peak_56hz_callback), equalizer10);
+
+  g_signal_connect_after(equalizer10->peak_112hz, "value-changed",
+			 G_CALLBACK(ags_equalizer10_peak_112hz_callback), equalizer10);
+
+  g_signal_connect_after(equalizer10->peak_224hz, "value-changed",
+			 G_CALLBACK(ags_equalizer10_peak_224hz_callback), equalizer10);
+
+  g_signal_connect_after(equalizer10->peak_448hz, "value-changed",
+			 G_CALLBACK(ags_equalizer10_peak_448hz_callback), equalizer10);
+
+  g_signal_connect_after(equalizer10->peak_896hz, "value-changed",
+			 G_CALLBACK(ags_equalizer10_peak_896hz_callback), equalizer10);
+
+  g_signal_connect_after(equalizer10->peak_1792hz, "value-changed",
+			 G_CALLBACK(ags_equalizer10_peak_1792hz_callback), equalizer10);
+
+  g_signal_connect_after(equalizer10->peak_3548hz, "value-changed",
+			 G_CALLBACK(ags_equalizer10_peak_3548hz_callback), equalizer10);
+
+  g_signal_connect_after(equalizer10->peak_7168hz, "value-changed",
+			 G_CALLBACK(ags_equalizer10_peak_7168hz_callback), equalizer10);
+
+  g_signal_connect_after(equalizer10->peak_14336hz, "value-changed",
+			 G_CALLBACK(ags_equalizer10_peak_14336hz_callback), equalizer10);
+  
   /* call parent */
   ags_equalizer10_parent_connectable_interface->connect(connectable);
 }
@@ -522,6 +553,67 @@ ags_equalizer10_disconnect(AgsConnectable *connectable)
 		      "resize-pads",
 		      G_CALLBACK(ags_equalizer10_resize_pads_callback),
 		      NULL,
+		      NULL);
+
+  /* controls */
+  g_object_disconnect(equalizer10->peak_28hz,
+		      "value-changed",
+		      G_CALLBACK(ags_equalizer10_peak_28hz_callback),
+		      equalizer10,
+		      NULL);
+
+  g_object_disconnect(equalizer10->peak_56hz,
+		      "value-changed",
+		      G_CALLBACK(ags_equalizer10_peak_56hz_callback),
+		      equalizer10,
+		      NULL);
+
+  g_object_disconnect(equalizer10->peak_112hz,
+		      "value-changed",
+		      G_CALLBACK(ags_equalizer10_peak_112hz_callback),
+		      equalizer10,
+		      NULL);
+
+  g_object_disconnect(equalizer10->peak_224hz,
+		      "value-changed",
+		      G_CALLBACK(ags_equalizer10_peak_224hz_callback),
+		      equalizer10,
+		      NULL);
+
+  g_object_disconnect(equalizer10->peak_448hz,
+		      "value-changed",
+		      G_CALLBACK(ags_equalizer10_peak_448hz_callback),
+		      equalizer10,
+		      NULL);
+
+  g_object_disconnect(equalizer10->peak_896hz,
+		      "value-changed",
+		      G_CALLBACK(ags_equalizer10_peak_896hz_callback),
+		      equalizer10,
+		      NULL);
+
+  g_object_disconnect(equalizer10->peak_1792hz,
+		      "value-changed",
+		      G_CALLBACK(ags_equalizer10_peak_1792hz_callback),
+		      equalizer10,
+		      NULL);
+
+  g_object_disconnect(equalizer10->peak_3548hz,
+		      "value-changed",
+		      G_CALLBACK(ags_equalizer10_peak_3548hz_callback),
+		      equalizer10,
+		      NULL);
+
+  g_object_disconnect(equalizer10->peak_7168hz,
+		      "value-changed",
+		      G_CALLBACK(ags_equalizer10_peak_7168hz_callback),
+		      equalizer10,
+		      NULL);
+
+  g_object_disconnect(equalizer10->peak_14336hz,
+		      "value-changed",
+		      G_CALLBACK(ags_equalizer10_peak_14336hz_callback),
+		      equalizer10,
 		      NULL);
 
   /* call parent */
