@@ -777,43 +777,43 @@ ags_eq10_audio_signal_run_inter(AgsRecall *recall)
     /* fill output */
     ags_audio_buffer_util_copy_double_to_double(eq10_audio_signal->output_buffer + i, 1,
 						eq10_audio_signal->cache_28hz + (i % 8), 1,
-						AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE);
+						1);
 
     ags_audio_buffer_util_copy_double_to_double(eq10_audio_signal->output_buffer + i, 1,
 						eq10_audio_signal->cache_56hz + (i % 8), 1,
-						AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE);
+						1);
 
     ags_audio_buffer_util_copy_double_to_double(eq10_audio_signal->output_buffer + i, 1,
 						eq10_audio_signal->cache_112hz + (i % 8), 1,
-						AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE);
+						1);
 
     ags_audio_buffer_util_copy_double_to_double(eq10_audio_signal->output_buffer + i, 1,
 						eq10_audio_signal->cache_224hz + (i % 8), 1,
-						AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE);
+						1);
 
     ags_audio_buffer_util_copy_double_to_double(eq10_audio_signal->output_buffer + i, 1,
 						eq10_audio_signal->cache_448hz + (i % 8), 1,
-						AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE);
+						1);
 
     ags_audio_buffer_util_copy_double_to_double(eq10_audio_signal->output_buffer + i, 1,
 						eq10_audio_signal->cache_896hz + (i % 8), 1,
-						AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE);
+						1);
 
     ags_audio_buffer_util_copy_double_to_double(eq10_audio_signal->output_buffer + i, 1,
 						eq10_audio_signal->cache_1792hz + (i % 8), 1,
-						AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE);
+						1);
 
     ags_audio_buffer_util_copy_double_to_double(eq10_audio_signal->output_buffer + i, 1,
 						eq10_audio_signal->cache_3584hz + (i % 8), 1,
-						AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE);
+						1);
 
     ags_audio_buffer_util_copy_double_to_double(eq10_audio_signal->output_buffer + i, 1,
 						eq10_audio_signal->cache_7168hz + (i % 8), 1,
-						AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE);
+						1);
 
     ags_audio_buffer_util_copy_double_to_double(eq10_audio_signal->output_buffer + i, 1,
 						eq10_audio_signal->cache_14336hz + (i % 8), 1,
-						AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE);
+						1);
   }
 
   /* apply boost */

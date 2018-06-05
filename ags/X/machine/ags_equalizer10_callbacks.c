@@ -137,8 +137,6 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 	}
 
 	/* peak 56Hz  - find port */
-	pthread_mutex_lock(channel_mutex);
-
 	port = ags_equalizer10_find_specifier(channel->play,
 					      "./peak-56hz[0]");
 
@@ -160,8 +158,6 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 	}
 
 	/* peak 112Hz  - find port */
-	pthread_mutex_lock(channel_mutex);
-
 	port = ags_equalizer10_find_specifier(channel->play,
 					      "./peak-112hz[0]");
 
@@ -183,8 +179,6 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 	}
 
 	/* peak 224Hz  - find port */
-	pthread_mutex_lock(channel_mutex);
-
 	port = ags_equalizer10_find_specifier(channel->play,
 					      "./peak-224hz[0]");
 
@@ -206,8 +200,6 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 	}
 
 	/* peak 448Hz  - find port */
-	pthread_mutex_lock(channel_mutex);
-
 	port = ags_equalizer10_find_specifier(channel->play,
 					      "./peak-448hz[0]");
 
@@ -229,8 +221,6 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 	}
 
 	/* peak 896Hz  - find port */
-	pthread_mutex_lock(channel_mutex);
-
 	port = ags_equalizer10_find_specifier(channel->play,
 					      "./peak-896hz[0]");
 
@@ -252,8 +242,6 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 	}
 
 	/* peak 1792Hz  - find port */
-	pthread_mutex_lock(channel_mutex);
-
 	port = ags_equalizer10_find_specifier(channel->play,
 					      "./peak-1792hz[0]");
 
@@ -275,8 +263,6 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 	}
 
 	/* peak 3584Hz  - find port */
-	pthread_mutex_lock(channel_mutex);
-
 	port = ags_equalizer10_find_specifier(channel->play,
 					      "./peak-3584hz[0]");
 
@@ -298,8 +284,6 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 	}
 
 	/* peak 7168Hz  - find port */
-	pthread_mutex_lock(channel_mutex);
-
 	port = ags_equalizer10_find_specifier(channel->play,
 					      "./peak-7168hz[0]");
 
@@ -321,8 +305,6 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 	}
 
 	/* peak 14336Hz  - find port */
-	pthread_mutex_lock(channel_mutex);
-
 	port = ags_equalizer10_find_specifier(channel->play,
 					      "./peak-14336hz[0]");
 
@@ -712,8 +694,6 @@ ags_equalizer10_resize_pads_callback(AgsEqualizer10 *equalizer10,
 	}
 
 	/* peak 56Hz  - find port */
-	pthread_mutex_lock(channel_mutex);
-
 	port = ags_equalizer10_find_specifier(channel->play,
 					      "./peak-56hz[0]");
 
@@ -735,8 +715,6 @@ ags_equalizer10_resize_pads_callback(AgsEqualizer10 *equalizer10,
 	}
 
 	/* peak 112Hz  - find port */
-	pthread_mutex_lock(channel_mutex);
-
 	port = ags_equalizer10_find_specifier(channel->play,
 					      "./peak-112hz[0]");
 
@@ -758,8 +736,6 @@ ags_equalizer10_resize_pads_callback(AgsEqualizer10 *equalizer10,
 	}
 
 	/* peak 224Hz  - find port */
-	pthread_mutex_lock(channel_mutex);
-
 	port = ags_equalizer10_find_specifier(channel->play,
 					      "./peak-224hz[0]");
 
@@ -781,8 +757,6 @@ ags_equalizer10_resize_pads_callback(AgsEqualizer10 *equalizer10,
 	}
 
 	/* peak 448Hz  - find port */
-	pthread_mutex_lock(channel_mutex);
-
 	port = ags_equalizer10_find_specifier(channel->play,
 					      "./peak-448hz[0]");
 
@@ -804,8 +778,6 @@ ags_equalizer10_resize_pads_callback(AgsEqualizer10 *equalizer10,
 	}
 
 	/* peak 896Hz  - find port */
-	pthread_mutex_lock(channel_mutex);
-
 	port = ags_equalizer10_find_specifier(channel->play,
 					      "./peak-896hz[0]");
 
@@ -827,8 +799,6 @@ ags_equalizer10_resize_pads_callback(AgsEqualizer10 *equalizer10,
 	}
 
 	/* peak 1792Hz  - find port */
-	pthread_mutex_lock(channel_mutex);
-
 	port = ags_equalizer10_find_specifier(channel->play,
 					      "./peak-1792hz[0]");
 
@@ -850,8 +820,6 @@ ags_equalizer10_resize_pads_callback(AgsEqualizer10 *equalizer10,
 	}
 
 	/* peak 3584Hz  - find port */
-	pthread_mutex_lock(channel_mutex);
-
 	port = ags_equalizer10_find_specifier(channel->play,
 					      "./peak-3584hz[0]");
 
@@ -873,8 +841,6 @@ ags_equalizer10_resize_pads_callback(AgsEqualizer10 *equalizer10,
 	}
 
 	/* peak 7168Hz  - find port */
-	pthread_mutex_lock(channel_mutex);
-
 	port = ags_equalizer10_find_specifier(channel->play,
 					      "./peak-7168hz[0]");
 
@@ -896,8 +862,6 @@ ags_equalizer10_resize_pads_callback(AgsEqualizer10 *equalizer10,
 	}
 
 	/* peak 14336Hz  - find port */
-	pthread_mutex_lock(channel_mutex);
-
 	port = ags_equalizer10_find_specifier(channel->play,
 					      "./peak-14336hz[0]");
 
