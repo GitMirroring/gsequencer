@@ -45,8 +45,6 @@ AgsRecall* ags_eq10_audio_signal_duplicate(AgsRecall *recall,
 					   AgsRecallID *recall_id,
 					   guint *n_params, GParameter *parameter);
 
-#define AGS_EQ10_AUDIO_SIGNAL_2_POLE_FILTER(output, input,)
-
 /**
  * SECTION:ags_eq10_audio_signal
  * @short_description: eq10s audio signal
@@ -156,41 +154,19 @@ ags_eq10_audio_signal_init(AgsEq10AudioSignal *eq10_audio_signal)
   AGS_RECALL(eq10_audio_signal)->xml_type = "ags-eq10-audio-signal";
   AGS_RECALL(eq10_audio_signal)->port = NULL;
 
-  eq10_audio_signal->buffer_28hz = NULL;
-  eq10_audio_signal->buffer_56hz = NULL;
-  eq10_audio_signal->buffer_112hz = NULL;
-  eq10_audio_signal->buffer_224hz = NULL;
-  eq10_audio_signal->buffer_448hz = NULL;
-  eq10_audio_signal->buffer_896hz = NULL;
-  eq10_audio_signal->buffer_1792hz = NULL;
-  eq10_audio_signal->buffer_3548hz = NULL;
-  eq10_audio_signal->buffer_7168hz = NULL;
-  eq10_audio_signal->buffer_14336hz = NULL;
-
   eq10_audio_signal->output_buffer = NULL;
-  eq10_audio_signal->input_bufer = NULL;  
+  eq10_audio_signal->input_buffer = NULL;  
 }
 
 void
 ags_eq10_audio_signal_finalize(GObject *gobject)
 {
-  AgsEq10 *eq10;
+  AgsEq10AudioSignal *eq10_audio_signal;
 
-  eq10 = (AgsEq10 *) gobject;
-  
-  g_free(eq10->buffer_28hz);
-  g_free(eq10->buffer_56hz);
-  g_free(eq10->buffer_112hz);
-  g_free(eq10->buffer_224hz);
-  g_free(eq10->buffer_448hz);
-  g_free(eq10->buffer_896hz);
-  g_free(eq10->buffer_1792hz);
-  g_free(eq10->buffer_3548hz);
-  g_free(eq10->buffer_7168hz);
-  g_free(eq10->buffer_14336hz);
+  eq10_audio_signal = (AgsEq10AudioSignal *) gobject;
 
-  g_free(eq10->output_buffer);
-  g_free(eq10->input_buffer);
+  g_free(eq10_audio_signal->output_buffer);
+  g_free(eq10_audio_signal->input_buffer);
   
   /* call parent */
   G_OBJECT_CLASS(ags_eq10_audio_signal_parent_class)->finalize(gobject);
@@ -250,41 +226,30 @@ ags_eq10_audio_signal_run_init_pre(AgsRecall *recall)
 
   buffer_size = source->buffer_size;
   
-  eq10_audio_signal->buffer_28hz = (double *) malloc(buffer_size * sizeof(double));
-  eq10_audio_signal->buffer_56hz = (double *) malloc(buffer_size * sizeof(double));
-  eq10_audio_signal->buffer_112hz = (double *) malloc(buffer_size * sizeof(double));
-  eq10_audio_signal->buffer_224hz = (double *) malloc(buffer_size * sizeof(double));
-  eq10_audio_signal->buffer_448hz = (double *) malloc(buffer_size * sizeof(double));
-  eq10_audio_signal->buffer_896hz = (double *) malloc(buffer_size * sizeof(double));
-  eq10_audio_signal->buffer_1792hz = (double *) malloc(buffer_size * sizeof(double));
-  eq10_audio_signal->buffer_3548hz = (double *) malloc(buffer_size * sizeof(double));
-  eq10_audio_signal->buffer_7168hz = (double *) malloc(buffer_size * sizeof(double));
-  eq10_audio_signal->buffer_14336hz = (double *) malloc(buffer_size * sizeof(double));
-
   eq10_audio_signal->output_buffer = (double *) malloc(buffer_size * sizeof(double));
-  eq10_audio_signal->input_bufer = (double *) malloc(buffer_size * sizeof(double));  
+  eq10_audio_signal->input_buffer = (double *) malloc(buffer_size * sizeof(double));  
 
   /* initially empty */
-  ags_audio_buffer_util_clear_double(eq10_audio_signal->buffer_28hz, 1,
-				     buffer_size);
-  ags_audio_buffer_util_clear_double(eq10_audio_signal->buffer_56hz, 1,
-				     buffer_size);
-  ags_audio_buffer_util_clear_double(eq10_audio_signal->buffer_112hz, 1,
-				     buffer_size);
-  ags_audio_buffer_util_clear_double(eq10_audio_signal->buffer_224hz, 1,
-				     buffer_size);
-  ags_audio_buffer_util_clear_double(eq10_audio_signal->buffer_448hz, 1,
-				     buffer_size);
-  ags_audio_buffer_util_clear_double(eq10_audio_signal->buffer_896hz, 1,
-				     buffer_size);
-  ags_audio_buffer_util_clear_double(eq10_audio_signal->buffer_1792hz, 1,
-				     buffer_size);
-  ags_audio_buffer_util_clear_double(eq10_audio_signal->buffer_3548hz, 1,
-				     buffer_size);
-  ags_audio_buffer_util_clear_double(eq10_audio_signal->buffer_7168hz, 1,
-				     buffer_size);
-  ags_audio_buffer_util_clear_double(eq10_audio_signal->buffer_14336hz, 1,
-				     buffer_size);
+  ags_audio_buffer_util_clear_double(eq10_audio_signal->cache_28hz, 1,
+				     AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE);
+  ags_audio_buffer_util_clear_double(eq10_audio_signal->cache_56hz, 1,
+				     AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE);
+  ags_audio_buffer_util_clear_double(eq10_audio_signal->cache_112hz, 1,
+				     AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE);
+  ags_audio_buffer_util_clear_double(eq10_audio_signal->cache_224hz, 1,
+				     AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE);
+  ags_audio_buffer_util_clear_double(eq10_audio_signal->cache_448hz, 1,
+				     AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE);
+  ags_audio_buffer_util_clear_double(eq10_audio_signal->cache_896hz, 1,
+				     AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE);
+  ags_audio_buffer_util_clear_double(eq10_audio_signal->cache_1792hz, 1,
+				     AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE);
+  ags_audio_buffer_util_clear_double(eq10_audio_signal->cache_3584hz, 1,
+				     AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE);
+  ags_audio_buffer_util_clear_double(eq10_audio_signal->cache_7168hz, 1,
+				     AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE);
+  ags_audio_buffer_util_clear_double(eq10_audio_signal->cache_14336hz, 1,
+				     AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE);
 }
 
 void
@@ -304,8 +269,8 @@ ags_eq10_audio_signal_run_inter(AgsRecall *recall)
   gfloat peak_448hz;
   gfloat peak_896hz;
   gfloat peak_1792hz;
-  gfloat peak_3548hz;
-  gfloat peak_7192hz;
+  gfloat peak_3584hz;
+  gfloat peak_7168hz;
   gfloat peak_14336hz;
   
   guint output_copy_mode;
@@ -387,9 +352,9 @@ ags_eq10_audio_signal_run_inter(AgsRecall *recall)
   peak_1792hz = g_value_get_float(&value) / 2.0;
   g_value_reset(&value);
 
-  ags_port_safe_read(eq10_channel->peak_3548hz, &value);
+  ags_port_safe_read(eq10_channel->peak_3584hz, &value);
   
-  peak_3548hz = g_value_get_float(&value) / 2.0;
+  peak_3584hz = g_value_get_float(&value) / 2.0;
   g_value_reset(&value);
 
   ags_port_safe_read(eq10_channel->peak_7168hz, &value);
@@ -423,230 +388,230 @@ ags_eq10_audio_signal_run_inter(AgsRecall *recall)
     resonator = peak_28hz;
     
     if(i == 0){
-      eq10_audio_signal->buffer_28hz[0] = eq10_audio_signal->input_buffer[0] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 28.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_28hz[buffer_size - 1] - (resonator * resonator) * eq10_audio_signal->buffer_28hz[buffer_size - 2];
-      eq10_audio_signal->buffer_28hz[1] = eq10_audio_signal->input_buffer[1] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 28.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_28hz[0] - (resonator * resonator) * eq10_audio_signal->buffer_28hz[buffer_size - 1];
-      eq10_audio_signal->buffer_28hz[2] = eq10_audio_signal->input_buffer[2] - (resonator * eq10_audio_signal->input_buffer[0]) + (2.0 * resonator * cos(2.0 * M_PI * 28.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_28hz[1] - (resonator * resonator) * eq10_audio_signal->buffer_28hz[0];
-      eq10_audio_signal->buffer_28hz[3] = eq10_audio_signal->input_buffer[3] - (resonator * eq10_audio_signal->input_buffer[1]) + (2.0 * resonator * cos(2.0 * M_PI * 28.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_28hz[2] - (resonator * resonator) * eq10_audio_signal->buffer_28hz[1];
-      eq10_audio_signal->buffer_28hz[4] = eq10_audio_signal->input_buffer[4] - (resonator * eq10_audio_signal->input_buffer[2]) + (2.0 * resonator * cos(2.0 * M_PI * 28.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_28hz[3] - (resonator * resonator) * eq10_audio_signal->buffer_28hz[2];
-      eq10_audio_signal->buffer_28hz[5] = eq10_audio_signal->input_buffer[5] - (resonator * eq10_audio_signal->input_buffer[3]) + (2.0 * resonator * cos(2.0 * M_PI * 28.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_28hz[4] - (resonator * resonator) * eq10_audio_signal->buffer_28hz[3];
-      eq10_audio_signal->buffer_28hz[6] = eq10_audio_signal->input_buffer[6] - (resonator * eq10_audio_signal->input_buffer[4]) + (2.0 * resonator * cos(2.0 * M_PI * 28.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_28hz[5] - (resonator * resonator) * eq10_audio_signal->buffer_28hz[4];
-      eq10_audio_signal->buffer_28hz[7] = eq10_audio_signal->input_buffer[7] - (resonator * eq10_audio_signal->input_buffer[5]) + (2.0 * resonator * cos(2.0 * M_PI * 28.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_28hz[6] - (resonator * resonator) * eq10_audio_signal->buffer_28hz[5];
+      eq10_audio_signal->cache_28hz[0] = eq10_audio_signal->input_buffer[0] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 28.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_28hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1] - (resonator * resonator) * eq10_audio_signal->cache_28hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 2];
+      eq10_audio_signal->cache_28hz[1] = eq10_audio_signal->input_buffer[1] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 28.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_28hz[0] - (resonator * resonator) * eq10_audio_signal->cache_28hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1];
+      eq10_audio_signal->cache_28hz[2] = eq10_audio_signal->input_buffer[2] - (resonator * eq10_audio_signal->input_buffer[0]) + (2.0 * resonator * cos(2.0 * M_PI * 28.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_28hz[1] - (resonator * resonator) * eq10_audio_signal->cache_28hz[0];
+      eq10_audio_signal->cache_28hz[3] = eq10_audio_signal->input_buffer[3] - (resonator * eq10_audio_signal->input_buffer[1]) + (2.0 * resonator * cos(2.0 * M_PI * 28.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_28hz[2] - (resonator * resonator) * eq10_audio_signal->cache_28hz[1];
+      eq10_audio_signal->cache_28hz[4] = eq10_audio_signal->input_buffer[4] - (resonator * eq10_audio_signal->input_buffer[2]) + (2.0 * resonator * cos(2.0 * M_PI * 28.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_28hz[3] - (resonator * resonator) * eq10_audio_signal->cache_28hz[2];
+      eq10_audio_signal->cache_28hz[5] = eq10_audio_signal->input_buffer[5] - (resonator * eq10_audio_signal->input_buffer[3]) + (2.0 * resonator * cos(2.0 * M_PI * 28.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_28hz[4] - (resonator * resonator) * eq10_audio_signal->cache_28hz[3];
+      eq10_audio_signal->cache_28hz[6] = eq10_audio_signal->input_buffer[6] - (resonator * eq10_audio_signal->input_buffer[4]) + (2.0 * resonator * cos(2.0 * M_PI * 28.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_28hz[5] - (resonator * resonator) * eq10_audio_signal->cache_28hz[4];
+      eq10_audio_signal->cache_28hz[7] = eq10_audio_signal->input_buffer[7] - (resonator * eq10_audio_signal->input_buffer[5]) + (2.0 * resonator * cos(2.0 * M_PI * 28.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_28hz[6] - (resonator * resonator) * eq10_audio_signal->cache_28hz[5];
     }else{
-      eq10_audio_signal->buffer_28hz[i] = eq10_audio_signal->input_buffer[i] - (resonator * eq10_audio_signal->input_buffer[i - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 28.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_28hz[i - 1] - (resonator * resonator) * eq10_audio_signal->buffer_28hz[i - 2];
-      eq10_audio_signal->buffer_28hz[i + 1] = eq10_audio_signal->input_buffer[i + 1] - (resonator * eq10_audio_signal->input_buffer[i - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 28.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_28hz[i] - (resonator * resonator) * eq10_audio_signal->buffer_28hz[i - 1];
-      eq10_audio_signal->buffer_28hz[i + 2] = eq10_audio_signal->input_buffer[i + 2] - (resonator * eq10_audio_signal->input_buffer[i]) + (2.0 * resonator * cos(2.0 * M_PI * 28.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_28hz[i + 1] - (resonator * resonator) * eq10_audio_signal->buffer_28hz[i];
-      eq10_audio_signal->buffer_28hz[i + 3] = eq10_audio_signal->input_buffer[i + 3] - (resonator * eq10_audio_signal->input_buffer[i + 1]) + (2.0 * resonator * cos(2.0 * M_PI * 28.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_28hz[i + 2] - (resonator * resonator) * eq10_audio_signal->buffer_28hz[i + 1];
-      eq10_audio_signal->buffer_28hz[i + 4] = eq10_audio_signal->input_buffer[i + 4] - (resonator * eq10_audio_signal->input_buffer[i + 2]) + (2.0 * resonator * cos(2.0 * M_PI * 28.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_28hz[i + 3] - (resonator * resonator) * eq10_audio_signal->buffer_28hz[i + 2];
-      eq10_audio_signal->buffer_28hz[i + 5] = eq10_audio_signal->input_buffer[i + 5] - (resonator * eq10_audio_signal->input_buffer[i + 3]) + (2.0 * resonator * cos(2.0 * M_PI * 28.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_28hz[i + 4] - (resonator * resonator) * eq10_audio_signal->buffer_28hz[i + 3];
-      eq10_audio_signal->buffer_28hz[i + 6] = eq10_audio_signal->input_buffer[i + 6] - (resonator * eq10_audio_signal->input_buffer[i + 4]) + (2.0 * resonator * cos(2.0 * M_PI * 28.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_28hz[i + 5] - (resonator * resonator) * eq10_audio_signal->buffer_28hz[i + 4];
-      eq10_audio_signal->buffer_28hz[i + 7] = eq10_audio_signal->input_buffer[i + 7] - (resonator * eq10_audio_signal->input_buffer[i + 5]) + (2.0 * resonator * cos(2.0 * M_PI * 28.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_28hz[i + 6] - (resonator * resonator) * eq10_audio_signal->buffer_28hz[i + 5];
+      eq10_audio_signal->cache_28hz[0] = eq10_audio_signal->input_buffer[i] - (resonator * eq10_audio_signal->input_buffer[i - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 28.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_28hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1] - (resonator * resonator) * eq10_audio_signal->cache_28hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 2];
+      eq10_audio_signal->cache_28hz[1] = eq10_audio_signal->input_buffer[i + 1] - (resonator * eq10_audio_signal->input_buffer[i - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 28.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_28hz[0] - (resonator * resonator) * eq10_audio_signal->cache_28hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1];
+      eq10_audio_signal->cache_28hz[2] = eq10_audio_signal->input_buffer[i + 2] - (resonator * eq10_audio_signal->input_buffer[i]) + (2.0 * resonator * cos(2.0 * M_PI * 28.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_28hz[1] - (resonator * resonator) * eq10_audio_signal->cache_28hz[0];
+      eq10_audio_signal->cache_28hz[3] = eq10_audio_signal->input_buffer[i + 3] - (resonator * eq10_audio_signal->input_buffer[i + 1]) + (2.0 * resonator * cos(2.0 * M_PI * 28.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_28hz[2] - (resonator * resonator) * eq10_audio_signal->cache_28hz[1];
+      eq10_audio_signal->cache_28hz[4] = eq10_audio_signal->input_buffer[i + 4] - (resonator * eq10_audio_signal->input_buffer[i + 2]) + (2.0 * resonator * cos(2.0 * M_PI * 28.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_28hz[3] - (resonator * resonator) * eq10_audio_signal->cache_28hz[2];
+      eq10_audio_signal->cache_28hz[5] = eq10_audio_signal->input_buffer[i + 5] - (resonator * eq10_audio_signal->input_buffer[i + 3]) + (2.0 * resonator * cos(2.0 * M_PI * 28.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_28hz[4] - (resonator * resonator) * eq10_audio_signal->cache_28hz[3];
+      eq10_audio_signal->cache_28hz[6] = eq10_audio_signal->input_buffer[i + 6] - (resonator * eq10_audio_signal->input_buffer[i + 4]) + (2.0 * resonator * cos(2.0 * M_PI * 28.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_28hz[5] - (resonator * resonator) * eq10_audio_signal->cache_28hz[4];
+      eq10_audio_signal->cache_28hz[7] = eq10_audio_signal->input_buffer[i + 7] - (resonator * eq10_audio_signal->input_buffer[i + 5]) + (2.0 * resonator * cos(2.0 * M_PI * 28.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_28hz[6] - (resonator * resonator) * eq10_audio_signal->cache_28hz[5];
     }
 
     /* 56Hz */
     resonator = peak_56hz;
     
     if(i == 0){
-      eq10_audio_signal->buffer_56hz[0] = eq10_audio_signal->input_buffer[0] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 56.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_56hz[buffer_size - 1] - (resonator * resonator) * eq10_audio_signal->buffer_56hz[buffer_size - 2];
-      eq10_audio_signal->buffer_56hz[1] = eq10_audio_signal->input_buffer[1] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 56.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_56hz[0] - (resonator * resonator) * eq10_audio_signal->buffer_56hz[buffer_size - 1];
-      eq10_audio_signal->buffer_56hz[2] = eq10_audio_signal->input_buffer[2] - (resonator * eq10_audio_signal->input_buffer[0]) + (2.0 * resonator * cos(2.0 * M_PI * 56.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_56hz[1] - (resonator * resonator) * eq10_audio_signal->buffer_56hz[0];
-      eq10_audio_signal->buffer_56hz[3] = eq10_audio_signal->input_buffer[3] - (resonator * eq10_audio_signal->input_buffer[1]) + (2.0 * resonator * cos(2.0 * M_PI * 56.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_56hz[2] - (resonator * resonator) * eq10_audio_signal->buffer_56hz[1];
-      eq10_audio_signal->buffer_56hz[4] = eq10_audio_signal->input_buffer[4] - (resonator * eq10_audio_signal->input_buffer[2]) + (2.0 * resonator * cos(2.0 * M_PI * 56.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_56hz[3] - (resonator * resonator) * eq10_audio_signal->buffer_56hz[2];
-      eq10_audio_signal->buffer_56hz[5] = eq10_audio_signal->input_buffer[5] - (resonator * eq10_audio_signal->input_buffer[3]) + (2.0 * resonator * cos(2.0 * M_PI * 56.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_56hz[4] - (resonator * resonator) * eq10_audio_signal->buffer_56hz[3];
-      eq10_audio_signal->buffer_56hz[6] = eq10_audio_signal->input_buffer[6] - (resonator * eq10_audio_signal->input_buffer[4]) + (2.0 * resonator * cos(2.0 * M_PI * 56.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_56hz[5] - (resonator * resonator) * eq10_audio_signal->buffer_56hz[4];
-      eq10_audio_signal->buffer_56hz[7] = eq10_audio_signal->input_buffer[7] - (resonator * eq10_audio_signal->input_buffer[5]) + (2.0 * resonator * cos(2.0 * M_PI * 56.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_56hz[6] - (resonator * resonator) * eq10_audio_signal->buffer_56hz[5];
+      eq10_audio_signal->cache_56hz[0] = eq10_audio_signal->input_buffer[0] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 56.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_56hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1] - (resonator * resonator) * eq10_audio_signal->cache_56hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 2];
+      eq10_audio_signal->cache_56hz[1] = eq10_audio_signal->input_buffer[1] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 56.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_56hz[0] - (resonator * resonator) * eq10_audio_signal->cache_56hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1];
+      eq10_audio_signal->cache_56hz[2] = eq10_audio_signal->input_buffer[2] - (resonator * eq10_audio_signal->input_buffer[0]) + (2.0 * resonator * cos(2.0 * M_PI * 56.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_56hz[1] - (resonator * resonator) * eq10_audio_signal->cache_56hz[0];
+      eq10_audio_signal->cache_56hz[3] = eq10_audio_signal->input_buffer[3] - (resonator * eq10_audio_signal->input_buffer[1]) + (2.0 * resonator * cos(2.0 * M_PI * 56.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_56hz[2] - (resonator * resonator) * eq10_audio_signal->cache_56hz[1];
+      eq10_audio_signal->cache_56hz[4] = eq10_audio_signal->input_buffer[4] - (resonator * eq10_audio_signal->input_buffer[2]) + (2.0 * resonator * cos(2.0 * M_PI * 56.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_56hz[3] - (resonator * resonator) * eq10_audio_signal->cache_56hz[2];
+      eq10_audio_signal->cache_56hz[5] = eq10_audio_signal->input_buffer[5] - (resonator * eq10_audio_signal->input_buffer[3]) + (2.0 * resonator * cos(2.0 * M_PI * 56.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_56hz[4] - (resonator * resonator) * eq10_audio_signal->cache_56hz[3];
+      eq10_audio_signal->cache_56hz[6] = eq10_audio_signal->input_buffer[6] - (resonator * eq10_audio_signal->input_buffer[4]) + (2.0 * resonator * cos(2.0 * M_PI * 56.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_56hz[5] - (resonator * resonator) * eq10_audio_signal->cache_56hz[4];
+      eq10_audio_signal->cache_56hz[7] = eq10_audio_signal->input_buffer[7] - (resonator * eq10_audio_signal->input_buffer[5]) + (2.0 * resonator * cos(2.0 * M_PI * 56.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_56hz[6] - (resonator * resonator) * eq10_audio_signal->cache_56hz[5];
     }else{
-      eq10_audio_signal->buffer_56hz[i] = eq10_audio_signal->input_buffer[i] - (resonator * eq10_audio_signal->input_buffer[i - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 56.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_56hz[i - 1] - (resonator * resonator) * eq10_audio_signal->buffer_56hz[i - 2];
-      eq10_audio_signal->buffer_56hz[i + 1] = eq10_audio_signal->input_buffer[i + 1] - (resonator * eq10_audio_signal->input_buffer[i - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 56.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_56hz[i] - (resonator * resonator) * eq10_audio_signal->buffer_56hz[i - 1];
-      eq10_audio_signal->buffer_56hz[i + 2] = eq10_audio_signal->input_buffer[i + 2] - (resonator * eq10_audio_signal->input_buffer[i]) + (2.0 * resonator * cos(2.0 * M_PI * 56.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_56hz[i + 1] - (resonator * resonator) * eq10_audio_signal->buffer_56hz[i];
-      eq10_audio_signal->buffer_56hz[i + 3] = eq10_audio_signal->input_buffer[i + 3] - (resonator * eq10_audio_signal->input_buffer[i + 1]) + (2.0 * resonator * cos(2.0 * M_PI * 56.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_56hz[i + 2] - (resonator * resonator) * eq10_audio_signal->buffer_56hz[i + 1];
-      eq10_audio_signal->buffer_56hz[i + 4] = eq10_audio_signal->input_buffer[i + 4] - (resonator * eq10_audio_signal->input_buffer[i + 2]) + (2.0 * resonator * cos(2.0 * M_PI * 56.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_56hz[i + 3] - (resonator * resonator) * eq10_audio_signal->buffer_56hz[i + 2];
-      eq10_audio_signal->buffer_56hz[i + 5] = eq10_audio_signal->input_buffer[i + 5] - (resonator * eq10_audio_signal->input_buffer[i + 3]) + (2.0 * resonator * cos(2.0 * M_PI * 56.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_56hz[i + 4] - (resonator * resonator) * eq10_audio_signal->buffer_56hz[i + 3];
-      eq10_audio_signal->buffer_56hz[i + 6] = eq10_audio_signal->input_buffer[i + 6] - (resonator * eq10_audio_signal->input_buffer[i + 4]) + (2.0 * resonator * cos(2.0 * M_PI * 56.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_56hz[i + 5] - (resonator * resonator) * eq10_audio_signal->buffer_56hz[i + 4];
-      eq10_audio_signal->buffer_56hz[i + 7] = eq10_audio_signal->input_buffer[i + 7] - (resonator * eq10_audio_signal->input_buffer[i + 5]) + (2.0 * resonator * cos(2.0 * M_PI * 56.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_56hz[i + 6] - (resonator * resonator) * eq10_audio_signal->buffer_56hz[i + 5];
+      eq10_audio_signal->cache_56hz[0] = eq10_audio_signal->input_buffer[i] - (resonator * eq10_audio_signal->input_buffer[i - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 56.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_56hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1] - (resonator * resonator) * eq10_audio_signal->cache_56hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 2];
+      eq10_audio_signal->cache_56hz[1] = eq10_audio_signal->input_buffer[i + 1] - (resonator * eq10_audio_signal->input_buffer[i - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 56.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_56hz[0] - (resonator * resonator) * eq10_audio_signal->cache_56hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1];
+      eq10_audio_signal->cache_56hz[2] = eq10_audio_signal->input_buffer[i + 2] - (resonator * eq10_audio_signal->input_buffer[i]) + (2.0 * resonator * cos(2.0 * M_PI * 56.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_56hz[1] - (resonator * resonator) * eq10_audio_signal->cache_56hz[0];
+      eq10_audio_signal->cache_56hz[3] = eq10_audio_signal->input_buffer[i + 3] - (resonator * eq10_audio_signal->input_buffer[i + 1]) + (2.0 * resonator * cos(2.0 * M_PI * 56.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_56hz[2] - (resonator * resonator) * eq10_audio_signal->cache_56hz[1];
+      eq10_audio_signal->cache_56hz[4] = eq10_audio_signal->input_buffer[i + 4] - (resonator * eq10_audio_signal->input_buffer[i + 2]) + (2.0 * resonator * cos(2.0 * M_PI * 56.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_56hz[3] - (resonator * resonator) * eq10_audio_signal->cache_56hz[2];
+      eq10_audio_signal->cache_56hz[5] = eq10_audio_signal->input_buffer[i + 5] - (resonator * eq10_audio_signal->input_buffer[i + 3]) + (2.0 * resonator * cos(2.0 * M_PI * 56.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_56hz[4] - (resonator * resonator) * eq10_audio_signal->cache_56hz[3];
+      eq10_audio_signal->cache_56hz[6] = eq10_audio_signal->input_buffer[i + 6] - (resonator * eq10_audio_signal->input_buffer[i + 4]) + (2.0 * resonator * cos(2.0 * M_PI * 56.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_56hz[5] - (resonator * resonator) * eq10_audio_signal->cache_56hz[4];
+      eq10_audio_signal->cache_56hz[7] = eq10_audio_signal->input_buffer[i + 7] - (resonator * eq10_audio_signal->input_buffer[i + 5]) + (2.0 * resonator * cos(2.0 * M_PI * 56.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_56hz[6] - (resonator * resonator) * eq10_audio_signal->cache_56hz[5];
     }
 
     /* 112Hz */
     resonator = peak_112hz;
     
     if(i == 0){
-      eq10_audio_signal->buffer_112hz[0] = eq10_audio_signal->input_buffer[0] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 112.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_112hz[buffer_size - 1] - (resonator * resonator) * eq10_audio_signal->buffer_112hz[buffer_size - 2];
-      eq10_audio_signal->buffer_112hz[1] = eq10_audio_signal->input_buffer[1] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 112.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_112hz[0] - (resonator * resonator) * eq10_audio_signal->buffer_112hz[buffer_size - 1];
-      eq10_audio_signal->buffer_112hz[2] = eq10_audio_signal->input_buffer[2] - (resonator * eq10_audio_signal->input_buffer[0]) + (2.0 * resonator * cos(2.0 * M_PI * 112.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_112hz[1] - (resonator * resonator) * eq10_audio_signal->buffer_112hz[0];
-      eq10_audio_signal->buffer_112hz[3] = eq10_audio_signal->input_buffer[3] - (resonator * eq10_audio_signal->input_buffer[1]) + (2.0 * resonator * cos(2.0 * M_PI * 112.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_112hz[2] - (resonator * resonator) * eq10_audio_signal->buffer_112hz[1];
-      eq10_audio_signal->buffer_112hz[4] = eq10_audio_signal->input_buffer[4] - (resonator * eq10_audio_signal->input_buffer[2]) + (2.0 * resonator * cos(2.0 * M_PI * 112.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_112hz[3] - (resonator * resonator) * eq10_audio_signal->buffer_112hz[2];
-      eq10_audio_signal->buffer_112hz[5] = eq10_audio_signal->input_buffer[5] - (resonator * eq10_audio_signal->input_buffer[3]) + (2.0 * resonator * cos(2.0 * M_PI * 112.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_112hz[4] - (resonator * resonator) * eq10_audio_signal->buffer_112hz[3];
-      eq10_audio_signal->buffer_112hz[6] = eq10_audio_signal->input_buffer[6] - (resonator * eq10_audio_signal->input_buffer[4]) + (2.0 * resonator * cos(2.0 * M_PI * 112.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_112hz[5] - (resonator * resonator) * eq10_audio_signal->buffer_112hz[4];
-      eq10_audio_signal->buffer_112hz[7] = eq10_audio_signal->input_buffer[7] - (resonator * eq10_audio_signal->input_buffer[5]) + (2.0 * resonator * cos(2.0 * M_PI * 112.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_112hz[6] - (resonator * resonator) * eq10_audio_signal->buffer_112hz[5];
+      eq10_audio_signal->cache_112hz[0] = eq10_audio_signal->input_buffer[0] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 112.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_112hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1] - (resonator * resonator) * eq10_audio_signal->cache_112hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 2];
+      eq10_audio_signal->cache_112hz[1] = eq10_audio_signal->input_buffer[1] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 112.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_112hz[0] - (resonator * resonator) * eq10_audio_signal->cache_112hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1];
+      eq10_audio_signal->cache_112hz[2] = eq10_audio_signal->input_buffer[2] - (resonator * eq10_audio_signal->input_buffer[0]) + (2.0 * resonator * cos(2.0 * M_PI * 112.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_112hz[1] - (resonator * resonator) * eq10_audio_signal->cache_112hz[0];
+      eq10_audio_signal->cache_112hz[3] = eq10_audio_signal->input_buffer[3] - (resonator * eq10_audio_signal->input_buffer[1]) + (2.0 * resonator * cos(2.0 * M_PI * 112.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_112hz[2] - (resonator * resonator) * eq10_audio_signal->cache_112hz[1];
+      eq10_audio_signal->cache_112hz[4] = eq10_audio_signal->input_buffer[4] - (resonator * eq10_audio_signal->input_buffer[2]) + (2.0 * resonator * cos(2.0 * M_PI * 112.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_112hz[3] - (resonator * resonator) * eq10_audio_signal->cache_112hz[2];
+      eq10_audio_signal->cache_112hz[5] = eq10_audio_signal->input_buffer[5] - (resonator * eq10_audio_signal->input_buffer[3]) + (2.0 * resonator * cos(2.0 * M_PI * 112.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_112hz[4] - (resonator * resonator) * eq10_audio_signal->cache_112hz[3];
+      eq10_audio_signal->cache_112hz[6] = eq10_audio_signal->input_buffer[6] - (resonator * eq10_audio_signal->input_buffer[4]) + (2.0 * resonator * cos(2.0 * M_PI * 112.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_112hz[5] - (resonator * resonator) * eq10_audio_signal->cache_112hz[4];
+      eq10_audio_signal->cache_112hz[7] = eq10_audio_signal->input_buffer[7] - (resonator * eq10_audio_signal->input_buffer[5]) + (2.0 * resonator * cos(2.0 * M_PI * 112.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_112hz[6] - (resonator * resonator) * eq10_audio_signal->cache_112hz[5];
     }else{
-      eq10_audio_signal->buffer_112hz[i] = eq10_audio_signal->input_buffer[i] - (resonator * eq10_audio_signal->input_buffer[i - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 112.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_112hz[i - 1] - (resonator * resonator) * eq10_audio_signal->buffer_112hz[i - 2];
-      eq10_audio_signal->buffer_112hz[i + 1] = eq10_audio_signal->input_buffer[i + 1] - (resonator * eq10_audio_signal->input_buffer[i - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 112.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_112hz[i] - (resonator * resonator) * eq10_audio_signal->buffer_112hz[i - 1];
-      eq10_audio_signal->buffer_112hz[i + 2] = eq10_audio_signal->input_buffer[i + 2] - (resonator * eq10_audio_signal->input_buffer[i]) + (2.0 * resonator * cos(2.0 * M_PI * 112.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_112hz[i + 1] - (resonator * resonator) * eq10_audio_signal->buffer_112hz[i];
-      eq10_audio_signal->buffer_112hz[i + 3] = eq10_audio_signal->input_buffer[i + 3] - (resonator * eq10_audio_signal->input_buffer[i + 1]) + (2.0 * resonator * cos(2.0 * M_PI * 112.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_112hz[i + 2] - (resonator * resonator) * eq10_audio_signal->buffer_112hz[i + 1];
-      eq10_audio_signal->buffer_112hz[i + 4] = eq10_audio_signal->input_buffer[i + 4] - (resonator * eq10_audio_signal->input_buffer[i + 2]) + (2.0 * resonator * cos(2.0 * M_PI * 112.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_112hz[i + 3] - (resonator * resonator) * eq10_audio_signal->buffer_112hz[i + 2];
-      eq10_audio_signal->buffer_112hz[i + 5] = eq10_audio_signal->input_buffer[i + 5] - (resonator * eq10_audio_signal->input_buffer[i + 3]) + (2.0 * resonator * cos(2.0 * M_PI * 112.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_112hz[i + 4] - (resonator * resonator) * eq10_audio_signal->buffer_112hz[i + 3];
-      eq10_audio_signal->buffer_112hz[i + 6] = eq10_audio_signal->input_buffer[i + 6] - (resonator * eq10_audio_signal->input_buffer[i + 4]) + (2.0 * resonator * cos(2.0 * M_PI * 112.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_112hz[i + 5] - (resonator * resonator) * eq10_audio_signal->buffer_112hz[i + 4];
-      eq10_audio_signal->buffer_112hz[i + 7] = eq10_audio_signal->input_buffer[i + 7] - (resonator * eq10_audio_signal->input_buffer[i + 5]) + (2.0 * resonator * cos(2.0 * M_PI * 112.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_112hz[i + 6] - (resonator * resonator) * eq10_audio_signal->buffer_112hz[i + 5];
+      eq10_audio_signal->cache_112hz[0] = eq10_audio_signal->input_buffer[i] - (resonator * eq10_audio_signal->input_buffer[i - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 112.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_112hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1] - (resonator * resonator) * eq10_audio_signal->cache_112hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 2];
+      eq10_audio_signal->cache_112hz[1] = eq10_audio_signal->input_buffer[i + 1] - (resonator * eq10_audio_signal->input_buffer[i - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 112.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_112hz[0] - (resonator * resonator) * eq10_audio_signal->cache_112hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1];
+      eq10_audio_signal->cache_112hz[2] = eq10_audio_signal->input_buffer[i + 2] - (resonator * eq10_audio_signal->input_buffer[i]) + (2.0 * resonator * cos(2.0 * M_PI * 112.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_112hz[1] - (resonator * resonator) * eq10_audio_signal->cache_112hz[0];
+      eq10_audio_signal->cache_112hz[3] = eq10_audio_signal->input_buffer[i + 3] - (resonator * eq10_audio_signal->input_buffer[i + 1]) + (2.0 * resonator * cos(2.0 * M_PI * 112.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_112hz[2] - (resonator * resonator) * eq10_audio_signal->cache_112hz[1];
+      eq10_audio_signal->cache_112hz[4] = eq10_audio_signal->input_buffer[i + 4] - (resonator * eq10_audio_signal->input_buffer[i + 2]) + (2.0 * resonator * cos(2.0 * M_PI * 112.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_112hz[3] - (resonator * resonator) * eq10_audio_signal->cache_112hz[2];
+      eq10_audio_signal->cache_112hz[5] = eq10_audio_signal->input_buffer[i + 5] - (resonator * eq10_audio_signal->input_buffer[i + 3]) + (2.0 * resonator * cos(2.0 * M_PI * 112.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_112hz[4] - (resonator * resonator) * eq10_audio_signal->cache_112hz[3];
+      eq10_audio_signal->cache_112hz[6] = eq10_audio_signal->input_buffer[i + 6] - (resonator * eq10_audio_signal->input_buffer[i + 4]) + (2.0 * resonator * cos(2.0 * M_PI * 112.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_112hz[5] - (resonator * resonator) * eq10_audio_signal->cache_112hz[4];
+      eq10_audio_signal->cache_112hz[7] = eq10_audio_signal->input_buffer[i + 7] - (resonator * eq10_audio_signal->input_buffer[i + 5]) + (2.0 * resonator * cos(2.0 * M_PI * 112.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_112hz[6] - (resonator * resonator) * eq10_audio_signal->cache_112hz[5];
     }
 
     /* 224Hz */
     resonator = peak_224hz;
     
     if(i == 0){
-      eq10_audio_signal->buffer_224hz[0] = eq10_audio_signal->input_buffer[0] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 224.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_224hz[buffer_size - 1] - (resonator * resonator) * eq10_audio_signal->buffer_224hz[buffer_size - 2];
-      eq10_audio_signal->buffer_224hz[1] = eq10_audio_signal->input_buffer[1] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 224.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_224hz[0] - (resonator * resonator) * eq10_audio_signal->buffer_224hz[buffer_size - 1];
-      eq10_audio_signal->buffer_224hz[2] = eq10_audio_signal->input_buffer[2] - (resonator * eq10_audio_signal->input_buffer[0]) + (2.0 * resonator * cos(2.0 * M_PI * 224.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_224hz[1] - (resonator * resonator) * eq10_audio_signal->buffer_224hz[0];
-      eq10_audio_signal->buffer_224hz[3] = eq10_audio_signal->input_buffer[3] - (resonator * eq10_audio_signal->input_buffer[1]) + (2.0 * resonator * cos(2.0 * M_PI * 224.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_224hz[2] - (resonator * resonator) * eq10_audio_signal->buffer_224hz[1];
-      eq10_audio_signal->buffer_224hz[4] = eq10_audio_signal->input_buffer[4] - (resonator * eq10_audio_signal->input_buffer[2]) + (2.0 * resonator * cos(2.0 * M_PI * 224.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_224hz[3] - (resonator * resonator) * eq10_audio_signal->buffer_224hz[2];
-      eq10_audio_signal->buffer_224hz[5] = eq10_audio_signal->input_buffer[5] - (resonator * eq10_audio_signal->input_buffer[3]) + (2.0 * resonator * cos(2.0 * M_PI * 224.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_224hz[4] - (resonator * resonator) * eq10_audio_signal->buffer_224hz[3];
-      eq10_audio_signal->buffer_224hz[6] = eq10_audio_signal->input_buffer[6] - (resonator * eq10_audio_signal->input_buffer[4]) + (2.0 * resonator * cos(2.0 * M_PI * 224.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_224hz[5] - (resonator * resonator) * eq10_audio_signal->buffer_224hz[4];
-      eq10_audio_signal->buffer_224hz[7] = eq10_audio_signal->input_buffer[7] - (resonator * eq10_audio_signal->input_buffer[5]) + (2.0 * resonator * cos(2.0 * M_PI * 224.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_224hz[6] - (resonator * resonator) * eq10_audio_signal->buffer_224hz[5];
+      eq10_audio_signal->cache_224hz[0] = eq10_audio_signal->input_buffer[0] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 224.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_224hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1] - (resonator * resonator) * eq10_audio_signal->cache_224hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 2];
+      eq10_audio_signal->cache_224hz[1] = eq10_audio_signal->input_buffer[1] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 224.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_224hz[0] - (resonator * resonator) * eq10_audio_signal->cache_224hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1];
+      eq10_audio_signal->cache_224hz[2] = eq10_audio_signal->input_buffer[2] - (resonator * eq10_audio_signal->input_buffer[0]) + (2.0 * resonator * cos(2.0 * M_PI * 224.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_224hz[1] - (resonator * resonator) * eq10_audio_signal->cache_224hz[0];
+      eq10_audio_signal->cache_224hz[3] = eq10_audio_signal->input_buffer[3] - (resonator * eq10_audio_signal->input_buffer[1]) + (2.0 * resonator * cos(2.0 * M_PI * 224.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_224hz[2] - (resonator * resonator) * eq10_audio_signal->cache_224hz[1];
+      eq10_audio_signal->cache_224hz[4] = eq10_audio_signal->input_buffer[4] - (resonator * eq10_audio_signal->input_buffer[2]) + (2.0 * resonator * cos(2.0 * M_PI * 224.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_224hz[3] - (resonator * resonator) * eq10_audio_signal->cache_224hz[2];
+      eq10_audio_signal->cache_224hz[5] = eq10_audio_signal->input_buffer[5] - (resonator * eq10_audio_signal->input_buffer[3]) + (2.0 * resonator * cos(2.0 * M_PI * 224.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_224hz[4] - (resonator * resonator) * eq10_audio_signal->cache_224hz[3];
+      eq10_audio_signal->cache_224hz[6] = eq10_audio_signal->input_buffer[6] - (resonator * eq10_audio_signal->input_buffer[4]) + (2.0 * resonator * cos(2.0 * M_PI * 224.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_224hz[5] - (resonator * resonator) * eq10_audio_signal->cache_224hz[4];
+      eq10_audio_signal->cache_224hz[7] = eq10_audio_signal->input_buffer[7] - (resonator * eq10_audio_signal->input_buffer[5]) + (2.0 * resonator * cos(2.0 * M_PI * 224.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_224hz[6] - (resonator * resonator) * eq10_audio_signal->cache_224hz[5];
     }else{
-      eq10_audio_signal->buffer_224hz[i] = eq10_audio_signal->input_buffer[i] - (resonator * eq10_audio_signal->input_buffer[i - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 224.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_224hz[i - 1] - (resonator * resonator) * eq10_audio_signal->buffer_224hz[i - 2];
-      eq10_audio_signal->buffer_224hz[i + 1] = eq10_audio_signal->input_buffer[i + 1] - (resonator * eq10_audio_signal->input_buffer[i - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 224.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_224hz[i] - (resonator * resonator) * eq10_audio_signal->buffer_224hz[i - 1];
-      eq10_audio_signal->buffer_224hz[i + 2] = eq10_audio_signal->input_buffer[i + 2] - (resonator * eq10_audio_signal->input_buffer[i]) + (2.0 * resonator * cos(2.0 * M_PI * 224.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_224hz[i + 1] - (resonator * resonator) * eq10_audio_signal->buffer_224hz[i];
-      eq10_audio_signal->buffer_224hz[i + 3] = eq10_audio_signal->input_buffer[i + 3] - (resonator * eq10_audio_signal->input_buffer[i + 1]) + (2.0 * resonator * cos(2.0 * M_PI * 224.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_224hz[i + 2] - (resonator * resonator) * eq10_audio_signal->buffer_224hz[i + 1];
-      eq10_audio_signal->buffer_224hz[i + 4] = eq10_audio_signal->input_buffer[i + 4] - (resonator * eq10_audio_signal->input_buffer[i + 2]) + (2.0 * resonator * cos(2.0 * M_PI * 224.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_224hz[i + 3] - (resonator * resonator) * eq10_audio_signal->buffer_224hz[i + 2];
-      eq10_audio_signal->buffer_224hz[i + 5] = eq10_audio_signal->input_buffer[i + 5] - (resonator * eq10_audio_signal->input_buffer[i + 3]) + (2.0 * resonator * cos(2.0 * M_PI * 224.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_224hz[i + 4] - (resonator * resonator) * eq10_audio_signal->buffer_224hz[i + 3];
-      eq10_audio_signal->buffer_224hz[i + 6] = eq10_audio_signal->input_buffer[i + 6] - (resonator * eq10_audio_signal->input_buffer[i + 4]) + (2.0 * resonator * cos(2.0 * M_PI * 224.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_224hz[i + 5] - (resonator * resonator) * eq10_audio_signal->buffer_224hz[i + 4];
-      eq10_audio_signal->buffer_224hz[i + 7] = eq10_audio_signal->input_buffer[i + 7] - (resonator * eq10_audio_signal->input_buffer[i + 5]) + (2.0 * resonator * cos(2.0 * M_PI * 224.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_224hz[i + 6] - (resonator * resonator) * eq10_audio_signal->buffer_224hz[i + 5];
+      eq10_audio_signal->cache_224hz[0] = eq10_audio_signal->input_buffer[i] - (resonator * eq10_audio_signal->input_buffer[i - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 224.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_224hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1] - (resonator * resonator) * eq10_audio_signal->cache_224hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 2];
+      eq10_audio_signal->cache_224hz[1] = eq10_audio_signal->input_buffer[i + 1] - (resonator * eq10_audio_signal->input_buffer[i - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 224.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_224hz[0] - (resonator * resonator) * eq10_audio_signal->cache_224hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1];
+      eq10_audio_signal->cache_224hz[2] = eq10_audio_signal->input_buffer[i + 2] - (resonator * eq10_audio_signal->input_buffer[i]) + (2.0 * resonator * cos(2.0 * M_PI * 224.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_224hz[1] - (resonator * resonator) * eq10_audio_signal->cache_224hz[0];
+      eq10_audio_signal->cache_224hz[3] = eq10_audio_signal->input_buffer[i + 3] - (resonator * eq10_audio_signal->input_buffer[i + 1]) + (2.0 * resonator * cos(2.0 * M_PI * 224.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_224hz[2] - (resonator * resonator) * eq10_audio_signal->cache_224hz[1];
+      eq10_audio_signal->cache_224hz[4] = eq10_audio_signal->input_buffer[i + 4] - (resonator * eq10_audio_signal->input_buffer[i + 2]) + (2.0 * resonator * cos(2.0 * M_PI * 224.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_224hz[3] - (resonator * resonator) * eq10_audio_signal->cache_224hz[2];
+      eq10_audio_signal->cache_224hz[5] = eq10_audio_signal->input_buffer[i + 5] - (resonator * eq10_audio_signal->input_buffer[i + 3]) + (2.0 * resonator * cos(2.0 * M_PI * 224.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_224hz[4] - (resonator * resonator) * eq10_audio_signal->cache_224hz[3];
+      eq10_audio_signal->cache_224hz[6] = eq10_audio_signal->input_buffer[i + 6] - (resonator * eq10_audio_signal->input_buffer[i + 4]) + (2.0 * resonator * cos(2.0 * M_PI * 224.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_224hz[5] - (resonator * resonator) * eq10_audio_signal->cache_224hz[4];
+      eq10_audio_signal->cache_224hz[7] = eq10_audio_signal->input_buffer[i + 7] - (resonator * eq10_audio_signal->input_buffer[i + 5]) + (2.0 * resonator * cos(2.0 * M_PI * 224.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_224hz[6] - (resonator * resonator) * eq10_audio_signal->cache_224hz[5];
     }
 
     /* 448Hz */
     resonator = peak_448hz;
     
     if(i == 0){
-      eq10_audio_signal->buffer_448hz[0] = eq10_audio_signal->input_buffer[0] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 448.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_448hz[buffer_size - 1] - (resonator * resonator) * eq10_audio_signal->buffer_448hz[buffer_size - 2];
-      eq10_audio_signal->buffer_448hz[1] = eq10_audio_signal->input_buffer[1] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 448.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_448hz[0] - (resonator * resonator) * eq10_audio_signal->buffer_448hz[buffer_size - 1];
-      eq10_audio_signal->buffer_448hz[2] = eq10_audio_signal->input_buffer[2] - (resonator * eq10_audio_signal->input_buffer[0]) + (2.0 * resonator * cos(2.0 * M_PI * 448.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_448hz[1] - (resonator * resonator) * eq10_audio_signal->buffer_448hz[0];
-      eq10_audio_signal->buffer_448hz[3] = eq10_audio_signal->input_buffer[3] - (resonator * eq10_audio_signal->input_buffer[1]) + (2.0 * resonator * cos(2.0 * M_PI * 448.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_448hz[2] - (resonator * resonator) * eq10_audio_signal->buffer_448hz[1];
-      eq10_audio_signal->buffer_448hz[4] = eq10_audio_signal->input_buffer[4] - (resonator * eq10_audio_signal->input_buffer[2]) + (2.0 * resonator * cos(2.0 * M_PI * 448.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_448hz[3] - (resonator * resonator) * eq10_audio_signal->buffer_448hz[2];
-      eq10_audio_signal->buffer_448hz[5] = eq10_audio_signal->input_buffer[5] - (resonator * eq10_audio_signal->input_buffer[3]) + (2.0 * resonator * cos(2.0 * M_PI * 448.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_448hz[4] - (resonator * resonator) * eq10_audio_signal->buffer_448hz[3];
-      eq10_audio_signal->buffer_448hz[6] = eq10_audio_signal->input_buffer[6] - (resonator * eq10_audio_signal->input_buffer[4]) + (2.0 * resonator * cos(2.0 * M_PI * 448.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_448hz[5] - (resonator * resonator) * eq10_audio_signal->buffer_448hz[4];
-      eq10_audio_signal->buffer_448hz[7] = eq10_audio_signal->input_buffer[7] - (resonator * eq10_audio_signal->input_buffer[5]) + (2.0 * resonator * cos(2.0 * M_PI * 448.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_448hz[6] - (resonator * resonator) * eq10_audio_signal->buffer_448hz[5];
+      eq10_audio_signal->cache_448hz[0] = eq10_audio_signal->input_buffer[0] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 448.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_448hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1] - (resonator * resonator) * eq10_audio_signal->cache_448hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 2];
+      eq10_audio_signal->cache_448hz[1] = eq10_audio_signal->input_buffer[1] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 448.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_448hz[0] - (resonator * resonator) * eq10_audio_signal->cache_448hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1];
+      eq10_audio_signal->cache_448hz[2] = eq10_audio_signal->input_buffer[2] - (resonator * eq10_audio_signal->input_buffer[0]) + (2.0 * resonator * cos(2.0 * M_PI * 448.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_448hz[1] - (resonator * resonator) * eq10_audio_signal->cache_448hz[0];
+      eq10_audio_signal->cache_448hz[3] = eq10_audio_signal->input_buffer[3] - (resonator * eq10_audio_signal->input_buffer[1]) + (2.0 * resonator * cos(2.0 * M_PI * 448.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_448hz[2] - (resonator * resonator) * eq10_audio_signal->cache_448hz[1];
+      eq10_audio_signal->cache_448hz[4] = eq10_audio_signal->input_buffer[4] - (resonator * eq10_audio_signal->input_buffer[2]) + (2.0 * resonator * cos(2.0 * M_PI * 448.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_448hz[3] - (resonator * resonator) * eq10_audio_signal->cache_448hz[2];
+      eq10_audio_signal->cache_448hz[5] = eq10_audio_signal->input_buffer[5] - (resonator * eq10_audio_signal->input_buffer[3]) + (2.0 * resonator * cos(2.0 * M_PI * 448.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_448hz[4] - (resonator * resonator) * eq10_audio_signal->cache_448hz[3];
+      eq10_audio_signal->cache_448hz[6] = eq10_audio_signal->input_buffer[6] - (resonator * eq10_audio_signal->input_buffer[4]) + (2.0 * resonator * cos(2.0 * M_PI * 448.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_448hz[5] - (resonator * resonator) * eq10_audio_signal->cache_448hz[4];
+      eq10_audio_signal->cache_448hz[7] = eq10_audio_signal->input_buffer[7] - (resonator * eq10_audio_signal->input_buffer[5]) + (2.0 * resonator * cos(2.0 * M_PI * 448.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_448hz[6] - (resonator * resonator) * eq10_audio_signal->cache_448hz[5];
     }else{
-      eq10_audio_signal->buffer_448hz[i] = eq10_audio_signal->input_buffer[i] - (resonator * eq10_audio_signal->input_buffer[i - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 448.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_448hz[i - 1] - (resonator * resonator) * eq10_audio_signal->buffer_448hz[i - 2];
-      eq10_audio_signal->buffer_448hz[i + 1] = eq10_audio_signal->input_buffer[i + 1] - (resonator * eq10_audio_signal->input_buffer[i - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 448.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_448hz[i] - (resonator * resonator) * eq10_audio_signal->buffer_448hz[i - 1];
-      eq10_audio_signal->buffer_448hz[i + 2] = eq10_audio_signal->input_buffer[i + 2] - (resonator * eq10_audio_signal->input_buffer[i]) + (2.0 * resonator * cos(2.0 * M_PI * 448.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_448hz[i + 1] - (resonator * resonator) * eq10_audio_signal->buffer_448hz[i];
-      eq10_audio_signal->buffer_448hz[i + 3] = eq10_audio_signal->input_buffer[i + 3] - (resonator * eq10_audio_signal->input_buffer[i + 1]) + (2.0 * resonator * cos(2.0 * M_PI * 448.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_448hz[i + 2] - (resonator * resonator) * eq10_audio_signal->buffer_448hz[i + 1];
-      eq10_audio_signal->buffer_448hz[i + 4] = eq10_audio_signal->input_buffer[i + 4] - (resonator * eq10_audio_signal->input_buffer[i + 2]) + (2.0 * resonator * cos(2.0 * M_PI * 448.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_448hz[i + 3] - (resonator * resonator) * eq10_audio_signal->buffer_448hz[i + 2];
-      eq10_audio_signal->buffer_448hz[i + 5] = eq10_audio_signal->input_buffer[i + 5] - (resonator * eq10_audio_signal->input_buffer[i + 3]) + (2.0 * resonator * cos(2.0 * M_PI * 448.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_448hz[i + 4] - (resonator * resonator) * eq10_audio_signal->buffer_448hz[i + 3];
-      eq10_audio_signal->buffer_448hz[i + 6] = eq10_audio_signal->input_buffer[i + 6] - (resonator * eq10_audio_signal->input_buffer[i + 4]) + (2.0 * resonator * cos(2.0 * M_PI * 448.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_448hz[i + 5] - (resonator * resonator) * eq10_audio_signal->buffer_448hz[i + 4];
-      eq10_audio_signal->buffer_448hz[i + 7] = eq10_audio_signal->input_buffer[i + 7] - (resonator * eq10_audio_signal->input_buffer[i + 5]) + (2.0 * resonator * cos(2.0 * M_PI * 448.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_448hz[i + 6] - (resonator * resonator) * eq10_audio_signal->buffer_448hz[i + 5];
+      eq10_audio_signal->cache_448hz[0] = eq10_audio_signal->input_buffer[i] - (resonator * eq10_audio_signal->input_buffer[i - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 448.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_448hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1] - (resonator * resonator) * eq10_audio_signal->cache_448hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 2];
+      eq10_audio_signal->cache_448hz[1] = eq10_audio_signal->input_buffer[i + 1] - (resonator * eq10_audio_signal->input_buffer[i - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 448.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_448hz[0] - (resonator * resonator) * eq10_audio_signal->cache_448hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1];
+      eq10_audio_signal->cache_448hz[2] = eq10_audio_signal->input_buffer[i + 2] - (resonator * eq10_audio_signal->input_buffer[i]) + (2.0 * resonator * cos(2.0 * M_PI * 448.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_448hz[1] - (resonator * resonator) * eq10_audio_signal->cache_448hz[0];
+      eq10_audio_signal->cache_448hz[3] = eq10_audio_signal->input_buffer[i + 3] - (resonator * eq10_audio_signal->input_buffer[i + 1]) + (2.0 * resonator * cos(2.0 * M_PI * 448.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_448hz[2] - (resonator * resonator) * eq10_audio_signal->cache_448hz[1];
+      eq10_audio_signal->cache_448hz[4] = eq10_audio_signal->input_buffer[i + 4] - (resonator * eq10_audio_signal->input_buffer[i + 2]) + (2.0 * resonator * cos(2.0 * M_PI * 448.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_448hz[3] - (resonator * resonator) * eq10_audio_signal->cache_448hz[2];
+      eq10_audio_signal->cache_448hz[5] = eq10_audio_signal->input_buffer[i + 5] - (resonator * eq10_audio_signal->input_buffer[i + 3]) + (2.0 * resonator * cos(2.0 * M_PI * 448.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_448hz[4] - (resonator * resonator) * eq10_audio_signal->cache_448hz[3];
+      eq10_audio_signal->cache_448hz[6] = eq10_audio_signal->input_buffer[i + 6] - (resonator * eq10_audio_signal->input_buffer[i + 4]) + (2.0 * resonator * cos(2.0 * M_PI * 448.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_448hz[5] - (resonator * resonator) * eq10_audio_signal->cache_448hz[4];
+      eq10_audio_signal->cache_448hz[7] = eq10_audio_signal->input_buffer[i + 7] - (resonator * eq10_audio_signal->input_buffer[i + 5]) + (2.0 * resonator * cos(2.0 * M_PI * 448.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_448hz[6] - (resonator * resonator) * eq10_audio_signal->cache_448hz[5];
     }
 
     /* 896Hz */
     resonator = peak_896hz;
     
     if(i == 0){
-      eq10_audio_signal->buffer_896hz[0] = eq10_audio_signal->input_buffer[0] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 896.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_896hz[buffer_size - 1] - (resonator * resonator) * eq10_audio_signal->buffer_896hz[buffer_size - 2];
-      eq10_audio_signal->buffer_896hz[1] = eq10_audio_signal->input_buffer[1] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 896.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_896hz[0] - (resonator * resonator) * eq10_audio_signal->buffer_896hz[buffer_size - 1];
-      eq10_audio_signal->buffer_896hz[2] = eq10_audio_signal->input_buffer[2] - (resonator * eq10_audio_signal->input_buffer[0]) + (2.0 * resonator * cos(2.0 * M_PI * 896.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_896hz[1] - (resonator * resonator) * eq10_audio_signal->buffer_896hz[0];
-      eq10_audio_signal->buffer_896hz[3] = eq10_audio_signal->input_buffer[3] - (resonator * eq10_audio_signal->input_buffer[1]) + (2.0 * resonator * cos(2.0 * M_PI * 896.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_896hz[2] - (resonator * resonator) * eq10_audio_signal->buffer_896hz[1];
-      eq10_audio_signal->buffer_896hz[4] = eq10_audio_signal->input_buffer[4] - (resonator * eq10_audio_signal->input_buffer[2]) + (2.0 * resonator * cos(2.0 * M_PI * 896.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_896hz[3] - (resonator * resonator) * eq10_audio_signal->buffer_896hz[2];
-      eq10_audio_signal->buffer_896hz[5] = eq10_audio_signal->input_buffer[5] - (resonator * eq10_audio_signal->input_buffer[3]) + (2.0 * resonator * cos(2.0 * M_PI * 896.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_896hz[4] - (resonator * resonator) * eq10_audio_signal->buffer_896hz[3];
-      eq10_audio_signal->buffer_896hz[6] = eq10_audio_signal->input_buffer[6] - (resonator * eq10_audio_signal->input_buffer[4]) + (2.0 * resonator * cos(2.0 * M_PI * 896.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_896hz[5] - (resonator * resonator) * eq10_audio_signal->buffer_896hz[4];
-      eq10_audio_signal->buffer_896hz[7] = eq10_audio_signal->input_buffer[7] - (resonator * eq10_audio_signal->input_buffer[5]) + (2.0 * resonator * cos(2.0 * M_PI * 896.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_896hz[6] - (resonator * resonator) * eq10_audio_signal->buffer_896hz[5];
+      eq10_audio_signal->cache_896hz[0] = eq10_audio_signal->input_buffer[0] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 896.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_896hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1] - (resonator * resonator) * eq10_audio_signal->cache_896hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 2];
+      eq10_audio_signal->cache_896hz[1] = eq10_audio_signal->input_buffer[1] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 896.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_896hz[0] - (resonator * resonator) * eq10_audio_signal->cache_896hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1];
+      eq10_audio_signal->cache_896hz[2] = eq10_audio_signal->input_buffer[2] - (resonator * eq10_audio_signal->input_buffer[0]) + (2.0 * resonator * cos(2.0 * M_PI * 896.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_896hz[1] - (resonator * resonator) * eq10_audio_signal->cache_896hz[0];
+      eq10_audio_signal->cache_896hz[3] = eq10_audio_signal->input_buffer[3] - (resonator * eq10_audio_signal->input_buffer[1]) + (2.0 * resonator * cos(2.0 * M_PI * 896.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_896hz[2] - (resonator * resonator) * eq10_audio_signal->cache_896hz[1];
+      eq10_audio_signal->cache_896hz[4] = eq10_audio_signal->input_buffer[4] - (resonator * eq10_audio_signal->input_buffer[2]) + (2.0 * resonator * cos(2.0 * M_PI * 896.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_896hz[3] - (resonator * resonator) * eq10_audio_signal->cache_896hz[2];
+      eq10_audio_signal->cache_896hz[5] = eq10_audio_signal->input_buffer[5] - (resonator * eq10_audio_signal->input_buffer[3]) + (2.0 * resonator * cos(2.0 * M_PI * 896.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_896hz[4] - (resonator * resonator) * eq10_audio_signal->cache_896hz[3];
+      eq10_audio_signal->cache_896hz[6] = eq10_audio_signal->input_buffer[6] - (resonator * eq10_audio_signal->input_buffer[4]) + (2.0 * resonator * cos(2.0 * M_PI * 896.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_896hz[5] - (resonator * resonator) * eq10_audio_signal->cache_896hz[4];
+      eq10_audio_signal->cache_896hz[7] = eq10_audio_signal->input_buffer[7] - (resonator * eq10_audio_signal->input_buffer[5]) + (2.0 * resonator * cos(2.0 * M_PI * 896.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_896hz[6] - (resonator * resonator) * eq10_audio_signal->cache_896hz[5];
     }else{
-      eq10_audio_signal->buffer_896hz[i] = eq10_audio_signal->input_buffer[i] - (resonator * eq10_audio_signal->input_buffer[i - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 896.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_896hz[i - 1] - (resonator * resonator) * eq10_audio_signal->buffer_896hz[i - 2];
-      eq10_audio_signal->buffer_896hz[i + 1] = eq10_audio_signal->input_buffer[i + 1] - (resonator * eq10_audio_signal->input_buffer[i - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 896.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_896hz[i] - (resonator * resonator) * eq10_audio_signal->buffer_896hz[i - 1];
-      eq10_audio_signal->buffer_896hz[i + 2] = eq10_audio_signal->input_buffer[i + 2] - (resonator * eq10_audio_signal->input_buffer[i]) + (2.0 * resonator * cos(2.0 * M_PI * 896.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_896hz[i + 1] - (resonator * resonator) * eq10_audio_signal->buffer_896hz[i];
-      eq10_audio_signal->buffer_896hz[i + 3] = eq10_audio_signal->input_buffer[i + 3] - (resonator * eq10_audio_signal->input_buffer[i + 1]) + (2.0 * resonator * cos(2.0 * M_PI * 896.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_896hz[i + 2] - (resonator * resonator) * eq10_audio_signal->buffer_896hz[i + 1];
-      eq10_audio_signal->buffer_896hz[i + 4] = eq10_audio_signal->input_buffer[i + 4] - (resonator * eq10_audio_signal->input_buffer[i + 2]) + (2.0 * resonator * cos(2.0 * M_PI * 896.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_896hz[i + 3] - (resonator * resonator) * eq10_audio_signal->buffer_896hz[i + 2];
-      eq10_audio_signal->buffer_896hz[i + 5] = eq10_audio_signal->input_buffer[i + 5] - (resonator * eq10_audio_signal->input_buffer[i + 3]) + (2.0 * resonator * cos(2.0 * M_PI * 896.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_896hz[i + 4] - (resonator * resonator) * eq10_audio_signal->buffer_896hz[i + 3];
-      eq10_audio_signal->buffer_896hz[i + 6] = eq10_audio_signal->input_buffer[i + 6] - (resonator * eq10_audio_signal->input_buffer[i + 4]) + (2.0 * resonator * cos(2.0 * M_PI * 896.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_896hz[i + 5] - (resonator * resonator) * eq10_audio_signal->buffer_896hz[i + 4];
-      eq10_audio_signal->buffer_896hz[i + 7] = eq10_audio_signal->input_buffer[i + 7] - (resonator * eq10_audio_signal->input_buffer[i + 5]) + (2.0 * resonator * cos(2.0 * M_PI * 896.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_896hz[i + 6] - (resonator * resonator) * eq10_audio_signal->buffer_896hz[i + 5];
+      eq10_audio_signal->cache_896hz[0] = eq10_audio_signal->input_buffer[i] - (resonator * eq10_audio_signal->input_buffer[i - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 896.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_896hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1] - (resonator * resonator) * eq10_audio_signal->cache_896hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 2];
+      eq10_audio_signal->cache_896hz[1] = eq10_audio_signal->input_buffer[i + 1] - (resonator * eq10_audio_signal->input_buffer[i - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 896.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_896hz[0] - (resonator * resonator) * eq10_audio_signal->cache_896hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1];
+      eq10_audio_signal->cache_896hz[2] = eq10_audio_signal->input_buffer[i + 2] - (resonator * eq10_audio_signal->input_buffer[i]) + (2.0 * resonator * cos(2.0 * M_PI * 896.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_896hz[1] - (resonator * resonator) * eq10_audio_signal->cache_896hz[0];
+      eq10_audio_signal->cache_896hz[3] = eq10_audio_signal->input_buffer[i + 3] - (resonator * eq10_audio_signal->input_buffer[i + 1]) + (2.0 * resonator * cos(2.0 * M_PI * 896.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_896hz[2] - (resonator * resonator) * eq10_audio_signal->cache_896hz[1];
+      eq10_audio_signal->cache_896hz[4] = eq10_audio_signal->input_buffer[i + 4] - (resonator * eq10_audio_signal->input_buffer[i + 2]) + (2.0 * resonator * cos(2.0 * M_PI * 896.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_896hz[3] - (resonator * resonator) * eq10_audio_signal->cache_896hz[2];
+      eq10_audio_signal->cache_896hz[5] = eq10_audio_signal->input_buffer[i + 5] - (resonator * eq10_audio_signal->input_buffer[i + 3]) + (2.0 * resonator * cos(2.0 * M_PI * 896.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_896hz[4] - (resonator * resonator) * eq10_audio_signal->cache_896hz[3];
+      eq10_audio_signal->cache_896hz[6] = eq10_audio_signal->input_buffer[i + 6] - (resonator * eq10_audio_signal->input_buffer[i + 4]) + (2.0 * resonator * cos(2.0 * M_PI * 896.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_896hz[5] - (resonator * resonator) * eq10_audio_signal->cache_896hz[4];
+      eq10_audio_signal->cache_896hz[7] = eq10_audio_signal->input_buffer[i + 7] - (resonator * eq10_audio_signal->input_buffer[i + 5]) + (2.0 * resonator * cos(2.0 * M_PI * 896.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_896hz[6] - (resonator * resonator) * eq10_audio_signal->cache_896hz[5];
     }
 
     /* 1792Hz */
     resonator = peak_1792hz;
     
     if(i == 0){
-      eq10_audio_signal->buffer_1792hz[0] = eq10_audio_signal->input_buffer[0] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 1792.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_1792hz[buffer_size - 1] - (resonator * resonator) * eq10_audio_signal->buffer_1792hz[buffer_size - 2];
-      eq10_audio_signal->buffer_1792hz[1] = eq10_audio_signal->input_buffer[1] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 1792.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_1792hz[0] - (resonator * resonator) * eq10_audio_signal->buffer_1792hz[buffer_size - 1];
-      eq10_audio_signal->buffer_1792hz[2] = eq10_audio_signal->input_buffer[2] - (resonator * eq10_audio_signal->input_buffer[0]) + (2.0 * resonator * cos(2.0 * M_PI * 1792.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_1792hz[1] - (resonator * resonator) * eq10_audio_signal->buffer_1792hz[0];
-      eq10_audio_signal->buffer_1792hz[3] = eq10_audio_signal->input_buffer[3] - (resonator * eq10_audio_signal->input_buffer[1]) + (2.0 * resonator * cos(2.0 * M_PI * 1792.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_1792hz[2] - (resonator * resonator) * eq10_audio_signal->buffer_1792hz[1];
-      eq10_audio_signal->buffer_1792hz[4] = eq10_audio_signal->input_buffer[4] - (resonator * eq10_audio_signal->input_buffer[2]) + (2.0 * resonator * cos(2.0 * M_PI * 1792.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_1792hz[3] - (resonator * resonator) * eq10_audio_signal->buffer_1792hz[2];
-      eq10_audio_signal->buffer_1792hz[5] = eq10_audio_signal->input_buffer[5] - (resonator * eq10_audio_signal->input_buffer[3]) + (2.0 * resonator * cos(2.0 * M_PI * 1792.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_1792hz[4] - (resonator * resonator) * eq10_audio_signal->buffer_1792hz[3];
-      eq10_audio_signal->buffer_1792hz[6] = eq10_audio_signal->input_buffer[6] - (resonator * eq10_audio_signal->input_buffer[4]) + (2.0 * resonator * cos(2.0 * M_PI * 1792.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_1792hz[5] - (resonator * resonator) * eq10_audio_signal->buffer_1792hz[4];
-      eq10_audio_signal->buffer_1792hz[7] = eq10_audio_signal->input_buffer[7] - (resonator * eq10_audio_signal->input_buffer[5]) + (2.0 * resonator * cos(2.0 * M_PI * 1792.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_1792hz[6] - (resonator * resonator) * eq10_audio_signal->buffer_1792hz[5];
+      eq10_audio_signal->cache_1792hz[0] = eq10_audio_signal->input_buffer[0] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 1792.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_1792hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1] - (resonator * resonator) * eq10_audio_signal->cache_1792hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 2];
+      eq10_audio_signal->cache_1792hz[1] = eq10_audio_signal->input_buffer[1] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 1792.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_1792hz[0] - (resonator * resonator) * eq10_audio_signal->cache_1792hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1];
+      eq10_audio_signal->cache_1792hz[2] = eq10_audio_signal->input_buffer[2] - (resonator * eq10_audio_signal->input_buffer[0]) + (2.0 * resonator * cos(2.0 * M_PI * 1792.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_1792hz[1] - (resonator * resonator) * eq10_audio_signal->cache_1792hz[0];
+      eq10_audio_signal->cache_1792hz[3] = eq10_audio_signal->input_buffer[3] - (resonator * eq10_audio_signal->input_buffer[1]) + (2.0 * resonator * cos(2.0 * M_PI * 1792.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_1792hz[2] - (resonator * resonator) * eq10_audio_signal->cache_1792hz[1];
+      eq10_audio_signal->cache_1792hz[4] = eq10_audio_signal->input_buffer[4] - (resonator * eq10_audio_signal->input_buffer[2]) + (2.0 * resonator * cos(2.0 * M_PI * 1792.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_1792hz[3] - (resonator * resonator) * eq10_audio_signal->cache_1792hz[2];
+      eq10_audio_signal->cache_1792hz[5] = eq10_audio_signal->input_buffer[5] - (resonator * eq10_audio_signal->input_buffer[3]) + (2.0 * resonator * cos(2.0 * M_PI * 1792.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_1792hz[4] - (resonator * resonator) * eq10_audio_signal->cache_1792hz[3];
+      eq10_audio_signal->cache_1792hz[6] = eq10_audio_signal->input_buffer[6] - (resonator * eq10_audio_signal->input_buffer[4]) + (2.0 * resonator * cos(2.0 * M_PI * 1792.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_1792hz[5] - (resonator * resonator) * eq10_audio_signal->cache_1792hz[4];
+      eq10_audio_signal->cache_1792hz[7] = eq10_audio_signal->input_buffer[7] - (resonator * eq10_audio_signal->input_buffer[5]) + (2.0 * resonator * cos(2.0 * M_PI * 1792.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_1792hz[6] - (resonator * resonator) * eq10_audio_signal->cache_1792hz[5];
     }else{
-      eq10_audio_signal->buffer_1792hz[i] = eq10_audio_signal->input_buffer[i] - (resonator * eq10_audio_signal->input_buffer[i - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 1792.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_1792hz[i - 1] - (resonator * resonator) * eq10_audio_signal->buffer_1792hz[i - 2];
-      eq10_audio_signal->buffer_1792hz[i + 1] = eq10_audio_signal->input_buffer[i + 1] - (resonator * eq10_audio_signal->input_buffer[i - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 1792.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_1792hz[i] - (resonator * resonator) * eq10_audio_signal->buffer_1792hz[i - 1];
-      eq10_audio_signal->buffer_1792hz[i + 2] = eq10_audio_signal->input_buffer[i + 2] - (resonator * eq10_audio_signal->input_buffer[i]) + (2.0 * resonator * cos(2.0 * M_PI * 1792.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_1792hz[i + 1] - (resonator * resonator) * eq10_audio_signal->buffer_1792hz[i];
-      eq10_audio_signal->buffer_1792hz[i + 3] = eq10_audio_signal->input_buffer[i + 3] - (resonator * eq10_audio_signal->input_buffer[i + 1]) + (2.0 * resonator * cos(2.0 * M_PI * 1792.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_1792hz[i + 2] - (resonator * resonator) * eq10_audio_signal->buffer_1792hz[i + 1];
-      eq10_audio_signal->buffer_1792hz[i + 4] = eq10_audio_signal->input_buffer[i + 4] - (resonator * eq10_audio_signal->input_buffer[i + 2]) + (2.0 * resonator * cos(2.0 * M_PI * 1792.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_1792hz[i + 3] - (resonator * resonator) * eq10_audio_signal->buffer_1792hz[i + 2];
-      eq10_audio_signal->buffer_1792hz[i + 5] = eq10_audio_signal->input_buffer[i + 5] - (resonator * eq10_audio_signal->input_buffer[i + 3]) + (2.0 * resonator * cos(2.0 * M_PI * 1792.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_1792hz[i + 4] - (resonator * resonator) * eq10_audio_signal->buffer_1792hz[i + 3];
-      eq10_audio_signal->buffer_1792hz[i + 6] = eq10_audio_signal->input_buffer[i + 6] - (resonator * eq10_audio_signal->input_buffer[i + 4]) + (2.0 * resonator * cos(2.0 * M_PI * 1792.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_1792hz[i + 5] - (resonator * resonator) * eq10_audio_signal->buffer_1792hz[i + 4];
-      eq10_audio_signal->buffer_1792hz[i + 7] = eq10_audio_signal->input_buffer[i + 7] - (resonator * eq10_audio_signal->input_buffer[i + 5]) + (2.0 * resonator * cos(2.0 * M_PI * 1792.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_1792hz[i + 6] - (resonator * resonator) * eq10_audio_signal->buffer_1792hz[i + 5];
+      eq10_audio_signal->cache_1792hz[0] = eq10_audio_signal->input_buffer[i] - (resonator * eq10_audio_signal->input_buffer[i - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 1792.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_1792hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1] - (resonator * resonator) * eq10_audio_signal->cache_1792hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 2];
+      eq10_audio_signal->cache_1792hz[1] = eq10_audio_signal->input_buffer[i + 1] - (resonator * eq10_audio_signal->input_buffer[i - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 1792.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_1792hz[0] - (resonator * resonator) * eq10_audio_signal->cache_1792hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1];
+      eq10_audio_signal->cache_1792hz[2] = eq10_audio_signal->input_buffer[i + 2] - (resonator * eq10_audio_signal->input_buffer[i]) + (2.0 * resonator * cos(2.0 * M_PI * 1792.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_1792hz[1] - (resonator * resonator) * eq10_audio_signal->cache_1792hz[0];
+      eq10_audio_signal->cache_1792hz[3] = eq10_audio_signal->input_buffer[i + 3] - (resonator * eq10_audio_signal->input_buffer[i + 1]) + (2.0 * resonator * cos(2.0 * M_PI * 1792.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_1792hz[2] - (resonator * resonator) * eq10_audio_signal->cache_1792hz[1];
+      eq10_audio_signal->cache_1792hz[4] = eq10_audio_signal->input_buffer[i + 4] - (resonator * eq10_audio_signal->input_buffer[i + 2]) + (2.0 * resonator * cos(2.0 * M_PI * 1792.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_1792hz[3] - (resonator * resonator) * eq10_audio_signal->cache_1792hz[2];
+      eq10_audio_signal->cache_1792hz[5] = eq10_audio_signal->input_buffer[i + 5] - (resonator * eq10_audio_signal->input_buffer[i + 3]) + (2.0 * resonator * cos(2.0 * M_PI * 1792.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_1792hz[4] - (resonator * resonator) * eq10_audio_signal->cache_1792hz[3];
+      eq10_audio_signal->cache_1792hz[6] = eq10_audio_signal->input_buffer[i + 6] - (resonator * eq10_audio_signal->input_buffer[i + 4]) + (2.0 * resonator * cos(2.0 * M_PI * 1792.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_1792hz[5] - (resonator * resonator) * eq10_audio_signal->cache_1792hz[4];
+      eq10_audio_signal->cache_1792hz[7] = eq10_audio_signal->input_buffer[i + 7] - (resonator * eq10_audio_signal->input_buffer[i + 5]) + (2.0 * resonator * cos(2.0 * M_PI * 1792.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_1792hz[6] - (resonator * resonator) * eq10_audio_signal->cache_1792hz[5];
     }
 
-    /* 3548Hz */
-    resonator = peak_3548hz;
+    /* 3584Hz */
+    resonator = peak_3584hz;
     
     if(i == 0){
-      eq10_audio_signal->buffer_3548hz[0] = eq10_audio_signal->input_buffer[0] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 3548.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_3548hz[buffer_size - 1] - (resonator * resonator) * eq10_audio_signal->buffer_3548hz[buffer_size - 2];
-      eq10_audio_signal->buffer_3548hz[1] = eq10_audio_signal->input_buffer[1] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 3548.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_3548hz[0] - (resonator * resonator) * eq10_audio_signal->buffer_3548hz[buffer_size - 1];
-      eq10_audio_signal->buffer_3548hz[2] = eq10_audio_signal->input_buffer[2] - (resonator * eq10_audio_signal->input_buffer[0]) + (2.0 * resonator * cos(2.0 * M_PI * 3548.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_3548hz[1] - (resonator * resonator) * eq10_audio_signal->buffer_3548hz[0];
-      eq10_audio_signal->buffer_3548hz[3] = eq10_audio_signal->input_buffer[3] - (resonator * eq10_audio_signal->input_buffer[1]) + (2.0 * resonator * cos(2.0 * M_PI * 3548.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_3548hz[2] - (resonator * resonator) * eq10_audio_signal->buffer_3548hz[1];
-      eq10_audio_signal->buffer_3548hz[4] = eq10_audio_signal->input_buffer[4] - (resonator * eq10_audio_signal->input_buffer[2]) + (2.0 * resonator * cos(2.0 * M_PI * 3548.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_3548hz[3] - (resonator * resonator) * eq10_audio_signal->buffer_3548hz[2];
-      eq10_audio_signal->buffer_3548hz[5] = eq10_audio_signal->input_buffer[5] - (resonator * eq10_audio_signal->input_buffer[3]) + (2.0 * resonator * cos(2.0 * M_PI * 3548.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_3548hz[4] - (resonator * resonator) * eq10_audio_signal->buffer_3548hz[3];
-      eq10_audio_signal->buffer_3548hz[6] = eq10_audio_signal->input_buffer[6] - (resonator * eq10_audio_signal->input_buffer[4]) + (2.0 * resonator * cos(2.0 * M_PI * 3548.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_3548hz[5] - (resonator * resonator) * eq10_audio_signal->buffer_3548hz[4];
-      eq10_audio_signal->buffer_3548hz[7] = eq10_audio_signal->input_buffer[7] - (resonator * eq10_audio_signal->input_buffer[5]) + (2.0 * resonator * cos(2.0 * M_PI * 3548.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_3548hz[6] - (resonator * resonator) * eq10_audio_signal->buffer_3548hz[5];
+      eq10_audio_signal->cache_3584hz[0] = eq10_audio_signal->input_buffer[0] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 3584.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_3584hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1] - (resonator * resonator) * eq10_audio_signal->cache_3584hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 2];
+      eq10_audio_signal->cache_3584hz[1] = eq10_audio_signal->input_buffer[1] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 3584.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_3584hz[0] - (resonator * resonator) * eq10_audio_signal->cache_3584hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1];
+      eq10_audio_signal->cache_3584hz[2] = eq10_audio_signal->input_buffer[2] - (resonator * eq10_audio_signal->input_buffer[0]) + (2.0 * resonator * cos(2.0 * M_PI * 3584.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_3584hz[1] - (resonator * resonator) * eq10_audio_signal->cache_3584hz[0];
+      eq10_audio_signal->cache_3584hz[3] = eq10_audio_signal->input_buffer[3] - (resonator * eq10_audio_signal->input_buffer[1]) + (2.0 * resonator * cos(2.0 * M_PI * 3584.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_3584hz[2] - (resonator * resonator) * eq10_audio_signal->cache_3584hz[1];
+      eq10_audio_signal->cache_3584hz[4] = eq10_audio_signal->input_buffer[4] - (resonator * eq10_audio_signal->input_buffer[2]) + (2.0 * resonator * cos(2.0 * M_PI * 3584.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_3584hz[3] - (resonator * resonator) * eq10_audio_signal->cache_3584hz[2];
+      eq10_audio_signal->cache_3584hz[5] = eq10_audio_signal->input_buffer[5] - (resonator * eq10_audio_signal->input_buffer[3]) + (2.0 * resonator * cos(2.0 * M_PI * 3584.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_3584hz[4] - (resonator * resonator) * eq10_audio_signal->cache_3584hz[3];
+      eq10_audio_signal->cache_3584hz[6] = eq10_audio_signal->input_buffer[6] - (resonator * eq10_audio_signal->input_buffer[4]) + (2.0 * resonator * cos(2.0 * M_PI * 3584.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_3584hz[5] - (resonator * resonator) * eq10_audio_signal->cache_3584hz[4];
+      eq10_audio_signal->cache_3584hz[7] = eq10_audio_signal->input_buffer[7] - (resonator * eq10_audio_signal->input_buffer[5]) + (2.0 * resonator * cos(2.0 * M_PI * 3584.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_3584hz[6] - (resonator * resonator) * eq10_audio_signal->cache_3584hz[5];
     }else{
-      eq10_audio_signal->buffer_3548hz[i] = eq10_audio_signal->input_buffer[i] - (resonator * eq10_audio_signal->input_buffer[i - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 3548.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_3548hz[i - 1] - (resonator * resonator) * eq10_audio_signal->buffer_3548hz[i - 2];
-      eq10_audio_signal->buffer_3548hz[i + 1] = eq10_audio_signal->input_buffer[i + 1] - (resonator * eq10_audio_signal->input_buffer[i - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 3548.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_3548hz[i] - (resonator * resonator) * eq10_audio_signal->buffer_3548hz[i - 1];
-      eq10_audio_signal->buffer_3548hz[i + 2] = eq10_audio_signal->input_buffer[i + 2] - (resonator * eq10_audio_signal->input_buffer[i]) + (2.0 * resonator * cos(2.0 * M_PI * 3548.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_3548hz[i + 1] - (resonator * resonator) * eq10_audio_signal->buffer_3548hz[i];
-      eq10_audio_signal->buffer_3548hz[i + 3] = eq10_audio_signal->input_buffer[i + 3] - (resonator * eq10_audio_signal->input_buffer[i + 1]) + (2.0 * resonator * cos(2.0 * M_PI * 3548.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_3548hz[i + 2] - (resonator * resonator) * eq10_audio_signal->buffer_3548hz[i + 1];
-      eq10_audio_signal->buffer_3548hz[i + 4] = eq10_audio_signal->input_buffer[i + 4] - (resonator * eq10_audio_signal->input_buffer[i + 2]) + (2.0 * resonator * cos(2.0 * M_PI * 3548.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_3548hz[i + 3] - (resonator * resonator) * eq10_audio_signal->buffer_3548hz[i + 2];
-      eq10_audio_signal->buffer_3548hz[i + 5] = eq10_audio_signal->input_buffer[i + 5] - (resonator * eq10_audio_signal->input_buffer[i + 3]) + (2.0 * resonator * cos(2.0 * M_PI * 3548.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_3548hz[i + 4] - (resonator * resonator) * eq10_audio_signal->buffer_3548hz[i + 3];
-      eq10_audio_signal->buffer_3548hz[i + 6] = eq10_audio_signal->input_buffer[i + 6] - (resonator * eq10_audio_signal->input_buffer[i + 4]) + (2.0 * resonator * cos(2.0 * M_PI * 3548.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_3548hz[i + 5] - (resonator * resonator) * eq10_audio_signal->buffer_3548hz[i + 4];
-      eq10_audio_signal->buffer_3548hz[i + 7] = eq10_audio_signal->input_buffer[i + 7] - (resonator * eq10_audio_signal->input_buffer[i + 5]) + (2.0 * resonator * cos(2.0 * M_PI * 3548.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_3548hz[i + 6] - (resonator * resonator) * eq10_audio_signal->buffer_3548hz[i + 5];
+      eq10_audio_signal->cache_3584hz[0] = eq10_audio_signal->input_buffer[i] - (resonator * eq10_audio_signal->input_buffer[i - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 3584.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_3584hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1] - (resonator * resonator) * eq10_audio_signal->cache_3584hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 2];
+      eq10_audio_signal->cache_3584hz[1] = eq10_audio_signal->input_buffer[i + 1] - (resonator * eq10_audio_signal->input_buffer[i - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 3584.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_3584hz[0] - (resonator * resonator) * eq10_audio_signal->cache_3584hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1];
+      eq10_audio_signal->cache_3584hz[2] = eq10_audio_signal->input_buffer[i + 2] - (resonator * eq10_audio_signal->input_buffer[i]) + (2.0 * resonator * cos(2.0 * M_PI * 3584.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_3584hz[1] - (resonator * resonator) * eq10_audio_signal->cache_3584hz[0];
+      eq10_audio_signal->cache_3584hz[3] = eq10_audio_signal->input_buffer[i + 3] - (resonator * eq10_audio_signal->input_buffer[i + 1]) + (2.0 * resonator * cos(2.0 * M_PI * 3584.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_3584hz[2] - (resonator * resonator) * eq10_audio_signal->cache_3584hz[1];
+      eq10_audio_signal->cache_3584hz[4] = eq10_audio_signal->input_buffer[i + 4] - (resonator * eq10_audio_signal->input_buffer[i + 2]) + (2.0 * resonator * cos(2.0 * M_PI * 3584.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_3584hz[3] - (resonator * resonator) * eq10_audio_signal->cache_3584hz[2];
+      eq10_audio_signal->cache_3584hz[5] = eq10_audio_signal->input_buffer[i + 5] - (resonator * eq10_audio_signal->input_buffer[i + 3]) + (2.0 * resonator * cos(2.0 * M_PI * 3584.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_3584hz[4] - (resonator * resonator) * eq10_audio_signal->cache_3584hz[3];
+      eq10_audio_signal->cache_3584hz[6] = eq10_audio_signal->input_buffer[i + 6] - (resonator * eq10_audio_signal->input_buffer[i + 4]) + (2.0 * resonator * cos(2.0 * M_PI * 3584.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_3584hz[5] - (resonator * resonator) * eq10_audio_signal->cache_3584hz[4];
+      eq10_audio_signal->cache_3584hz[7] = eq10_audio_signal->input_buffer[i + 7] - (resonator * eq10_audio_signal->input_buffer[i + 5]) + (2.0 * resonator * cos(2.0 * M_PI * 3584.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_3584hz[6] - (resonator * resonator) * eq10_audio_signal->cache_3584hz[5];
     }
 
     /* 7168Hz */
     resonator = peak_7168hz;
     
     if(i == 0){
-      eq10_audio_signal->buffer_7168hz[0] = eq10_audio_signal->input_buffer[0] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 7168.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_7168hz[buffer_size - 1] - (resonator * resonator) * eq10_audio_signal->buffer_7168hz[buffer_size - 2];
-      eq10_audio_signal->buffer_7168hz[1] = eq10_audio_signal->input_buffer[1] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 7168.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_7168hz[0] - (resonator * resonator) * eq10_audio_signal->buffer_7168hz[buffer_size - 1];
-      eq10_audio_signal->buffer_7168hz[2] = eq10_audio_signal->input_buffer[2] - (resonator * eq10_audio_signal->input_buffer[0]) + (2.0 * resonator * cos(2.0 * M_PI * 7168.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_7168hz[1] - (resonator * resonator) * eq10_audio_signal->buffer_7168hz[0];
-      eq10_audio_signal->buffer_7168hz[3] = eq10_audio_signal->input_buffer[3] - (resonator * eq10_audio_signal->input_buffer[1]) + (2.0 * resonator * cos(2.0 * M_PI * 7168.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_7168hz[2] - (resonator * resonator) * eq10_audio_signal->buffer_7168hz[1];
-      eq10_audio_signal->buffer_7168hz[4] = eq10_audio_signal->input_buffer[4] - (resonator * eq10_audio_signal->input_buffer[2]) + (2.0 * resonator * cos(2.0 * M_PI * 7168.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_7168hz[3] - (resonator * resonator) * eq10_audio_signal->buffer_7168hz[2];
-      eq10_audio_signal->buffer_7168hz[5] = eq10_audio_signal->input_buffer[5] - (resonator * eq10_audio_signal->input_buffer[3]) + (2.0 * resonator * cos(2.0 * M_PI * 7168.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_7168hz[4] - (resonator * resonator) * eq10_audio_signal->buffer_7168hz[3];
-      eq10_audio_signal->buffer_7168hz[6] = eq10_audio_signal->input_buffer[6] - (resonator * eq10_audio_signal->input_buffer[4]) + (2.0 * resonator * cos(2.0 * M_PI * 7168.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_7168hz[5] - (resonator * resonator) * eq10_audio_signal->buffer_7168hz[4];
-      eq10_audio_signal->buffer_7168hz[7] = eq10_audio_signal->input_buffer[7] - (resonator * eq10_audio_signal->input_buffer[5]) + (2.0 * resonator * cos(2.0 * M_PI * 7168.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_7168hz[6] - (resonator * resonator) * eq10_audio_signal->buffer_7168hz[5];
+      eq10_audio_signal->cache_7168hz[0] = eq10_audio_signal->input_buffer[0] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 7168.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_7168hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1] - (resonator * resonator) * eq10_audio_signal->cache_7168hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 2];
+      eq10_audio_signal->cache_7168hz[1] = eq10_audio_signal->input_buffer[1] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 7168.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_7168hz[0] - (resonator * resonator) * eq10_audio_signal->cache_7168hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1];
+      eq10_audio_signal->cache_7168hz[2] = eq10_audio_signal->input_buffer[2] - (resonator * eq10_audio_signal->input_buffer[0]) + (2.0 * resonator * cos(2.0 * M_PI * 7168.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_7168hz[1] - (resonator * resonator) * eq10_audio_signal->cache_7168hz[0];
+      eq10_audio_signal->cache_7168hz[3] = eq10_audio_signal->input_buffer[3] - (resonator * eq10_audio_signal->input_buffer[1]) + (2.0 * resonator * cos(2.0 * M_PI * 7168.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_7168hz[2] - (resonator * resonator) * eq10_audio_signal->cache_7168hz[1];
+      eq10_audio_signal->cache_7168hz[4] = eq10_audio_signal->input_buffer[4] - (resonator * eq10_audio_signal->input_buffer[2]) + (2.0 * resonator * cos(2.0 * M_PI * 7168.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_7168hz[3] - (resonator * resonator) * eq10_audio_signal->cache_7168hz[2];
+      eq10_audio_signal->cache_7168hz[5] = eq10_audio_signal->input_buffer[5] - (resonator * eq10_audio_signal->input_buffer[3]) + (2.0 * resonator * cos(2.0 * M_PI * 7168.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_7168hz[4] - (resonator * resonator) * eq10_audio_signal->cache_7168hz[3];
+      eq10_audio_signal->cache_7168hz[6] = eq10_audio_signal->input_buffer[6] - (resonator * eq10_audio_signal->input_buffer[4]) + (2.0 * resonator * cos(2.0 * M_PI * 7168.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_7168hz[5] - (resonator * resonator) * eq10_audio_signal->cache_7168hz[4];
+      eq10_audio_signal->cache_7168hz[7] = eq10_audio_signal->input_buffer[7] - (resonator * eq10_audio_signal->input_buffer[5]) + (2.0 * resonator * cos(2.0 * M_PI * 7168.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_7168hz[6] - (resonator * resonator) * eq10_audio_signal->cache_7168hz[5];
     }else{
-      eq10_audio_signal->buffer_7168hz[i] = eq10_audio_signal->input_buffer[i] - (resonator * eq10_audio_signal->input_buffer[i - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 7168.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_7168hz[i - 1] - (resonator * resonator) * eq10_audio_signal->buffer_7168hz[i - 2];
-      eq10_audio_signal->buffer_7168hz[i + 1] = eq10_audio_signal->input_buffer[i + 1] - (resonator * eq10_audio_signal->input_buffer[i - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 7168.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_7168hz[i] - (resonator * resonator) * eq10_audio_signal->buffer_7168hz[i - 1];
-      eq10_audio_signal->buffer_7168hz[i + 2] = eq10_audio_signal->input_buffer[i + 2] - (resonator * eq10_audio_signal->input_buffer[i]) + (2.0 * resonator * cos(2.0 * M_PI * 7168.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_7168hz[i + 1] - (resonator * resonator) * eq10_audio_signal->buffer_7168hz[i];
-      eq10_audio_signal->buffer_7168hz[i + 3] = eq10_audio_signal->input_buffer[i + 3] - (resonator * eq10_audio_signal->input_buffer[i + 1]) + (2.0 * resonator * cos(2.0 * M_PI * 7168.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_7168hz[i + 2] - (resonator * resonator) * eq10_audio_signal->buffer_7168hz[i + 1];
-      eq10_audio_signal->buffer_7168hz[i + 4] = eq10_audio_signal->input_buffer[i + 4] - (resonator * eq10_audio_signal->input_buffer[i + 2]) + (2.0 * resonator * cos(2.0 * M_PI * 7168.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_7168hz[i + 3] - (resonator * resonator) * eq10_audio_signal->buffer_7168hz[i + 2];
-      eq10_audio_signal->buffer_7168hz[i + 5] = eq10_audio_signal->input_buffer[i + 5] - (resonator * eq10_audio_signal->input_buffer[i + 3]) + (2.0 * resonator * cos(2.0 * M_PI * 7168.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_7168hz[i + 4] - (resonator * resonator) * eq10_audio_signal->buffer_7168hz[i + 3];
-      eq10_audio_signal->buffer_7168hz[i + 6] = eq10_audio_signal->input_buffer[i + 6] - (resonator * eq10_audio_signal->input_buffer[i + 4]) + (2.0 * resonator * cos(2.0 * M_PI * 7168.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_7168hz[i + 5] - (resonator * resonator) * eq10_audio_signal->buffer_7168hz[i + 4];
-      eq10_audio_signal->buffer_7168hz[i + 7] = eq10_audio_signal->input_buffer[i + 7] - (resonator * eq10_audio_signal->input_buffer[i + 5]) + (2.0 * resonator * cos(2.0 * M_PI * 7168.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_7168hz[i + 6] - (resonator * resonator) * eq10_audio_signal->buffer_7168hz[i + 5];
+      eq10_audio_signal->cache_7168hz[0] = eq10_audio_signal->input_buffer[i] - (resonator * eq10_audio_signal->input_buffer[i - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 7168.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_7168hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1] - (resonator * resonator) * eq10_audio_signal->cache_7168hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 2];
+      eq10_audio_signal->cache_7168hz[1] = eq10_audio_signal->input_buffer[i + 1] - (resonator * eq10_audio_signal->input_buffer[i - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 7168.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_7168hz[0] - (resonator * resonator) * eq10_audio_signal->cache_7168hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1];
+      eq10_audio_signal->cache_7168hz[2] = eq10_audio_signal->input_buffer[i + 2] - (resonator * eq10_audio_signal->input_buffer[i]) + (2.0 * resonator * cos(2.0 * M_PI * 7168.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_7168hz[1] - (resonator * resonator) * eq10_audio_signal->cache_7168hz[0];
+      eq10_audio_signal->cache_7168hz[3] = eq10_audio_signal->input_buffer[i + 3] - (resonator * eq10_audio_signal->input_buffer[i + 1]) + (2.0 * resonator * cos(2.0 * M_PI * 7168.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_7168hz[2] - (resonator * resonator) * eq10_audio_signal->cache_7168hz[1];
+      eq10_audio_signal->cache_7168hz[4] = eq10_audio_signal->input_buffer[i + 4] - (resonator * eq10_audio_signal->input_buffer[i + 2]) + (2.0 * resonator * cos(2.0 * M_PI * 7168.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_7168hz[3] - (resonator * resonator) * eq10_audio_signal->cache_7168hz[2];
+      eq10_audio_signal->cache_7168hz[5] = eq10_audio_signal->input_buffer[i + 5] - (resonator * eq10_audio_signal->input_buffer[i + 3]) + (2.0 * resonator * cos(2.0 * M_PI * 7168.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_7168hz[4] - (resonator * resonator) * eq10_audio_signal->cache_7168hz[3];
+      eq10_audio_signal->cache_7168hz[6] = eq10_audio_signal->input_buffer[i + 6] - (resonator * eq10_audio_signal->input_buffer[i + 4]) + (2.0 * resonator * cos(2.0 * M_PI * 7168.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_7168hz[5] - (resonator * resonator) * eq10_audio_signal->cache_7168hz[4];
+      eq10_audio_signal->cache_7168hz[7] = eq10_audio_signal->input_buffer[i + 7] - (resonator * eq10_audio_signal->input_buffer[i + 5]) + (2.0 * resonator * cos(2.0 * M_PI * 7168.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_7168hz[6] - (resonator * resonator) * eq10_audio_signal->cache_7168hz[5];
     }
 
     /* 14336Hz */
     resonator = peak_14336hz;
     
     if(i == 0){
-      eq10_audio_signal->buffer_14336hz[0] = eq10_audio_signal->input_buffer[0] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 14336.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_14336hz[buffer_size - 1] - (resonator * resonator) * eq10_audio_signal->buffer_14336hz[buffer_size - 2];
-      eq10_audio_signal->buffer_14336hz[1] = eq10_audio_signal->input_buffer[1] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 14336.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_14336hz[0] - (resonator * resonator) * eq10_audio_signal->buffer_14336hz[buffer_size - 1];
-      eq10_audio_signal->buffer_14336hz[2] = eq10_audio_signal->input_buffer[2] - (resonator * eq10_audio_signal->input_buffer[0]) + (2.0 * resonator * cos(2.0 * M_PI * 14336.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_14336hz[1] - (resonator * resonator) * eq10_audio_signal->buffer_14336hz[0];
-      eq10_audio_signal->buffer_14336hz[3] = eq10_audio_signal->input_buffer[3] - (resonator * eq10_audio_signal->input_buffer[1]) + (2.0 * resonator * cos(2.0 * M_PI * 14336.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_14336hz[2] - (resonator * resonator) * eq10_audio_signal->buffer_14336hz[1];
-      eq10_audio_signal->buffer_14336hz[4] = eq10_audio_signal->input_buffer[4] - (resonator * eq10_audio_signal->input_buffer[2]) + (2.0 * resonator * cos(2.0 * M_PI * 14336.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_14336hz[3] - (resonator * resonator) * eq10_audio_signal->buffer_14336hz[2];
-      eq10_audio_signal->buffer_14336hz[5] = eq10_audio_signal->input_buffer[5] - (resonator * eq10_audio_signal->input_buffer[3]) + (2.0 * resonator * cos(2.0 * M_PI * 14336.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_14336hz[4] - (resonator * resonator) * eq10_audio_signal->buffer_14336hz[3];
-      eq10_audio_signal->buffer_14336hz[6] = eq10_audio_signal->input_buffer[6] - (resonator * eq10_audio_signal->input_buffer[4]) + (2.0 * resonator * cos(2.0 * M_PI * 14336.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_14336hz[5] - (resonator * resonator) * eq10_audio_signal->buffer_14336hz[4];
-      eq10_audio_signal->buffer_14336hz[7] = eq10_audio_signal->input_buffer[7] - (resonator * eq10_audio_signal->input_buffer[5]) + (2.0 * resonator * cos(2.0 * M_PI * 14336.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_14336hz[6] - (resonator * resonator) * eq10_audio_signal->buffer_14336hz[5];
+      eq10_audio_signal->cache_14336hz[0] = eq10_audio_signal->input_buffer[0] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 14336.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_14336hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1] - (resonator * resonator) * eq10_audio_signal->cache_14336hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 2];
+      eq10_audio_signal->cache_14336hz[1] = eq10_audio_signal->input_buffer[1] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 14336.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_14336hz[0] - (resonator * resonator) * eq10_audio_signal->cache_14336hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1];
+      eq10_audio_signal->cache_14336hz[2] = eq10_audio_signal->input_buffer[2] - (resonator * eq10_audio_signal->input_buffer[0]) + (2.0 * resonator * cos(2.0 * M_PI * 14336.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_14336hz[1] - (resonator * resonator) * eq10_audio_signal->cache_14336hz[0];
+      eq10_audio_signal->cache_14336hz[3] = eq10_audio_signal->input_buffer[3] - (resonator * eq10_audio_signal->input_buffer[1]) + (2.0 * resonator * cos(2.0 * M_PI * 14336.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_14336hz[2] - (resonator * resonator) * eq10_audio_signal->cache_14336hz[1];
+      eq10_audio_signal->cache_14336hz[4] = eq10_audio_signal->input_buffer[4] - (resonator * eq10_audio_signal->input_buffer[2]) + (2.0 * resonator * cos(2.0 * M_PI * 14336.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_14336hz[3] - (resonator * resonator) * eq10_audio_signal->cache_14336hz[2];
+      eq10_audio_signal->cache_14336hz[5] = eq10_audio_signal->input_buffer[5] - (resonator * eq10_audio_signal->input_buffer[3]) + (2.0 * resonator * cos(2.0 * M_PI * 14336.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_14336hz[4] - (resonator * resonator) * eq10_audio_signal->cache_14336hz[3];
+      eq10_audio_signal->cache_14336hz[6] = eq10_audio_signal->input_buffer[6] - (resonator * eq10_audio_signal->input_buffer[4]) + (2.0 * resonator * cos(2.0 * M_PI * 14336.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_14336hz[5] - (resonator * resonator) * eq10_audio_signal->cache_14336hz[4];
+      eq10_audio_signal->cache_14336hz[7] = eq10_audio_signal->input_buffer[7] - (resonator * eq10_audio_signal->input_buffer[5]) + (2.0 * resonator * cos(2.0 * M_PI * 14336.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_14336hz[6] - (resonator * resonator) * eq10_audio_signal->cache_14336hz[5];
     }else{
-      eq10_audio_signal->buffer_14336hz[i] = eq10_audio_signal->input_buffer[i] - (resonator * eq10_audio_signal->input_buffer[i - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 14336.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_14336hz[i - 1] - (resonator * resonator) * eq10_audio_signal->buffer_14336hz[i - 2];
-      eq10_audio_signal->buffer_14336hz[i + 1] = eq10_audio_signal->input_buffer[i + 1] - (resonator * eq10_audio_signal->input_buffer[i - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 14336.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_14336hz[i] - (resonator * resonator) * eq10_audio_signal->buffer_14336hz[i - 1];
-      eq10_audio_signal->buffer_14336hz[i + 2] = eq10_audio_signal->input_buffer[i + 2] - (resonator * eq10_audio_signal->input_buffer[i]) + (2.0 * resonator * cos(2.0 * M_PI * 14336.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_14336hz[i + 1] - (resonator * resonator) * eq10_audio_signal->buffer_14336hz[i];
-      eq10_audio_signal->buffer_14336hz[i + 3] = eq10_audio_signal->input_buffer[i + 3] - (resonator * eq10_audio_signal->input_buffer[i + 1]) + (2.0 * resonator * cos(2.0 * M_PI * 14336.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_14336hz[i + 2] - (resonator * resonator) * eq10_audio_signal->buffer_14336hz[i + 1];
-      eq10_audio_signal->buffer_14336hz[i + 4] = eq10_audio_signal->input_buffer[i + 4] - (resonator * eq10_audio_signal->input_buffer[i + 2]) + (2.0 * resonator * cos(2.0 * M_PI * 14336.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_14336hz[i + 3] - (resonator * resonator) * eq10_audio_signal->buffer_14336hz[i + 2];
-      eq10_audio_signal->buffer_14336hz[i + 5] = eq10_audio_signal->input_buffer[i + 5] - (resonator * eq10_audio_signal->input_buffer[i + 3]) + (2.0 * resonator * cos(2.0 * M_PI * 14336.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_14336hz[i + 4] - (resonator * resonator) * eq10_audio_signal->buffer_14336hz[i + 3];
-      eq10_audio_signal->buffer_14336hz[i + 6] = eq10_audio_signal->input_buffer[i + 6] - (resonator * eq10_audio_signal->input_buffer[i + 4]) + (2.0 * resonator * cos(2.0 * M_PI * 14336.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_14336hz[i + 5] - (resonator * resonator) * eq10_audio_signal->buffer_14336hz[i + 4];
-      eq10_audio_signal->buffer_14336hz[i + 7] = eq10_audio_signal->input_buffer[i + 7] - (resonator * eq10_audio_signal->input_buffer[i + 5]) + (2.0 * resonator * cos(2.0 * M_PI * 14336.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_14336hz[i + 6] - (resonator * resonator) * eq10_audio_signal->buffer_14336hz[i + 5];
+      eq10_audio_signal->cache_14336hz[0] = eq10_audio_signal->input_buffer[i] - (resonator * eq10_audio_signal->input_buffer[i - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 14336.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_14336hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1] - (resonator * resonator) * eq10_audio_signal->cache_14336hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 2];
+      eq10_audio_signal->cache_14336hz[1] = eq10_audio_signal->input_buffer[i + 1] - (resonator * eq10_audio_signal->input_buffer[i - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 14336.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_14336hz[0] - (resonator * resonator) * eq10_audio_signal->cache_14336hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1];
+      eq10_audio_signal->cache_14336hz[2] = eq10_audio_signal->input_buffer[i + 2] - (resonator * eq10_audio_signal->input_buffer[i]) + (2.0 * resonator * cos(2.0 * M_PI * 14336.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_14336hz[1] - (resonator * resonator) * eq10_audio_signal->cache_14336hz[0];
+      eq10_audio_signal->cache_14336hz[3] = eq10_audio_signal->input_buffer[i + 3] - (resonator * eq10_audio_signal->input_buffer[i + 1]) + (2.0 * resonator * cos(2.0 * M_PI * 14336.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_14336hz[2] - (resonator * resonator) * eq10_audio_signal->cache_14336hz[1];
+      eq10_audio_signal->cache_14336hz[4] = eq10_audio_signal->input_buffer[i + 4] - (resonator * eq10_audio_signal->input_buffer[i + 2]) + (2.0 * resonator * cos(2.0 * M_PI * 14336.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_14336hz[3] - (resonator * resonator) * eq10_audio_signal->cache_14336hz[2];
+      eq10_audio_signal->cache_14336hz[5] = eq10_audio_signal->input_buffer[i + 5] - (resonator * eq10_audio_signal->input_buffer[i + 3]) + (2.0 * resonator * cos(2.0 * M_PI * 14336.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_14336hz[4] - (resonator * resonator) * eq10_audio_signal->cache_14336hz[3];
+      eq10_audio_signal->cache_14336hz[6] = eq10_audio_signal->input_buffer[i + 6] - (resonator * eq10_audio_signal->input_buffer[i + 4]) + (2.0 * resonator * cos(2.0 * M_PI * 14336.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_14336hz[5] - (resonator * resonator) * eq10_audio_signal->cache_14336hz[4];
+      eq10_audio_signal->cache_14336hz[7] = eq10_audio_signal->input_buffer[i + 7] - (resonator * eq10_audio_signal->input_buffer[i + 5]) + (2.0 * resonator * cos(2.0 * M_PI * 14336.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_14336hz[6] - (resonator * resonator) * eq10_audio_signal->cache_14336hz[5];
     }
 
     /* clear/copy - handle trailing */
@@ -658,12 +623,55 @@ ags_eq10_audio_signal_run_inter(AgsRecall *recall)
       /* copy input */
       ags_audio_buffer_util_copy_buffer_to_buffer(eq10_audio_signal->input_buffer, 1, buffer_size - 3,
 						  stream_source->data, 1, buffer_size - 3,
-						  2, copy_mode);
+						  2, input_copy_mode);
     }
+
+    /* fill output */
+    ags_audio_buffer_util_copy_double_to_double(eq10_audio_signal->output_buffer + i, 1,
+						eq10_audio_signal->cache_28hz, 1,
+						AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE);
+
+    ags_audio_buffer_util_copy_double_to_double(eq10_audio_signal->output_buffer + i, 1,
+						eq10_audio_signal->cache_56hz, 1,
+						AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE);
+
+    ags_audio_buffer_util_copy_double_to_double(eq10_audio_signal->output_buffer + i, 1,
+						eq10_audio_signal->cache_112hz, 1,
+						AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE);
+
+    ags_audio_buffer_util_copy_double_to_double(eq10_audio_signal->output_buffer + i, 1,
+						eq10_audio_signal->cache_224hz, 1,
+						AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE);
+
+    ags_audio_buffer_util_copy_double_to_double(eq10_audio_signal->output_buffer + i, 1,
+						eq10_audio_signal->cache_448hz, 1,
+						AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE);
+
+    ags_audio_buffer_util_copy_double_to_double(eq10_audio_signal->output_buffer + i, 1,
+						eq10_audio_signal->cache_896hz, 1,
+						AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE);
+
+    ags_audio_buffer_util_copy_double_to_double(eq10_audio_signal->output_buffer + i, 1,
+						eq10_audio_signal->cache_1792hz, 1,
+						AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE);
+
+    ags_audio_buffer_util_copy_double_to_double(eq10_audio_signal->output_buffer + i, 1,
+						eq10_audio_signal->cache_3584hz, 1,
+						AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE);
+
+    ags_audio_buffer_util_copy_double_to_double(eq10_audio_signal->output_buffer + i, 1,
+						eq10_audio_signal->cache_7168hz, 1,
+						AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE);
+
+    ags_audio_buffer_util_copy_double_to_double(eq10_audio_signal->output_buffer + i, 1,
+						eq10_audio_signal->cache_14336hz, 1,
+						AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE);
   }
 
   if(buffer_size >= 4){
     for(; i < buffer_size; i++){
+      gdouble resonator;
+      
       /* clear buffer */
       ags_audio_buffer_util_clear_double(eq10_audio_signal->input_buffer + i, 1,
 					 1);
@@ -671,113 +679,143 @@ ags_eq10_audio_signal_run_inter(AgsRecall *recall)
       /* copy input */
       ags_audio_buffer_util_copy_buffer_to_buffer(eq10_audio_signal->input_buffer, 1, i,
 						  stream_source->data, 1, i,
-						  1, copy_mode);
+						  1, input_copy_mode);
 
       if(i == 0){
-	eq10_audio_signal->buffer_28hz[0] = eq10_audio_signal->input_buffer[0] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 28.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_28hz[buffer_size - 1] - (resonator * resonator) * eq10_audio_signal->buffer_28hz[buffer_size - 2];
+	resonator = peak_28hz;
+	eq10_audio_signal->cache_28hz[0] = eq10_audio_signal->input_buffer[0] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 28.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_28hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1] - (resonator * resonator) * eq10_audio_signal->cache_28hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 2];
 	
-	eq10_audio_signal->buffer_56hz[0] = eq10_audio_signal->input_buffer[0] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 56.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_56hz[buffer_size - 1] - (resonator * resonator) * eq10_audio_signal->buffer_56hz[buffer_size - 2];
+	resonator = peak_56hz;
+	eq10_audio_signal->cache_56hz[0] = eq10_audio_signal->input_buffer[0] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 56.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_56hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1] - (resonator * resonator) * eq10_audio_signal->cache_56hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 2];
 
-	eq10_audio_signal->buffer_112hz[0] = eq10_audio_signal->input_buffer[0] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 112.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_112hz[buffer_size - 1] - (resonator * resonator) * eq10_audio_signal->buffer_112hz[buffer_size - 2];
+	resonator = peak_112hz;
+	eq10_audio_signal->cache_112hz[0] = eq10_audio_signal->input_buffer[0] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 112.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_112hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1] - (resonator * resonator) * eq10_audio_signal->cache_112hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 2];
 
-	eq10_audio_signal->buffer_224hz[0] = eq10_audio_signal->input_buffer[0] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 224.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_224hz[buffer_size - 1] - (resonator * resonator) * eq10_audio_signal->buffer_224hz[buffer_size - 2];
+	resonator = peak_224hz;
+	eq10_audio_signal->cache_224hz[0] = eq10_audio_signal->input_buffer[0] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 224.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_224hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1] - (resonator * resonator) * eq10_audio_signal->cache_224hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 2];
 
-	eq10_audio_signal->buffer_448hz[0] = eq10_audio_signal->input_buffer[0] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 448.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_448hz[buffer_size - 1] - (resonator * resonator) * eq10_audio_signal->buffer_448hz[buffer_size - 2];
+	resonator = peak_448hz;
+	eq10_audio_signal->cache_448hz[0] = eq10_audio_signal->input_buffer[0] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 448.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_448hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1] - (resonator * resonator) * eq10_audio_signal->cache_448hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 2];
 
-	eq10_audio_signal->buffer_896hz[0] = eq10_audio_signal->input_buffer[0] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 896.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_896hz[buffer_size - 1] - (resonator * resonator) * eq10_audio_signal->buffer_896hz[buffer_size - 2];
+	resonator = peak_896hz;
+	eq10_audio_signal->cache_896hz[0] = eq10_audio_signal->input_buffer[0] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 896.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_896hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1] - (resonator * resonator) * eq10_audio_signal->cache_896hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 2];
 
-	eq10_audio_signal->buffer_1792hz[0] = eq10_audio_signal->input_buffer[0] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 1792.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_1792hz[buffer_size - 1] - (resonator * resonator) * eq10_audio_signal->buffer_1792hz[buffer_size - 2];
+	resonator = peak_1792hz;
+	eq10_audio_signal->cache_1792hz[0] = eq10_audio_signal->input_buffer[0] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 1792.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_1792hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1] - (resonator * resonator) * eq10_audio_signal->cache_1792hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 2];
 
-	eq10_audio_signal->buffer_3548hz[0] = eq10_audio_signal->input_buffer[0] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 3548.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_3548hz[buffer_size - 1] - (resonator * resonator) * eq10_audio_signal->buffer_3548hz[buffer_size - 2];
+	resonator = peak_3584hz;
+	eq10_audio_signal->cache_3584hz[0] = eq10_audio_signal->input_buffer[0] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 3584.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_3584hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1] - (resonator * resonator) * eq10_audio_signal->cache_3584hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 2];
 
-	eq10_audio_signal->buffer_7168hz[0] = eq10_audio_signal->input_buffer[0] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 7168.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_7168hz[buffer_size - 1] - (resonator * resonator) * eq10_audio_signal->buffer_7168hz[buffer_size - 2];
+	resonator = peak_7168hz;
+	eq10_audio_signal->cache_7168hz[0] = eq10_audio_signal->input_buffer[0] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 7168.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_7168hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1] - (resonator * resonator) * eq10_audio_signal->cache_7168hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 2];
 
-	eq10_audio_signal->buffer_14336hz[0] = eq10_audio_signal->input_buffer[0] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 14336.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_14336hz[buffer_size - 1] - (resonator * resonator) * eq10_audio_signal->buffer_14336hz[buffer_size - 2];
+	resonator = peak_14336hz;
+	eq10_audio_signal->cache_14336hz[0] = eq10_audio_signal->input_buffer[0] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 14336.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_14336hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1] - (resonator * resonator) * eq10_audio_signal->cache_14336hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 2];
       }else if(i == 1){
-        eq10_audio_signal->buffer_28hz[1] = eq10_audio_signal->input_buffer[1] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 28.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_28hz[0] - (resonator * resonator) * eq10_audio_signal->buffer_28hz[buffer_size - 1];
+	resonator = peak_28hz;
+        eq10_audio_signal->cache_28hz[1] = eq10_audio_signal->input_buffer[1] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 28.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_28hz[0] - (resonator * resonator) * eq10_audio_signal->cache_28hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1];
 
-        eq10_audio_signal->buffer_56hz[1] = eq10_audio_signal->input_buffer[1] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 56.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_56hz[0] - (resonator * resonator) * eq10_audio_signal->buffer_56hz[buffer_size - 1];
+	resonator = peak_56hz;
+        eq10_audio_signal->cache_56hz[1] = eq10_audio_signal->input_buffer[1] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 56.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_56hz[0] - (resonator * resonator) * eq10_audio_signal->cache_56hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1];
 
-        eq10_audio_signal->buffer_112hz[1] = eq10_audio_signal->input_buffer[1] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 112.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_112hz[0] - (resonator * resonator) * eq10_audio_signal->buffer_112hz[buffer_size - 1];
+	resonator = peak_112hz;
+        eq10_audio_signal->cache_112hz[1] = eq10_audio_signal->input_buffer[1] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 112.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_112hz[0] - (resonator * resonator) * eq10_audio_signal->cache_112hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1];
 
-        eq10_audio_signal->buffer_224hz[1] = eq10_audio_signal->input_buffer[1] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 224.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_224hz[0] - (resonator * resonator) * eq10_audio_signal->buffer_224hz[buffer_size - 1];
+	resonator = peak_224hz;
+        eq10_audio_signal->cache_224hz[1] = eq10_audio_signal->input_buffer[1] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 224.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_224hz[0] - (resonator * resonator) * eq10_audio_signal->cache_224hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1];
 
-        eq10_audio_signal->buffer_448hz[1] = eq10_audio_signal->input_buffer[1] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 448.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_448hz[0] - (resonator * resonator) * eq10_audio_signal->buffer_448hz[buffer_size - 1];
+	resonator = peak_448hz;
+        eq10_audio_signal->cache_448hz[1] = eq10_audio_signal->input_buffer[1] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 448.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_448hz[0] - (resonator * resonator) * eq10_audio_signal->cache_448hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1];
 
-        eq10_audio_signal->buffer_896hz[1] = eq10_audio_signal->input_buffer[1] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 896.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_896hz[0] - (resonator * resonator) * eq10_audio_signal->buffer_896hz[buffer_size - 1];
+	resonator = peak_896hz;
+        eq10_audio_signal->cache_896hz[1] = eq10_audio_signal->input_buffer[1] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 896.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_896hz[0] - (resonator * resonator) * eq10_audio_signal->cache_896hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1];
 
-        eq10_audio_signal->buffer_1792hz[1] = eq10_audio_signal->input_buffer[1] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 1792.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_1792hz[0] - (resonator * resonator) * eq10_audio_signal->buffer_1792hz[buffer_size - 1];
+	resonator = peak_1792hz;
+        eq10_audio_signal->cache_1792hz[1] = eq10_audio_signal->input_buffer[1] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 1792.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_1792hz[0] - (resonator * resonator) * eq10_audio_signal->cache_1792hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1];
 
-        eq10_audio_signal->buffer_3548hz[1] = eq10_audio_signal->input_buffer[1] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 3548.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_3548hz[0] - (resonator * resonator) * eq10_audio_signal->buffer_3548hz[buffer_size - 1];
+	resonator = peak_3584hz;
+        eq10_audio_signal->cache_3584hz[1] = eq10_audio_signal->input_buffer[1] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 3584.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_3584hz[0] - (resonator * resonator) * eq10_audio_signal->cache_3584hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1];
 
-        eq10_audio_signal->buffer_7168hz[1] = eq10_audio_signal->input_buffer[1] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 7168.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_7168hz[0] - (resonator * resonator) * eq10_audio_signal->buffer_7168hz[buffer_size - 1];
+	resonator = peak_7168hz;
+        eq10_audio_signal->cache_7168hz[1] = eq10_audio_signal->input_buffer[1] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 7168.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_7168hz[0] - (resonator * resonator) * eq10_audio_signal->cache_7168hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1];
 
-        eq10_audio_signal->buffer_14336hz[1] = eq10_audio_signal->input_buffer[1] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 14336.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_14336hz[0] - (resonator * resonator) * eq10_audio_signal->buffer_14336hz[buffer_size - 1];
+	resonator = peak_14336hz;
+        eq10_audio_signal->cache_14336hz[1] = eq10_audio_signal->input_buffer[1] - (resonator * eq10_audio_signal->input_buffer[buffer_size - 1]) + (2.0 * resonator * cos(2.0 * M_PI * 14336.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_14336hz[0] - (resonator * resonator) * eq10_audio_signal->cache_14336hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1];
       }else{
-	eq10_audio_signal->buffer_28hz[i] = eq10_audio_signal->input_buffer[i] - (resonator * eq10_audio_signal->input_buffer[i - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 28.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_28hz[i - 1] - (resonator * resonator) * eq10_audio_signal->buffer_28hz[i - 2];
+	resonator = peak_28hz;
+	eq10_audio_signal->cache_28hz[i % 8] = eq10_audio_signal->input_buffer[i] - (resonator * eq10_audio_signal->input_buffer[i - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 28.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_28hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1] - (resonator * resonator) * eq10_audio_signal->cache_28hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 2];
 
-	eq10_audio_signal->buffer_56hz[i] = eq10_audio_signal->input_buffer[i] - (resonator * eq10_audio_signal->input_buffer[i - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 56.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_56hz[i - 1] - (resonator * resonator) * eq10_audio_signal->buffer_56hz[i - 2];
+	resonator = peak_56hz;
+	eq10_audio_signal->cache_56hz[i % 8] = eq10_audio_signal->input_buffer[i] - (resonator * eq10_audio_signal->input_buffer[i - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 56.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_56hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1] - (resonator * resonator) * eq10_audio_signal->cache_56hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 2];
 
-	eq10_audio_signal->buffer_112hz[i] = eq10_audio_signal->input_buffer[i] - (resonator * eq10_audio_signal->input_buffer[i - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 112.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_112hz[i - 1] - (resonator * resonator) * eq10_audio_signal->buffer_112hz[i - 2];
+	resonator = peak_112hz;
+	eq10_audio_signal->cache_112hz[i % 8] = eq10_audio_signal->input_buffer[i] - (resonator * eq10_audio_signal->input_buffer[i - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 112.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_112hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1] - (resonator * resonator) * eq10_audio_signal->cache_112hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 2];
 
-	eq10_audio_signal->buffer_224hz[i] = eq10_audio_signal->input_buffer[i] - (resonator * eq10_audio_signal->input_buffer[i - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 224.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_224hz[i - 1] - (resonator * resonator) * eq10_audio_signal->buffer_224hz[i - 2];
+	resonator = peak_224hz;
+	eq10_audio_signal->cache_224hz[i % 8] = eq10_audio_signal->input_buffer[i] - (resonator * eq10_audio_signal->input_buffer[i - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 224.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_224hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1] - (resonator * resonator) * eq10_audio_signal->cache_224hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 2];
 
-	eq10_audio_signal->buffer_448hz[i] = eq10_audio_signal->input_buffer[i] - (resonator * eq10_audio_signal->input_buffer[i - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 448.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_448hz[i - 1] - (resonator * resonator) * eq10_audio_signal->buffer_448hz[i - 2];
+	resonator = peak_448hz;
+	eq10_audio_signal->cache_448hz[i % 8] = eq10_audio_signal->input_buffer[i] - (resonator * eq10_audio_signal->input_buffer[i - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 448.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_448hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1] - (resonator * resonator) * eq10_audio_signal->cache_448hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 2];
 
-	eq10_audio_signal->buffer_896hz[i] = eq10_audio_signal->input_buffer[i] - (resonator * eq10_audio_signal->input_buffer[i - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 896.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_896hz[i - 1] - (resonator * resonator) * eq10_audio_signal->buffer_896hz[i - 2];
+	resonator = peak_896hz;
+	eq10_audio_signal->cache_896hz[i % 8] = eq10_audio_signal->input_buffer[i] - (resonator * eq10_audio_signal->input_buffer[i - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 896.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_896hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1] - (resonator * resonator) * eq10_audio_signal->cache_896hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 2];
 
-	eq10_audio_signal->buffer_1792hz[i] = eq10_audio_signal->input_buffer[i] - (resonator * eq10_audio_signal->input_buffer[i - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 1792.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_1792hz[i - 1] - (resonator * resonator) * eq10_audio_signal->buffer_1792hz[i - 2];
+	resonator = peak_1792hz;
+	eq10_audio_signal->cache_1792hz[i % 8] = eq10_audio_signal->input_buffer[i] - (resonator * eq10_audio_signal->input_buffer[i - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 1792.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_1792hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1] - (resonator * resonator) * eq10_audio_signal->cache_1792hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 2];
 
-	eq10_audio_signal->buffer_3548hz[i] = eq10_audio_signal->input_buffer[i] - (resonator * eq10_audio_signal->input_buffer[i - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 3548.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_3548hz[i - 1] - (resonator * resonator) * eq10_audio_signal->buffer_3548hz[i - 2];
+	resonator = peak_3584hz;
+	eq10_audio_signal->cache_3584hz[i % 8] = eq10_audio_signal->input_buffer[i] - (resonator * eq10_audio_signal->input_buffer[i - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 3584.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_3584hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1] - (resonator * resonator) * eq10_audio_signal->cache_3584hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 2];
 
-	eq10_audio_signal->buffer_7168hz[i] = eq10_audio_signal->input_buffer[i] - (resonator * eq10_audio_signal->input_buffer[i - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 7168.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_7168hz[i - 1] - (resonator * resonator) * eq10_audio_signal->buffer_7168hz[i - 2];
+	resonator = peak_7168hz;
+	eq10_audio_signal->cache_7168hz[i % 8] = eq10_audio_signal->input_buffer[i] - (resonator * eq10_audio_signal->input_buffer[i - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 7168.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_7168hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1] - (resonator * resonator) * eq10_audio_signal->cache_7168hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 2];
 
-	eq10_audio_signal->buffer_14336hz[i] = eq10_audio_signal->input_buffer[i] - (resonator * eq10_audio_signal->input_buffer[i - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 14336.0 / (gdouble) samplerate)) * eq10_audio_signal->buffer_14336hz[i - 1] - (resonator * resonator) * eq10_audio_signal->buffer_14336hz[i - 2];
+	resonator = peak_14336hz;
+	eq10_audio_signal->cache_14336hz[i % 8] = eq10_audio_signal->input_buffer[i] - (resonator * eq10_audio_signal->input_buffer[i - 2]) + (2.0 * resonator * cos(2.0 * M_PI * 14336.0 / (gdouble) samplerate)) * eq10_audio_signal->cache_14336hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 1] - (resonator * resonator) * eq10_audio_signal->cache_14336hz[AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE - 2];
       }
     }
+
+    /* fill output */
+    ags_audio_buffer_util_copy_double_to_double(eq10_audio_signal->output_buffer + i, 1,
+						eq10_audio_signal->cache_28hz + (i % 8), 1,
+						AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE);
+
+    ags_audio_buffer_util_copy_double_to_double(eq10_audio_signal->output_buffer + i, 1,
+						eq10_audio_signal->cache_56hz + (i % 8), 1,
+						AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE);
+
+    ags_audio_buffer_util_copy_double_to_double(eq10_audio_signal->output_buffer + i, 1,
+						eq10_audio_signal->cache_112hz + (i % 8), 1,
+						AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE);
+
+    ags_audio_buffer_util_copy_double_to_double(eq10_audio_signal->output_buffer + i, 1,
+						eq10_audio_signal->cache_224hz + (i % 8), 1,
+						AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE);
+
+    ags_audio_buffer_util_copy_double_to_double(eq10_audio_signal->output_buffer + i, 1,
+						eq10_audio_signal->cache_448hz + (i % 8), 1,
+						AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE);
+
+    ags_audio_buffer_util_copy_double_to_double(eq10_audio_signal->output_buffer + i, 1,
+						eq10_audio_signal->cache_896hz + (i % 8), 1,
+						AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE);
+
+    ags_audio_buffer_util_copy_double_to_double(eq10_audio_signal->output_buffer + i, 1,
+						eq10_audio_signal->cache_1792hz + (i % 8), 1,
+						AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE);
+
+    ags_audio_buffer_util_copy_double_to_double(eq10_audio_signal->output_buffer + i, 1,
+						eq10_audio_signal->cache_3584hz + (i % 8), 1,
+						AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE);
+
+    ags_audio_buffer_util_copy_double_to_double(eq10_audio_signal->output_buffer + i, 1,
+						eq10_audio_signal->cache_7168hz + (i % 8), 1,
+						AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE);
+
+    ags_audio_buffer_util_copy_double_to_double(eq10_audio_signal->output_buffer + i, 1,
+						eq10_audio_signal->cache_14336hz + (i % 8), 1,
+						AGS_EQ10_AUDIO_SIGNAL_CACHE_SIZE);
   }
 
-  /* fill output */
-  ags_audio_buffer_util_copy_double_to_double(eq10_audio_signal->output_buffer, 1,
-					      eq10_audio_signal->buffer_28hz, 1,
-					      buffer_size);
-
-  ags_audio_buffer_util_copy_double_to_double(eq10_audio_signal->output_buffer, 1,
-					      eq10_audio_signal->buffer_56hz, 1,
-					      buffer_size);
-
-  ags_audio_buffer_util_copy_double_to_double(eq10_audio_signal->output_buffer, 1,
-					      eq10_audio_signal->buffer_112hz, 1,
-					      buffer_size);
-
-  ags_audio_buffer_util_copy_double_to_double(eq10_audio_signal->output_buffer, 1,
-					      eq10_audio_signal->buffer_224hz, 1,
-					      buffer_size);
-
-  ags_audio_buffer_util_copy_double_to_double(eq10_audio_signal->output_buffer, 1,
-					      eq10_audio_signal->buffer_448hz, 1,
-					      buffer_size);
-
-  ags_audio_buffer_util_copy_double_to_double(eq10_audio_signal->output_buffer, 1,
-					      eq10_audio_signal->buffer_896hz, 1,
-					      buffer_size);
-
-  ags_audio_buffer_util_copy_double_to_double(eq10_audio_signal->output_buffer, 1,
-					      eq10_audio_signal->buffer_1792hz, 1,
-					      buffer_size);
-
-  ags_audio_buffer_util_copy_double_to_double(eq10_audio_signal->output_buffer, 1,
-					      eq10_audio_signal->buffer_3548hz, 1,
-					      buffer_size);
-
-  ags_audio_buffer_util_copy_double_to_double(eq10_audio_signal->output_buffer, 1,
-					      eq10_audio_signal->buffer_7168hz, 1,
-					      buffer_size);
-
-  ags_audio_buffer_util_copy_double_to_double(eq10_audio_signal->output_buffer, 1,
-					      eq10_audio_signal->buffer_14336hz, 1,
-					      buffer_size);
-    
   /* apply boost */
   ags_audio_buffer_util_volume_double(eq10_audio_signal->output_buffer, 1,
 				      buffer_size,

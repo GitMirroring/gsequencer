@@ -51,7 +51,7 @@ struct _AgsEqualizer10
   GtkScale *peak_448hz;
   GtkScale *peak_896hz;
   GtkScale *peak_1792hz;
-  GtkScale *peak_3548hz;
+  GtkScale *peak_3584hz;
   GtkScale *peak_7168hz;
   GtkScale *peak_14336hz;
   
@@ -76,8 +76,8 @@ struct _AgsEqualizer10
   GList *peak_1792hz_play_port;
   GList *peak_1792hz_recall_port;
 
-  GList *peak_3548hz_play_port;
-  GList *peak_3548hz_recall_port;
+  GList *peak_3584hz_play_port;
+  GList *peak_3584hz_recall_port;
 
   GList *peak_7168hz_play_port;
   GList *peak_7168hz_recall_port;

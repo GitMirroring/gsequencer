@@ -274,26 +274,26 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 								port);
 	}
 
-	/* peak 3548Hz  - find port */
+	/* peak 3584Hz  - find port */
 	pthread_mutex_lock(channel_mutex);
 
 	port = ags_equalizer10_find_specifier(channel->play,
-					      "./peak-3548hz[0]");
+					      "./peak-3584hz[0]");
 
 	if(port != NULL){
 	  g_object_ref(port);
 
-	  equalizer10->peak_3548hz_play_port = g_list_prepend(equalizer10->peak_3548hz_play_port,
+	  equalizer10->peak_3584hz_play_port = g_list_prepend(equalizer10->peak_3584hz_play_port,
 							      port);
 	}
 
 	port = ags_equalizer10_find_specifier(channel->recall,
-					      "./peak-3548hz[0]");
+					      "./peak-3584hz[0]");
 
 	if(port != NULL){
 	  g_object_ref(port);
 
-	  equalizer10->peak_3548hz_recall_port = g_list_prepend(equalizer10->peak_3548hz_recall_port,
+	  equalizer10->peak_3584hz_recall_port = g_list_prepend(equalizer10->peak_3584hz_recall_port,
 								port);
 	}
 
@@ -354,10 +354,10 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 
     /* peak 28Hz - port */
     list = 
-      list_start = g_list_copy(spectrometer->peak_28hz_play_port);
+      list_start = g_list_copy(equalizer10->peak_28hz_play_port);
 
     for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
-      spectrometer->peak_28hz_play_port = g_list_remove(spectrometer->peak_28hz_play_port,
+      equalizer10->peak_28hz_play_port = g_list_remove(equalizer10->peak_28hz_play_port,
 							list->data);
       g_object_unref(list->data);
       
@@ -367,10 +367,10 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
     g_list_free(list_start);
 
     list = 
-      list_start = g_list_copy(spectrometer->peak_28hz_recall_port);
+      list_start = g_list_copy(equalizer10->peak_28hz_recall_port);
 
     for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
-      spectrometer->peak_28hz_recall_port = g_list_remove(spectrometer->peak_28hz_recall_port,
+      equalizer10->peak_28hz_recall_port = g_list_remove(equalizer10->peak_28hz_recall_port,
 							  list->data);
       g_object_unref(list->data);
       
@@ -381,10 +381,10 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 
     /* peak 56Hz - port */
     list = 
-      list_start = g_list_copy(spectrometer->peak_56hz_play_port);
+      list_start = g_list_copy(equalizer10->peak_56hz_play_port);
 
     for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
-      spectrometer->peak_56hz_play_port = g_list_remove(spectrometer->peak_56hz_play_port,
+      equalizer10->peak_56hz_play_port = g_list_remove(equalizer10->peak_56hz_play_port,
 							list->data);
       g_object_unref(list->data);
       
@@ -394,10 +394,10 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
     g_list_free(list_start);
 
     list = 
-      list_start = g_list_copy(spectrometer->peak_56hz_recall_port);
+      list_start = g_list_copy(equalizer10->peak_56hz_recall_port);
 
     for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
-      spectrometer->peak_56hz_recall_port = g_list_remove(spectrometer->peak_56hz_recall_port,
+      equalizer10->peak_56hz_recall_port = g_list_remove(equalizer10->peak_56hz_recall_port,
 							  list->data);
       g_object_unref(list->data);
       
@@ -408,10 +408,10 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 
     /* peak 112Hz - port */
     list = 
-      list_start = g_list_copy(spectrometer->peak_112hz_play_port);
+      list_start = g_list_copy(equalizer10->peak_112hz_play_port);
 
     for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
-      spectrometer->peak_112hz_play_port = g_list_remove(spectrometer->peak_112hz_play_port,
+      equalizer10->peak_112hz_play_port = g_list_remove(equalizer10->peak_112hz_play_port,
 							 list->data);
       g_object_unref(list->data);
       
@@ -421,10 +421,10 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
     g_list_free(list_start);
 
     list = 
-      list_start = g_list_copy(spectrometer->peak_112hz_recall_port);
+      list_start = g_list_copy(equalizer10->peak_112hz_recall_port);
 
     for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
-      spectrometer->peak_112hz_recall_port = g_list_remove(spectrometer->peak_112hz_recall_port,
+      equalizer10->peak_112hz_recall_port = g_list_remove(equalizer10->peak_112hz_recall_port,
 							   list->data);
       g_object_unref(list->data);
       
@@ -435,10 +435,10 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 
     /* peak 224Hz - port */
     list = 
-      list_start = g_list_copy(spectrometer->peak_224hz_play_port);
+      list_start = g_list_copy(equalizer10->peak_224hz_play_port);
 
     for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
-      spectrometer->peak_224hz_play_port = g_list_remove(spectrometer->peak_224hz_play_port,
+      equalizer10->peak_224hz_play_port = g_list_remove(equalizer10->peak_224hz_play_port,
 							 list->data);
       g_object_unref(list->data);
       
@@ -448,10 +448,10 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
     g_list_free(list_start);
 
     list = 
-      list_start = g_list_copy(spectrometer->peak_224hz_recall_port);
+      list_start = g_list_copy(equalizer10->peak_224hz_recall_port);
 
     for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
-      spectrometer->peak_224hz_recall_port = g_list_remove(spectrometer->peak_224hz_recall_port,
+      equalizer10->peak_224hz_recall_port = g_list_remove(equalizer10->peak_224hz_recall_port,
 							   list->data);
       g_object_unref(list->data);
       
@@ -462,10 +462,10 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 
     /* peak 448Hz - port */
     list = 
-      list_start = g_list_copy(spectrometer->peak_448hz_play_port);
+      list_start = g_list_copy(equalizer10->peak_448hz_play_port);
 
     for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
-      spectrometer->peak_448hz_play_port = g_list_remove(spectrometer->peak_448hz_play_port,
+      equalizer10->peak_448hz_play_port = g_list_remove(equalizer10->peak_448hz_play_port,
 							 list->data);
       g_object_unref(list->data);
       
@@ -475,10 +475,10 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
     g_list_free(list_start);
 
     list = 
-      list_start = g_list_copy(spectrometer->peak_448hz_recall_port);
+      list_start = g_list_copy(equalizer10->peak_448hz_recall_port);
 
     for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
-      spectrometer->peak_448hz_recall_port = g_list_remove(spectrometer->peak_448hz_recall_port,
+      equalizer10->peak_448hz_recall_port = g_list_remove(equalizer10->peak_448hz_recall_port,
 							   list->data);
       g_object_unref(list->data);
       
@@ -489,10 +489,10 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 
     /* peak 896Hz - port */
     list = 
-      list_start = g_list_copy(spectrometer->peak_896hz_play_port);
+      list_start = g_list_copy(equalizer10->peak_896hz_play_port);
 
     for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
-      spectrometer->peak_896hz_play_port = g_list_remove(spectrometer->peak_896hz_play_port,
+      equalizer10->peak_896hz_play_port = g_list_remove(equalizer10->peak_896hz_play_port,
 							 list->data);
       g_object_unref(list->data);
       
@@ -502,10 +502,10 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
     g_list_free(list_start);
 
     list = 
-      list_start = g_list_copy(spectrometer->peak_896hz_recall_port);
+      list_start = g_list_copy(equalizer10->peak_896hz_recall_port);
 
     for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
-      spectrometer->peak_896hz_recall_port = g_list_remove(spectrometer->peak_896hz_recall_port,
+      equalizer10->peak_896hz_recall_port = g_list_remove(equalizer10->peak_896hz_recall_port,
 							   list->data);
       g_object_unref(list->data);
       
@@ -516,10 +516,10 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 
     /* peak 1792Hz - port */
     list = 
-      list_start = g_list_copy(spectrometer->peak_1792hz_play_port);
+      list_start = g_list_copy(equalizer10->peak_1792hz_play_port);
 
     for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
-      spectrometer->peak_1792hz_play_port = g_list_remove(spectrometer->peak_1792hz_play_port,
+      equalizer10->peak_1792hz_play_port = g_list_remove(equalizer10->peak_1792hz_play_port,
 							  list->data);
       g_object_unref(list->data);
       
@@ -529,10 +529,10 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
     g_list_free(list_start);
 
     list = 
-      list_start = g_list_copy(spectrometer->peak_1792hz_recall_port);
+      list_start = g_list_copy(equalizer10->peak_1792hz_recall_port);
 
     for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
-      spectrometer->peak_1792hz_recall_port = g_list_remove(spectrometer->peak_1792hz_recall_port,
+      equalizer10->peak_1792hz_recall_port = g_list_remove(equalizer10->peak_1792hz_recall_port,
 							    list->data);
       g_object_unref(list->data);
       
@@ -541,12 +541,12 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 
     g_list_free(list_start);
 
-    /* peak 3548Hz - port */
+    /* peak 3584Hz - port */
     list = 
-      list_start = g_list_copy(spectrometer->peak_3548hz_play_port);
+      list_start = g_list_copy(equalizer10->peak_3584hz_play_port);
 
     for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
-      spectrometer->peak_3548hz_play_port = g_list_remove(spectrometer->peak_3548hz_play_port,
+      equalizer10->peak_3584hz_play_port = g_list_remove(equalizer10->peak_3584hz_play_port,
 							  list->data);
       g_object_unref(list->data);
       
@@ -556,10 +556,10 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
     g_list_free(list_start);
 
     list = 
-      list_start = g_list_copy(spectrometer->peak_3548hz_recall_port);
+      list_start = g_list_copy(equalizer10->peak_3584hz_recall_port);
 
     for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
-      spectrometer->peak_3548hz_recall_port = g_list_remove(spectrometer->peak_3548hz_recall_port,
+      equalizer10->peak_3584hz_recall_port = g_list_remove(equalizer10->peak_3584hz_recall_port,
 							    list->data);
       g_object_unref(list->data);
       
@@ -570,10 +570,10 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 
     /* peak 7168Hz - port */
     list = 
-      list_start = g_list_copy(spectrometer->peak_7168hz_play_port);
+      list_start = g_list_copy(equalizer10->peak_7168hz_play_port);
 
     for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
-      spectrometer->peak_7168hz_play_port = g_list_remove(spectrometer->peak_7168hz_play_port,
+      equalizer10->peak_7168hz_play_port = g_list_remove(equalizer10->peak_7168hz_play_port,
 							  list->data);
       g_object_unref(list->data);
       
@@ -583,10 +583,10 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
     g_list_free(list_start);
 
     list = 
-      list_start = g_list_copy(spectrometer->peak_7168hz_recall_port);
+      list_start = g_list_copy(equalizer10->peak_7168hz_recall_port);
 
     for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
-      spectrometer->peak_7168hz_recall_port = g_list_remove(spectrometer->peak_7168hz_recall_port,
+      equalizer10->peak_7168hz_recall_port = g_list_remove(equalizer10->peak_7168hz_recall_port,
 							    list->data);
       g_object_unref(list->data);
       
@@ -597,10 +597,10 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
 
     /* peak 14336Hz - port */
     list = 
-      list_start = g_list_copy(spectrometer->peak_14336hz_play_port);
+      list_start = g_list_copy(equalizer10->peak_14336hz_play_port);
 
     for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
-      spectrometer->peak_14336hz_play_port = g_list_remove(spectrometer->peak_14336hz_play_port,
+      equalizer10->peak_14336hz_play_port = g_list_remove(equalizer10->peak_14336hz_play_port,
 							   list->data);
       g_object_unref(list->data);
       
@@ -610,10 +610,10 @@ ags_equalizer10_resize_audio_channels_callback(AgsEqualizer10 *equalizer10,
     g_list_free(list_start);
 
     list = 
-      list_start = g_list_copy(spectrometer->peak_14336hz_recall_port);
+      list_start = g_list_copy(equalizer10->peak_14336hz_recall_port);
 
     for(i = audio_channels; i < audio_channels_old && list != NULL; i++){
-      spectrometer->peak_14336hz_recall_port = g_list_remove(spectrometer->peak_14336hz_recall_port,
+      equalizer10->peak_14336hz_recall_port = g_list_remove(equalizer10->peak_14336hz_recall_port,
 							     list->data);
       g_object_unref(list->data);
       
@@ -849,26 +849,26 @@ ags_equalizer10_resize_pads_callback(AgsEqualizer10 *equalizer10,
 								port);
 	}
 
-	/* peak 3548Hz  - find port */
+	/* peak 3584Hz  - find port */
 	pthread_mutex_lock(channel_mutex);
 
 	port = ags_equalizer10_find_specifier(channel->play,
-					      "./peak-3548hz[0]");
+					      "./peak-3584hz[0]");
 
 	if(port != NULL){
 	  g_object_ref(port);
 
-	  equalizer10->peak_3548hz_play_port = g_list_prepend(equalizer10->peak_3548hz_play_port,
+	  equalizer10->peak_3584hz_play_port = g_list_prepend(equalizer10->peak_3584hz_play_port,
 							      port);
 	}
 
 	port = ags_equalizer10_find_specifier(channel->recall,
-					      "./peak-3548hz[0]");
+					      "./peak-3584hz[0]");
 
 	if(port != NULL){
 	  g_object_ref(port);
 
-	  equalizer10->peak_3548hz_recall_port = g_list_prepend(equalizer10->peak_3548hz_recall_port,
+	  equalizer10->peak_3584hz_recall_port = g_list_prepend(equalizer10->peak_3584hz_recall_port,
 								port);
 	}
 
@@ -928,74 +928,74 @@ ags_equalizer10_resize_pads_callback(AgsEqualizer10 *equalizer10,
 
   if(pads == 0 && channel_type == AGS_TYPE_INPUT){
     /* peak 28Hz - ports */
-    g_list_free_full(spectrometer->peak_28hz_play_port, g_object_unref);
-    spectrometer->peak_28hz_play_port = NULL;
+    g_list_free_full(equalizer10->peak_28hz_play_port, g_object_unref);
+    equalizer10->peak_28hz_play_port = NULL;
     
-    g_list_free_full(spectrometer->peak_28hz_recall_port, g_object_unref);
-    spectrometer->peak_28hz_recall_port = NULL;
+    g_list_free_full(equalizer10->peak_28hz_recall_port, g_object_unref);
+    equalizer10->peak_28hz_recall_port = NULL;
 
     /* peak 56Hz - ports */
-    g_list_free_full(spectrometer->peak_56hz_play_port, g_object_unref);
-    spectrometer->peak_56hz_play_port = NULL;
+    g_list_free_full(equalizer10->peak_56hz_play_port, g_object_unref);
+    equalizer10->peak_56hz_play_port = NULL;
     
-    g_list_free_full(spectrometer->peak_56hz_recall_port, g_object_unref);
-    spectrometer->peak_56hz_recall_port = NULL;
+    g_list_free_full(equalizer10->peak_56hz_recall_port, g_object_unref);
+    equalizer10->peak_56hz_recall_port = NULL;
 
     /* peak 112Hz - ports */
-    g_list_free_full(spectrometer->peak_112hz_play_port, g_object_unref);
-    spectrometer->peak_112hz_play_port = NULL;
+    g_list_free_full(equalizer10->peak_112hz_play_port, g_object_unref);
+    equalizer10->peak_112hz_play_port = NULL;
     
-    g_list_free_full(spectrometer->peak_112hz_recall_port, g_object_unref);
-    spectrometer->peak_112hz_recall_port = NULL;
+    g_list_free_full(equalizer10->peak_112hz_recall_port, g_object_unref);
+    equalizer10->peak_112hz_recall_port = NULL;
 
     /* peak 224Hz - ports */
-    g_list_free_full(spectrometer->peak_224hz_play_port, g_object_unref);
-    spectrometer->peak_224hz_play_port = NULL;
+    g_list_free_full(equalizer10->peak_224hz_play_port, g_object_unref);
+    equalizer10->peak_224hz_play_port = NULL;
     
-    g_list_free_full(spectrometer->peak_224hz_recall_port, g_object_unref);
-    spectrometer->peak_224hz_recall_port = NULL;
+    g_list_free_full(equalizer10->peak_224hz_recall_port, g_object_unref);
+    equalizer10->peak_224hz_recall_port = NULL;
 
     /* peak 448Hz - ports */
-    g_list_free_full(spectrometer->peak_448hz_play_port, g_object_unref);
-    spectrometer->peak_448hz_play_port = NULL;
+    g_list_free_full(equalizer10->peak_448hz_play_port, g_object_unref);
+    equalizer10->peak_448hz_play_port = NULL;
     
-    g_list_free_full(spectrometer->peak_448hz_recall_port, g_object_unref);
-    spectrometer->peak_448hz_recall_port = NULL;
+    g_list_free_full(equalizer10->peak_448hz_recall_port, g_object_unref);
+    equalizer10->peak_448hz_recall_port = NULL;
 
     /* peak 896Hz - ports */
-    g_list_free_full(spectrometer->peak_896hz_play_port, g_object_unref);
-    spectrometer->peak_896hz_play_port = NULL;
+    g_list_free_full(equalizer10->peak_896hz_play_port, g_object_unref);
+    equalizer10->peak_896hz_play_port = NULL;
     
-    g_list_free_full(spectrometer->peak_896hz_recall_port, g_object_unref);
-    spectrometer->peak_896hz_recall_port = NULL;
+    g_list_free_full(equalizer10->peak_896hz_recall_port, g_object_unref);
+    equalizer10->peak_896hz_recall_port = NULL;
 
     /* peak 1792Hz - ports */
-    g_list_free_full(spectrometer->peak_1792hz_play_port, g_object_unref);
-    spectrometer->peak_1792hz_play_port = NULL;
+    g_list_free_full(equalizer10->peak_1792hz_play_port, g_object_unref);
+    equalizer10->peak_1792hz_play_port = NULL;
     
-    g_list_free_full(spectrometer->peak_1792hz_recall_port, g_object_unref);
-    spectrometer->peak_1792hz_recall_port = NULL;
+    g_list_free_full(equalizer10->peak_1792hz_recall_port, g_object_unref);
+    equalizer10->peak_1792hz_recall_port = NULL;
 
-    /* peak 3548Hz - ports */
-    g_list_free_full(spectrometer->peak_3548hz_play_port, g_object_unref);
-    spectrometer->peak_3548hz_play_port = NULL;
+    /* peak 3584Hz - ports */
+    g_list_free_full(equalizer10->peak_3584hz_play_port, g_object_unref);
+    equalizer10->peak_3584hz_play_port = NULL;
     
-    g_list_free_full(spectrometer->peak_3548hz_recall_port, g_object_unref);
-    spectrometer->peak_3548hz_recall_port = NULL;
+    g_list_free_full(equalizer10->peak_3584hz_recall_port, g_object_unref);
+    equalizer10->peak_3584hz_recall_port = NULL;
 
     /* peak 7168Hz - ports */
-    g_list_free_full(spectrometer->peak_7168hz_play_port, g_object_unref);
-    spectrometer->peak_7168hz_play_port = NULL;
+    g_list_free_full(equalizer10->peak_7168hz_play_port, g_object_unref);
+    equalizer10->peak_7168hz_play_port = NULL;
     
-    g_list_free_full(spectrometer->peak_7168hz_recall_port, g_object_unref);
-    spectrometer->peak_7168hz_recall_port = NULL;
+    g_list_free_full(equalizer10->peak_7168hz_recall_port, g_object_unref);
+    equalizer10->peak_7168hz_recall_port = NULL;
 
     /* peak 14336Hz - ports */
-    g_list_free_full(spectrometer->peak_14336hz_play_port, g_object_unref);
-    spectrometer->peak_14336hz_play_port = NULL;
+    g_list_free_full(equalizer10->peak_14336hz_play_port, g_object_unref);
+    equalizer10->peak_14336hz_play_port = NULL;
     
-    g_list_free_full(spectrometer->peak_14336hz_recall_port, g_object_unref);
-    spectrometer->peak_14336hz_recall_port = NULL;
+    g_list_free_full(equalizer10->peak_14336hz_recall_port, g_object_unref);
+    equalizer10->peak_14336hz_recall_port = NULL;
   }
 }
 
@@ -1252,7 +1252,7 @@ ags_equalizer10_peak_1792hz_callback(GtkRange *range,
 }
 
 void
-ags_equalizer10_peak_3548hz_callback(GtkRange *range,
+ags_equalizer10_peak_3584hz_callback(GtkRange *range,
 				     AgsEqualizer10 *equalizer10)
 {
   GList *list;
@@ -1265,7 +1265,7 @@ ags_equalizer10_peak_3548hz_callback(GtkRange *range,
   g_value_set_float(&value, gtk_range_get_value(range));
 
   /* play port */
-  list = equalizer10->peak_3548hz_play_port;
+  list = equalizer10->peak_3584hz_play_port;
   
   while(list != NULL){
     ags_port_safe_write(list->data,
@@ -1275,7 +1275,7 @@ ags_equalizer10_peak_3548hz_callback(GtkRange *range,
   }
 
   /* recall port */
-  list = equalizer10->peak_3548hz_recall_port;
+  list = equalizer10->peak_3584hz_recall_port;
   
   while(list != NULL){
     ags_port_safe_write(list->data,

@@ -46,7 +46,7 @@ struct _AgsEq10Channel
   AgsPort *peak_448hz;
   AgsPort *peak_896hz;
   AgsPort *peak_1792hz;
-  AgsPort *peak_3548hz;
+  AgsPort *peak_3584hz;
   AgsPort *peak_7168hz;
   AgsPort *peak_14336hz;
 };

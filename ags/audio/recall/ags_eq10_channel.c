@@ -64,7 +64,7 @@ enum{
   PROP_PEAK_448HZ,
   PROP_PEAK_896HZ,
   PROP_PEAK_1792HZ,
-  PROP_PEAK_3548HZ,
+  PROP_PEAK_3584HZ,
   PROP_PEAK_7168HZ,
   PROP_PEAK_14336HZ,
 };
@@ -81,7 +81,7 @@ static const gchar *ags_eq10_channel_specifier[] = {
   "./peak-448hz[0]"
   "./peak-896hz[0]"
   "./peak-1792hz[0]"
-  "./peak-3548hz[0]"
+  "./peak-3584hz[0]"
   "./peak-7168hz[0]"
   "./peak-14336hz[0]"
 };
@@ -292,19 +292,19 @@ ags_eq10_channel_class_init(AgsEq10ChannelClass *eq10_channel)
 				  param_spec);
 
   /**
-   * AgsEq10Channel:peak-3548hz:
+   * AgsEq10Channel:peak-3584hz:
    * 
-   * The peak 3548Hz port.
+   * The peak 3584Hz port.
    * 
    * Since: 1.5.0 
    */
-  param_spec = g_param_spec_object("peak-3548hz",
-				   i18n_pspec("3548Hz peak to apply"),
-				   i18n_pspec("The 3548Hz peak to apply on the channel"),
+  param_spec = g_param_spec_object("peak-3584hz",
+				   i18n_pspec("3584Hz peak to apply"),
+				   i18n_pspec("The 3584Hz peak to apply on the channel"),
 				   AGS_TYPE_PORT,
 				   G_PARAM_READABLE | G_PARAM_WRITABLE);
   g_object_class_install_property(gobject,
-				  PROP_PEAK_3548HZ,
+				  PROP_PEAK_3584HZ,
 				  param_spec);
 
   /**
@@ -500,26 +500,26 @@ ags_eq10_channel_init(AgsEq10Channel *eq10_channel)
   port = g_list_prepend(port, eq10_channel->peak_1792hz);
   g_object_ref(eq10_channel->peak_1792hz);
 
-  /* peak 3548hz */
-  eq10_channel->peak_3548hz = g_object_new(AGS_TYPE_PORT,
+  /* peak 3584hz */
+  eq10_channel->peak_3584hz = g_object_new(AGS_TYPE_PORT,
 					 "plugin-name", "ags-eq10",
-					 "specifier", "./peak-3548hz[0]",
+					 "specifier", "./peak-3584hz[0]",
 					 "control-port", "1/1",
 					 "port-value-is-pointer", FALSE,
 					 "port-value-type", G_TYPE_FLOAT,
 					 "port-value-size", sizeof(gfloat),
 					 "port-value-length", 1,
 					 NULL);
-  g_object_ref(eq10_channel->peak_3548hz);
+  g_object_ref(eq10_channel->peak_3584hz);
   
-  eq10_channel->peak_3548hz->port_value.ags_port_float = 1.0;
+  eq10_channel->peak_3584hz->port_value.ags_port_float = 1.0;
 
   /* port descriptor */
-  eq10_channel->peak_3548hz->port_descriptor = ags_eq10_channel_get_peak_generic_port_descriptor();
+  eq10_channel->peak_3584hz->port_descriptor = ags_eq10_channel_get_peak_generic_port_descriptor();
 
   /* add to port */  
-  port = g_list_prepend(port, eq10_channel->peak_3548hz);
-  g_object_ref(eq10_channel->peak_3548hz);
+  port = g_list_prepend(port, eq10_channel->peak_3584hz);
+  g_object_ref(eq10_channel->peak_3584hz);
 
   /* peak 7168hz */
   eq10_channel->peak_7168hz = g_object_new(AGS_TYPE_PORT,
@@ -725,25 +725,25 @@ ags_eq10_channel_set_property(GObject *gobject,
       eq10_channel->peak_1792hz = port;
     }
     break;
-  case PROP_PEAK_3548HZ:
+  case PROP_PEAK_3584HZ:
     {
       AgsPort *port;
 
       port = (AgsPort *) g_value_get_object(value);
 
-      if(port == eq10_channel->peak_3548hz){
+      if(port == eq10_channel->peak_3584hz){
 	return;
       }
 
-      if(eq10_channel->peak_3548hz != NULL){
-	g_object_unref(G_OBJECT(eq10_channel->peak_3548hz));
+      if(eq10_channel->peak_3584hz != NULL){
+	g_object_unref(G_OBJECT(eq10_channel->peak_3584hz));
       }
       
       if(port != NULL){
 	g_object_ref(G_OBJECT(port));
       }
 
-      eq10_channel->peak_3548hz = port;
+      eq10_channel->peak_3584hz = port;
     }
     break;
   case PROP_PEAK_7168HZ:
@@ -840,9 +840,9 @@ ags_eq10_channel_get_property(GObject *gobject,
       g_value_set_object(value, eq10_channel->peak_1792hz);
     }
     break;
-  case PROP_PEAK_3548HZ:
+  case PROP_PEAK_3584HZ:
     {
-      g_value_set_object(value, eq10_channel->peak_3548hz);
+      g_value_set_object(value, eq10_channel->peak_3584hz);
     }
     break;
   case PROP_PEAK_7168HZ:
@@ -935,10 +935,10 @@ ags_eq10_channel_set_ports(AgsPlugin *plugin, GList *port)
 		   "peak-1792hz", AGS_PORT(port->data),
 		   NULL);
     }else if(!strncmp(AGS_PORT(port->data)->specifier,
-		"./peak-3548hz[0]",
+		"./peak-3584hz[0]",
 		17)){
       g_object_set(G_OBJECT(plugin),
-		   "peak-3548hz", AGS_PORT(port->data),
+		   "peak-3584hz", AGS_PORT(port->data),
 		   NULL);
     }else if(!strncmp(AGS_PORT(port->data)->specifier,
 		"./peak-7168hz[0]",
@@ -1014,11 +1014,11 @@ ags_eq10_channel_dispose(GObject *gobject)
     eq10_channel->peak_1792hz = NULL;
   }
 
-  /* peak 3548hz */
-  if(eq10_channel->peak_3548hz != NULL){
-    g_object_unref(G_OBJECT(eq10_channel->peak_3548hz));
+  /* peak 3584hz */
+  if(eq10_channel->peak_3584hz != NULL){
+    g_object_unref(G_OBJECT(eq10_channel->peak_3584hz));
 
-    eq10_channel->peak_3548hz = NULL;
+    eq10_channel->peak_3584hz = NULL;
   }
 
   /* peak 7168hz */
@@ -1081,9 +1081,9 @@ ags_eq10_channel_finalize(GObject *gobject)
     g_object_unref(G_OBJECT(eq10_channel->peak_1792hz));
   }
 
-  /* peak 3548hz */
-  if(eq10_channel->peak_3548hz != NULL){
-    g_object_unref(G_OBJECT(eq10_channel->peak_3548hz));
+  /* peak 3584hz */
+  if(eq10_channel->peak_3584hz != NULL){
+    g_object_unref(G_OBJECT(eq10_channel->peak_3584hz));
   }
 
   /* peak 7168hz */

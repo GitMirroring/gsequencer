@@ -340,7 +340,7 @@ ags_equalizer10_init(AgsEqualizer10 *equalizer10)
 		     FALSE, FALSE,
 		     0);
 
-  /* peak 3548 hz */
+  /* peak 3584 hz */
   control_vbox = (GtkVBox *) gtk_vbox_new(FALSE,
 					  0);
   gtk_box_pack_start((GtkBox *) hbox,
@@ -348,17 +348,17 @@ ags_equalizer10_init(AgsEqualizer10 *equalizer10)
 		     FALSE, FALSE,
 		     0);
 
-  equalizer10->peak_3548hz = (GtkScale *) gtk_vscale_new_with_range(0.0, 2.0, 0.01);
-  gtk_range_set_value((GtkRange *) equalizer10->peak_3548hz,
+  equalizer10->peak_3584hz = (GtkScale *) gtk_vscale_new_with_range(0.0, 2.0, 0.01);
+  gtk_range_set_value((GtkRange *) equalizer10->peak_3584hz,
 		      1.0);
-  gtk_widget_set_size_request((GtkWidget *) equalizer10->peak_3548hz,
+  gtk_widget_set_size_request((GtkWidget *) equalizer10->peak_3584hz,
 			      -1, 100);
   gtk_box_pack_start((GtkBox *) control_vbox,
-		     (GtkWidget *) equalizer10->peak_3548hz,
+		     (GtkWidget *) equalizer10->peak_3584hz,
 		     FALSE, FALSE,
 		     0);
 
-  label = (GtkLabel *) gtk_label_new(i18n("3548Hz"));
+  label = (GtkLabel *) gtk_label_new(i18n("3584Hz"));
   gtk_box_pack_start((GtkBox *) control_vbox,
 		     (GtkWidget *) label,
 		     FALSE, FALSE,
@@ -462,10 +462,10 @@ ags_equalizer10_finalize(GObject *gobject)
   g_list_free_full(equalizer10->peak_1792hz_recall_port,
 		   g_object_unref);
 
-  g_list_free_full(equalizer10->peak_3548hz_play_port,
+  g_list_free_full(equalizer10->peak_3584hz_play_port,
 		   g_object_unref);
 
-  g_list_free_full(equalizer10->peak_3548hz_recall_port,
+  g_list_free_full(equalizer10->peak_3584hz_recall_port,
 		   g_object_unref);
 
   g_list_free_full(equalizer10->peak_14336hz_play_port,
@@ -517,8 +517,8 @@ ags_equalizer10_connect(AgsConnectable *connectable)
   g_signal_connect_after(equalizer10->peak_1792hz, "value-changed",
 			 G_CALLBACK(ags_equalizer10_peak_1792hz_callback), equalizer10);
 
-  g_signal_connect_after(equalizer10->peak_3548hz, "value-changed",
-			 G_CALLBACK(ags_equalizer10_peak_3548hz_callback), equalizer10);
+  g_signal_connect_after(equalizer10->peak_3584hz, "value-changed",
+			 G_CALLBACK(ags_equalizer10_peak_3584hz_callback), equalizer10);
 
   g_signal_connect_after(equalizer10->peak_7168hz, "value-changed",
 			 G_CALLBACK(ags_equalizer10_peak_7168hz_callback), equalizer10);
@@ -598,9 +598,9 @@ ags_equalizer10_disconnect(AgsConnectable *connectable)
 		      equalizer10,
 		      NULL);
 
-  g_object_disconnect(equalizer10->peak_3548hz,
+  g_object_disconnect(equalizer10->peak_3584hz,
 		      "value-changed",
-		      G_CALLBACK(ags_equalizer10_peak_3548hz_callback),
+		      G_CALLBACK(ags_equalizer10_peak_3584hz_callback),
 		      equalizer10,
 		      NULL);
 
@@ -845,26 +845,26 @@ ags_equalizer10_map_recall(AgsMachine *machine)
 							    port);
     }
 
-    /* peak 3548Hz  - find port */
+    /* peak 3584Hz  - find port */
     pthread_mutex_lock(channel_mutex);
 
     port = ags_equalizer10_find_specifier(channel->play,
-					  "./peak-3548hz[0]");
+					  "./peak-3584hz[0]");
 
     if(port != NULL){
       g_object_ref(port);
 
-      equalizer10->peak_3548hz_play_port = g_list_prepend(equalizer10->peak_3548hz_play_port,
+      equalizer10->peak_3584hz_play_port = g_list_prepend(equalizer10->peak_3584hz_play_port,
 							  port);
     }
 
     port = ags_equalizer10_find_specifier(channel->recall,
-					  "./peak-3548hz[0]");
+					  "./peak-3584hz[0]");
 
     if(port != NULL){
       g_object_ref(port);
 
-      equalizer10->peak_3548hz_recall_port = g_list_prepend(equalizer10->peak_3548hz_recall_port,
+      equalizer10->peak_3584hz_recall_port = g_list_prepend(equalizer10->peak_3584hz_recall_port,
 							    port);
     }
 
