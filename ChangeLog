@@ -4,8 +4,12 @@ ags (1.5.0)
 	* TODO:JK: implemented AgsDesk
 	* TODO:JK: implemented AgsPlaylist
 	* implemented ags-analyse recall
+	* TODO:JK: implemented ags-eq10 recall
 	* implemented AgsResetAmplitude task
+	* implemented ags_playable_read_wave()
 	* fixed realloc label of AgsCartesian
+	* fixed safe functions to remove objects from AgsAudio and AgsChannel
+	* fixed ref-count of ags_recycling_context_replace()
 
 ags (1.4.32)
 
