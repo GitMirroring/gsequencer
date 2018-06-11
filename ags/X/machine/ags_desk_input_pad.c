@@ -196,7 +196,7 @@ ags_desk_input_pad_init(AgsDeskInputPad *desk_input_pad)
 		     FALSE, FALSE,
 		     0);
 
-  /* volume */
+  /* controls */
   hbox = (GtkHBox *) gtk_hbox_new(FALSE,
 				  0);
   gtk_box_pack_start((GtkBox *) desk_input_pad,
@@ -204,14 +204,19 @@ ags_desk_input_pad_init(AgsDeskInputPad *desk_input_pad)
 		     FALSE, FALSE,
 		     0);
 
-  /* controls */
+  /* indicator */
   desk_input_pad->indicator = (AgsIndicator *) ags_vindicator_new();
   gtk_box_pack_start((GtkBox *) hbox,
 		     (GtkWidget *) desk_input_pad->indicator,
 		     FALSE, FALSE,
 		     0);
 
+  /* volume */
   desk_input_pad->volume = (GtkScale *) gtk_vscale_new_with_range(0.0, 2.0, 0.1);
+  gtk_range_set_inverted(desk_input_pad->volume,
+			 TRUE);
+  gtk_range_set_value(desk_input_pad->volume,
+		      1.0);
   gtk_box_pack_start((GtkBox *) hbox,
 		     (GtkWidget *) desk_input_pad->volume,
 		     FALSE, FALSE,
