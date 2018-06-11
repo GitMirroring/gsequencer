@@ -987,13 +987,12 @@ ags_playable_read_wave(AgsPlayable *playable,
   i = start_channel;
   i_stop = start_channel + channels_to_read;
 
-  j_stop = (guint) floor((double)(resampled_frames + attack) / (double)(buffer_size));
+  j_stop = (guint) ceil((double)(resampled_frames + attack) / (double)(buffer_size));
 
   for(j = 0; i < i_stop; i++, j++){
     AgsBuffer *buffer;
 
-    void *data;
-	
+    void *data;	
     
     wave = ags_wave_new(NULL,
 			j);
@@ -1041,6 +1040,8 @@ ags_playable_read_wave(AgsPlayable *playable,
     }
 
     for(j = 0; j < j_stop; j++){
+      guint copy_frame_count;
+      
       if(j != 0 && j % AGS_WAVE_DEFAULT_OFFSET == 0){
 	wave = ags_wave_new(NULL,
 			    j);
@@ -1066,51 +1067,25 @@ ags_playable_read_wave(AgsPlayable *playable,
 			  FALSE);
 
       if(j == 0){
-	g_object_set(buffer,
-		     "x", xoffset - attack,
-		     NULL);
-	ags_audio_buffer_util_copy_buffer_to_buffer(buffer->data, 1, attack,
-						    data, 1, 0,
-						    buffer_size - attack, copy_mode);
+	if(buffer_size - attack <= resampled_frames){
+	  copy_frame_count = buffer_size - attack;
+	}else{
+	  copy_frame_count = resampled_frames;
+	}
       }else{
-	g_object_set(buffer,
-		     "x", (xoffset - attack) + j * buffer_size,
-		     NULL);
-	ags_audio_buffer_util_copy_buffer_to_buffer(buffer->data, 1, 0,
-						    data, 1, j * buffer_size,
-						    buffer_size, copy_mode);
-      }
-    }
-    
-    if(resampled_frames % buffer_size != 0){
-      if(j != 0 && j % AGS_WAVE_DEFAULT_OFFSET == 0){
-	wave = ags_wave_new(NULL,
-			    j);
-	g_object_set(wave,
-		     "samplerate", target_samplerate,
-		     "buffer-size", buffer_size,
-		     "format", format,
-		     "frame-count", resampled_frames,
-		     NULL);
-    
-	list_start = ags_wave_add(list_start,
-				  wave);
+	if(j * buffer_size + attack <= resampled_frames){
+	  copy_frame_count = buffer_size;
+	}else{
+	  copy_frame_count = resampled_frames - (j * buffer_size);
+	}
       }
 
-      buffer = ags_buffer_new();
       g_object_set(buffer,
-		   "samplerate", target_samplerate,
-		   "buffer-size", buffer_size,
-		   "format", format,
 		   "x", (xoffset - attack) + j * buffer_size,
 		   NULL);
-      ags_wave_add_buffer(wave,
-			  buffer,
-			  FALSE);
-
       ags_audio_buffer_util_copy_buffer_to_buffer(buffer->data, 1, 0,
 						  data, 1, j * buffer_size,
-						  resampled_frames % buffer_size, copy_mode);
+						  copy_frame_count, copy_mode);
     }
 
     free(data);
