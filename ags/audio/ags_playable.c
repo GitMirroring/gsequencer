@@ -1073,10 +1073,10 @@ ags_playable_read_wave(AgsPlayable *playable,
 	  copy_frame_count = resampled_frames;
 	}
       }else{
-	if(j * buffer_size + attack <= resampled_frames){
+	if((j + 1) * buffer_size - attack <= resampled_frames){
 	  copy_frame_count = buffer_size;
 	}else{
-	  copy_frame_count = resampled_frames - (j * buffer_size);
+	  copy_frame_count = resampled_frames - ((j + 1) * buffer_size - attack);
 	}
       }
 
