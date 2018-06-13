@@ -21,6 +21,8 @@
 
 #include <ags/libags.h>
 
+#include <ags/audio/ags_wave.h>
+#include <ags/audio/ags_buffer.h>
 #include <ags/audio/ags_audio_signal.h>
 #include <ags/audio/ags_audio_buffer_util.h>
 
@@ -843,16 +845,19 @@ ags_playable_read_wave(AgsPlayable *playable,
   gchar *str;
 
   guint copy_mode;
+  guint64 offset;
   guint samplerate, target_samplerate;
+  gboolean resample;
   guint buffer_size;
   guint format;
   guint channels;
   guint frames, resampled_frames;
+  guint length;
   guint loop_start;
   guint loop_end;
   guint64 attack;
   guint i, i_stop;
-  guint j;
+  guint j, j_stop;
   
   GError *error;
 
@@ -872,6 +877,8 @@ ags_playable_read_wave(AgsPlayable *playable,
     AgsConfig *config;
 
     gchar *str;
+
+    gdouble bpm;
     
     config = ags_config_get_instance();
 
@@ -957,7 +964,7 @@ ags_playable_read_wave(AgsPlayable *playable,
 			      &target_samplerate,
 			      &buffer_size,
 			      &format);
-
+        
     pthread_mutex_unlock(soundcard_mutex);
   }
 
@@ -982,7 +989,8 @@ ags_playable_read_wave(AgsPlayable *playable,
 
   list_start = NULL;
 
-  attack = xoffset % buffer_size;
+  offset = 64 * target_samplerate;
+  attack = x_offset % buffer_size;
 
   i = start_channel;
   i_stop = start_channel + channels_to_read;
@@ -1042,7 +1050,7 @@ ags_playable_read_wave(AgsPlayable *playable,
     for(j = 0; j < j_stop; j++){
       guint copy_frame_count;
       
-      if(j != 0 && j % AGS_WAVE_DEFAULT_OFFSET == 0){
+      if(j != 0 && (j * buffer_size) % (offset) == 0){
 	wave = ags_wave_new(NULL,
 			    j);
 	g_object_set(wave,
@@ -1081,7 +1089,7 @@ ags_playable_read_wave(AgsPlayable *playable,
       }
 
       g_object_set(buffer,
-		   "x", (xoffset - attack) + j * buffer_size,
+		   "x", (x_offset - attack) + j * buffer_size,
 		   NULL);
       ags_audio_buffer_util_copy_buffer_to_buffer(buffer->data, 1, 0,
 						  data, 1, j * buffer_size,
