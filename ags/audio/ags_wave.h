@@ -73,7 +73,7 @@ struct _AgsWave
   AgsTimestamp *timestamp;
 
   GObject *audio;
-  guint audio_channel;
+  guint line;
 
   guint samplerate;
   guint buffer_size;
@@ -102,7 +102,7 @@ void ags_wave_set_buffer_size(AgsWave *wave,
 void ags_wave_set_format(AgsWave *wave,
 			 guint format);
 
-GList* ags_wave_find_near_timestamp(GList *wave, guint audio_channel,
+GList* ags_wave_find_near_timestamp(GList *wave, guint line,
 				    AgsTimestamp *timestamp);
 
 GList* ags_wave_add(GList *wave,
@@ -146,9 +146,9 @@ void ags_wave_insert_from_clipboard_extended(AgsWave *wave,
 					     xmlNode *wave_node,
 					     gboolean reset_x_offset, guint64 x_offset,
 					     gdouble delay, guint attack,
-					     gboolean match_audio_channel, gboolean do_replace);
+					     gboolean match_line, gboolean do_replace);
 
 AgsWave* ags_wave_new(GObject *audio,
-		      guint audio_channel);
+		      guint line);
 
 #endif /*__AGS_WAVE_H__*/
