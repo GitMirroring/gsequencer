@@ -61,6 +61,8 @@ static const gchar *ags_play_wave_channel_control_port[] = {
 enum{
   PROP_0,
   PROP_WAVE,
+  PROP_DO_PLAYBACK,
+  PROP_X_OFFSET,
 };
 
 GType
@@ -131,6 +133,38 @@ ags_play_wave_channel_class_init(AgsPlayWaveChannelClass *play_wave_channel)
 				   G_PARAM_READABLE | G_PARAM_WRITABLE);
   g_object_class_install_property(gobject,
 				  PROP_WAVE,
+				  param_spec);
+
+  /**
+   * AgsPlayWaveChannel:do-playback:
+   *
+   * The do-playback port.
+   * 
+   * Since: 1.5.0
+   */
+  param_spec = g_param_spec_object("do-playback",
+				   i18n_pspec("do playback"),
+				   i18n_pspec("The do playback control"),
+				   AGS_TYPE_PORT,
+				   G_PARAM_READABLE | G_PARAM_WRITABLE);
+  g_object_class_install_property(gobject,
+				  PROP_DO_PLAYBACK,
+				  param_spec);
+
+  /**
+   * AgsPlayWaveChannel:x-offset:
+   *
+   * The x-offset port.
+   * 
+   * Since: 1.5.0
+   */
+  param_spec = g_param_spec_object("x-offset",
+				   i18n_pspec("x offset"),
+				   i18n_pspec("The x offset control"),
+				   AGS_TYPE_PORT,
+				   G_PARAM_READABLE | G_PARAM_WRITABLE);
+  g_object_class_install_property(gobject,
+				  PROP_X_OFFSET,
 				  param_spec);
 }
 
@@ -233,6 +267,48 @@ ags_play_wave_channel_set_property(GObject *gobject,
       play_wave_channel->wave = wave;
     }
     break;
+  case PROP_DO_PLAYBACK:
+    {
+      AgsPort *do_playback;
+
+      do_playback = (AgsPort *) g_value_get_object(value);
+
+      if(play_wave_channel->do_playback == do_playback){
+	return;
+      }
+
+      if(play_wave_channel->do_playback != NULL){
+	g_object_unref(G_OBJECT(play_wave_channel->do_playback));
+      }
+      
+      if(do_playback != NULL){
+	g_object_ref(G_OBJECT(do_playback));
+      }
+      
+      play_wave_channel->do_playback = do_playback;
+    }
+    break;
+  case PROP_X_OFFSET:
+    {
+      AgsPort *x_offset;
+
+      x_offset = (AgsPort *) g_value_get_object(value);
+
+      if(play_wave_channel->x_offset == x_offset){
+	return;
+      }
+
+      if(play_wave_channel->x_offset != NULL){
+	g_object_unref(G_OBJECT(play_wave_channel->x_offset));
+      }
+      
+      if(x_offset != NULL){
+	g_object_ref(G_OBJECT(x_offset));
+      }
+      
+      play_wave_channel->x_offset = x_offset;
+    }
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(gobject, prop_id, param_spec);
     break;
@@ -253,6 +329,16 @@ ags_play_wave_channel_get_property(GObject *gobject,
   case PROP_WAVE:
     {
       g_value_set_object(value, play_wave_channel->wave);
+    }
+    break;
+  case PROP_DO_PLAYBACK:
+    {
+      g_value_set_object(value, play_wave_channel->do_playback);
+    }
+    break;
+  case PROP_X_OFFSET:
+    {
+      g_value_set_object(value, play_wave_channel->x_offset);
     }
     break;
   default:
