@@ -24,6 +24,14 @@
 void ags_play_wave_channel_class_init(AgsPlayWaveChannelClass *play_wave_channel);
 void ags_play_wave_channel_plugin_interface_init(AgsPluginInterface *plugin);
 void ags_play_wave_channel_init(AgsPlayWaveChannel *play_wave_channel);
+void ags_play_wave_channel_set_property(GObject *gobject,
+					guint prop_id,
+					const GValue *value,
+					GParamSpec *param_spec);
+void ags_play_wave_channel_get_property(GObject *gobject,
+					guint prop_id,
+					GValue *value,
+					GParamSpec *param_spec);
 void ags_play_wave_channel_finalize(GObject *gobject);
 void ags_play_wave_channel_set_ports(AgsPlugin *plugin, GList *port);
 
@@ -42,8 +50,17 @@ static AgsPluginInterface *ags_play_wave_parent_plugin_interface;
 
 static const gchar *ags_play_wave_channel_plugin_name = "ags-play-wave";
 static const gchar *ags_play_wave_channel_specifier[] = {
+  "./do-playback[0]",
+  "./x-offset[0]", 
 };
 static const gchar *ags_play_wave_channel_control_port[] = {
+  "1/2",
+  "2/2",
+};
+
+enum{
+  PROP_0,
+  PROP_WAVE,
 };
 
 GType
@@ -94,7 +111,27 @@ ags_play_wave_channel_class_init(AgsPlayWaveChannelClass *play_wave_channel)
   /* GObjectClass */
   gobject = (GObjectClass *) play_wave_channel;
 
+  gobject->set_property = ags_play_wave_channel_set_property;
+  gobject->get_property = ags_play_wave_channel_get_property;
+
   gobject->finalize = ags_play_wave_channel_finalize;
+
+  /* properties */
+  /**
+   * AgsPlayWaveChannel:wave:
+   *
+   * The wave containing the notes.
+   * 
+   * Since: 1.5.0
+   */
+  param_spec = g_param_spec_object("wave",
+				   i18n_pspec("assigned AgsWave"),
+				   i18n_pspec("The AgsWave containing notes"),
+				   AGS_TYPE_WAVE,
+				   G_PARAM_READABLE | G_PARAM_WRITABLE);
+  g_object_class_install_property(gobject,
+				  PROP_WAVE,
+				  param_spec);
 }
 
 void
@@ -115,15 +152,150 @@ ags_play_wave_channel_init(AgsPlayWaveChannel *play_wave_channel)
   AGS_RECALL(play_wave_channel)->build_id = AGS_RECALL_DEFAULT_BUILD_ID;
   AGS_RECALL(play_wave_channel)->xml_type = "ags-play-wave-channel";
 
+  /* fields */
+  play_wave_channel->wave = NULL;
+
+  play_wave_channel->timestamp = ags_timestamp_new();
+
+  play_wave_channel->timestamp->flags &= (~AGS_TIMESTAMP_UNIX);
+  play_wave_channel->timestamp->flags |= AGS_TIMESTAMP_OFFSET;
+
+  play_wave_channel->timestamp->timer.ags_offset.offset = 0;
+
+  /* port */
   port = NULL;
 
+  /* do playback */
+  play_wave_channel->do_playback = g_object_new(AGS_TYPE_PORT,
+					    "plugin-name", ags_play_wave_channel_plugin_name,
+					    "specifier", ags_play_wave_channel_specifier[0],
+					    "control-port", ags_play_wave_channel_control_port[0],
+					    "port-value-is-pointer", FALSE,
+					    "port-value-type", G_TYPE_BOOLEAN,
+					    NULL);
+  g_object_ref(play_wave_channel->do_playback);
+  
+  play_wave_channel->do_playback->port_value.ags_port_boolean = FALSE;
+
+  /* add to port */
+  port = g_list_prepend(port, play_wave_channel->do_playback);
+  g_object_ref(play_wave_channel->do_playback);
+
+  /* x offset */
+  play_wave_channel->x_offset = g_object_new(AGS_TYPE_PORT,
+					    "plugin-name", ags_play_wave_channel_plugin_name,
+					    "specifier", ags_play_wave_channel_specifier[1],
+					    "control-port", ags_play_wave_channel_control_port[1],
+					    "port-value-is-pointer", FALSE,
+					    "port-value-type", G_TYPE_UINT64,
+					    NULL);
+  g_object_ref(play_wave_channel->x_offset);
+  
+  play_wave_channel->x_offset->port_value.ags_port_boolean = FALSE;
+
+  /* add to port */
+  port = g_list_prepend(port, play_wave_channel->x_offset);
+  g_object_ref(play_wave_channel->x_offset);
+  
   /* set port */
   AGS_RECALL(play_wave_channel)->port = port;
 }
 
 void
+ags_play_wave_channel_set_property(GObject *gobject,
+				   guint prop_id,
+				   const GValue *value,
+				   GParamSpec *param_spec)
+{
+  AgsPlayWaveChannel *play_wave_channel;
+
+  play_wave_channel = AGS_PLAY_WAVE_CHANNEL(gobject);
+
+  switch(prop_id){
+  case PROP_WAVE:
+    {
+      AgsWave *wave;
+
+      wave = (AgsWave *) g_value_get_object(value);
+
+      if(play_wave_channel->wave == wave){
+	return;
+      }
+
+      if(play_wave_channel->wave != NULL){
+	g_object_unref(play_wave_channel->wave);
+      }
+
+      if(wave != NULL){
+	g_object_ref(wave);
+      }
+
+      play_wave_channel->wave = wave;
+    }
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(gobject, prop_id, param_spec);
+    break;
+  };
+}
+
+void
+ags_play_wave_channel_get_property(GObject *gobject,
+				   guint prop_id,
+				   GValue *value,
+				   GParamSpec *param_spec)
+{
+  AgsPlayWaveChannel *play_wave_channel;
+  
+  play_wave_channel = AGS_PLAY_WAVE_CHANNEL(gobject);
+
+  switch(prop_id){
+  case PROP_WAVE:
+    {
+      g_value_set_object(value, play_wave_channel->wave);
+    }
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(gobject, prop_id, param_spec);
+    break;
+  };
+}
+
+void
+ags_play_wave_channel_dispose(GObject *gobject)
+{
+  AgsPlayWaveChannel *play_wave_channel;
+
+  play_wave_channel = AGS_PLAY_WAVE_CHANNEL(gobject);
+
+  /* wave */
+  if(play_wave_channel->wave != NULL){
+    g_object_unref(G_OBJECT(play_wave_channel->wave));
+
+    play_wave_channel->wave = NULL;
+  }
+
+  /* call parent */
+  G_OBJECT_CLASS(ags_play_wave_channel_parent_class)->dispose(gobject);
+}
+
+void
 ags_play_wave_channel_finalize(GObject *gobject)
 {
+  AgsPlayWaveChannel *play_wave_channel;
+
+  play_wave_channel = AGS_PLAY_WAVE_CHANNEL(gobject);
+
+  /* wave */
+  if(play_wave_channel->wave != NULL){
+    g_object_unref(G_OBJECT(play_wave_channel->wave));
+  }
+
+  /* timestamp */
+  if(play_wave_channel->timestamp != NULL){
+    g_object_unref(G_OBJECT(play_wave_channel->timestamp));
+  }
+
   /* call parent */
   G_OBJECT_CLASS(ags_play_wave_channel_parent_class)->finalize(gobject);
 }
@@ -132,6 +304,20 @@ void
 ags_play_wave_channel_set_ports(AgsPlugin *plugin, GList *port)
 {
   while(port != NULL){
+    if(!strncmp(AGS_PORT(port->data)->specifier,
+		"./do-playback[0]",
+		16)){
+      g_object_set(G_OBJECT(plugin),
+		   "do-playback", AGS_PORT(port->data),
+		   NULL);
+    }else if(!strncmp(AGS_PORT(port->data)->specifier,
+		      "./x-offset[0]",
+		      13)){
+      g_object_set(G_OBJECT(plugin),
+		   "x-offset", AGS_PORT(port->data),
+		   NULL);
+    }
+
     port = port->next;
   }
 }

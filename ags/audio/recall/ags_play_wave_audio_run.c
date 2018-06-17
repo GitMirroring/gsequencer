@@ -35,14 +35,6 @@ void ags_play_wave_audio_run_connectable_interface_init(AgsConnectableInterface 
 void ags_play_wave_audio_run_dynamic_connectable_interface_init(AgsDynamicConnectableInterface *dynamic_connectable);
 void ags_play_wave_audio_run_plugin_interface_init(AgsPluginInterface *plugin);
 void ags_play_wave_audio_run_init(AgsPlayWaveAudioRun *play_wave_audio_run);
-void ags_play_wave_audio_run_set_property(GObject *gobject,
-					  guint prop_id,
-					  const GValue *value,
-					  GParamSpec *param_spec);
-void ags_play_wave_audio_run_get_property(GObject *gobject,
-					  guint prop_id,
-					  GValue *value,
-					  GParamSpec *param_spec);
 void ags_play_wave_audio_run_dispose(GObject *gobject);
 void ags_play_wave_audio_run_finalize(GObject *gobject);
 void ags_play_wave_audio_run_connect(AgsConnectable *connectable);
@@ -63,11 +55,6 @@ AgsRecall* ags_play_wave_audio_run_duplicate(AgsRecall *recall,
  *
  * The #AgsPlayWaveAudioRun class play wave.
  */
-
-enum{
-  PROP_0,
-  PROP_WAVE,
-};
 
 static gpointer ags_play_wave_audio_run_parent_class = NULL;
 static AgsConnectableInterface* ags_play_wave_audio_run_parent_connectable_interface;
@@ -136,35 +123,14 @@ ags_play_wave_audio_run_class_init(AgsPlayWaveAudioRunClass *play_wave_audio_run
 {
   GObjectClass *gobject;
   AgsRecallClass *recall;
-  GParamSpec *param_spec;
 
   ags_play_wave_audio_run_parent_class = g_type_class_peek_parent(play_wave_audio_run);
 
   /* GObjectClass */
   gobject = (GObjectClass *) play_wave_audio_run;
 
-  gobject->set_property = ags_play_wave_audio_run_set_property;
-  gobject->get_property = ags_play_wave_audio_run_get_property;
-
   gobject->dispose = ags_play_wave_audio_run_dispose;
   gobject->finalize = ags_play_wave_audio_run_finalize;
-
-  /* properties */
-  /**
-   * AgsPlayWaveAudioRun:wave:
-   *
-   * The wave containing the notes.
-   * 
-   * Since: 1.5.0
-   */
-  param_spec = g_param_spec_object("wave",
-				   i18n_pspec("assigned AgsWave"),
-				   i18n_pspec("The AgsWave containing notes"),
-				   AGS_TYPE_WAVE,
-				   G_PARAM_READABLE | G_PARAM_WRITABLE);
-  g_object_class_install_property(gobject,
-				  PROP_WAVE,
-				  param_spec);
 
   /* AgsRecallClass */
   recall = (AgsRecallClass *) play_wave_audio_run;
@@ -205,66 +171,6 @@ ags_play_wave_audio_run_init(AgsPlayWaveAudioRun *play_wave_audio_run)
   AGS_RECALL(play_wave_audio_run)->build_id = AGS_RECALL_DEFAULT_BUILD_ID;
   AGS_RECALL(play_wave_audio_run)->xml_type = "ags-play-wave-audio-run";
   AGS_RECALL(play_wave_audio_run)->port = NULL;
-}
-
-void
-ags_play_wave_audio_run_set_property(GObject *gobject,
-				     guint prop_id,
-				     const GValue *value,
-				     GParamSpec *param_spec)
-{
-  AgsPlayWaveAudioRun *play_wave_audio_run;
-
-  play_wave_audio_run = AGS_PLAY_WAVE_AUDIO_RUN(gobject);
-
-  switch(prop_id){
-  case PROP_WAVE:
-    {
-      AgsWave *wave;
-
-      wave = (AgsWave *) g_value_get_object(value);
-
-      if(play_wave_audio_run->wave == wave){
-	return;
-      }
-
-      if(play_wave_audio_run->wave != NULL){
-	g_object_unref(play_wave_audio_run->wave);
-      }
-
-      if(wave != NULL){
-	g_object_ref(wave);
-      }
-
-      play_wave_audio_run->wave = wave;
-    }
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(gobject, prop_id, param_spec);
-    break;
-  };
-}
-
-void
-ags_play_wave_audio_run_get_property(GObject *gobject,
-				     guint prop_id,
-				     GValue *value,
-				     GParamSpec *param_spec)
-{
-  AgsPlayWaveAudioRun *play_wave_audio_run;
-  
-  play_wave_audio_run = AGS_PLAY_WAVE_AUDIO_RUN(gobject);
-
-  switch(prop_id){
-  case PROP_WAVE:
-    {
-      g_value_set_object(value, play_wave_audio_run->wave);
-    }
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(gobject, prop_id, param_spec);
-    break;
-  };
 }
 
 void

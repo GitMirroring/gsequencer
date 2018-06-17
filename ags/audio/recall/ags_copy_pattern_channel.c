@@ -132,7 +132,7 @@ ags_copy_pattern_channel_class_init(AgsCopyPatternChannelClass *copy_pattern_cha
    *
    * The pattern port.
    * 
-   * Since: 1.0.0.7
+   * Since: 1.0.0
    */
   param_spec = g_param_spec_object("pattern",
 				   i18n_pspec("pattern to play"),
