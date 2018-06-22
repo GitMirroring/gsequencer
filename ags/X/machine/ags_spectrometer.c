@@ -734,7 +734,7 @@ ags_spectrometer_cartesian_queue_draw_timeout(GtkWidget *widget)
 
       magnitude = 0.0;
 
-      for(nth = 1, j = 1; nth < spectrometer->buffer_size; nth++){
+      for(nth = 1, j = 1, k = 0; nth < spectrometer->buffer_size; nth++){
 	frequency = nth * correction;
 
 	magnitude += spectrometer->magnitude_buffer[nth];
