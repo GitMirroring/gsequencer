@@ -189,24 +189,17 @@ ags_play_wave_channel_init(AgsPlayWaveChannel *play_wave_channel)
   /* fields */
   play_wave_channel->wave = NULL;
 
-  play_wave_channel->timestamp = ags_timestamp_new();
-
-  play_wave_channel->timestamp->flags &= (~AGS_TIMESTAMP_UNIX);
-  play_wave_channel->timestamp->flags |= AGS_TIMESTAMP_OFFSET;
-
-  play_wave_channel->timestamp->timer.ags_offset.offset = 0;
-
   /* port */
   port = NULL;
 
   /* do playback */
   play_wave_channel->do_playback = g_object_new(AGS_TYPE_PORT,
-					    "plugin-name", ags_play_wave_channel_plugin_name,
-					    "specifier", ags_play_wave_channel_specifier[0],
-					    "control-port", ags_play_wave_channel_control_port[0],
-					    "port-value-is-pointer", FALSE,
-					    "port-value-type", G_TYPE_BOOLEAN,
-					    NULL);
+						"plugin-name", ags_play_wave_channel_plugin_name,
+						"specifier", ags_play_wave_channel_specifier[0],
+						"control-port", ags_play_wave_channel_control_port[0],
+						"port-value-is-pointer", FALSE,
+						"port-value-type", G_TYPE_BOOLEAN,
+						NULL);
   g_object_ref(play_wave_channel->do_playback);
   
   play_wave_channel->do_playback->port_value.ags_port_boolean = FALSE;
@@ -217,12 +210,12 @@ ags_play_wave_channel_init(AgsPlayWaveChannel *play_wave_channel)
 
   /* x offset */
   play_wave_channel->x_offset = g_object_new(AGS_TYPE_PORT,
-					    "plugin-name", ags_play_wave_channel_plugin_name,
-					    "specifier", ags_play_wave_channel_specifier[1],
-					    "control-port", ags_play_wave_channel_control_port[1],
-					    "port-value-is-pointer", FALSE,
-					    "port-value-type", G_TYPE_UINT64,
-					    NULL);
+					     "plugin-name", ags_play_wave_channel_plugin_name,
+					     "specifier", ags_play_wave_channel_specifier[1],
+					     "control-port", ags_play_wave_channel_control_port[1],
+					     "port-value-is-pointer", FALSE,
+					     "port-value-type", G_TYPE_UINT64,
+					     NULL);
   g_object_ref(play_wave_channel->x_offset);
   
   play_wave_channel->x_offset->port_value.ags_port_boolean = FALSE;
@@ -375,11 +368,6 @@ ags_play_wave_channel_finalize(GObject *gobject)
   /* wave */
   if(play_wave_channel->wave != NULL){
     g_object_unref(G_OBJECT(play_wave_channel->wave));
-  }
-
-  /* timestamp */
-  if(play_wave_channel->timestamp != NULL){
-    g_object_unref(G_OBJECT(play_wave_channel->timestamp));
   }
 
   /* call parent */

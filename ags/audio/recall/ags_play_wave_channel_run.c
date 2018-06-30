@@ -39,6 +39,7 @@ void ags_play_wave_channel_run_disconnect(AgsConnectable *connectable);
 void ags_play_wave_channel_run_read(AgsFile *file, xmlNode *node, AgsPlugin *plugin);
 xmlNode* ags_play_wave_channel_run_write(AgsFile *file, xmlNode *parent, AgsPlugin *plugin);
 
+void ags_play_wave_channel_run_run_inter(AgsRecall *recall);
 AgsRecall* ags_play_wave_channel_run_duplicate(AgsRecall *recall,
 					       AgsRecallID *recall_id,
 					       guint *n_params, GParameter *parameter);
@@ -132,6 +133,7 @@ ags_play_wave_channel_run_class_init(AgsPlayWaveChannelRunClass *play_wave_chann
   /* AgsRecallClass */
   recall = (AgsRecallClass *) play_wave_channel_run;
 
+  recall->run_inter = ags_play_wave_channel_run_run_inter;
   recall->duplicate = ags_play_wave_channel_run_duplicate;
 }
 
@@ -167,6 +169,13 @@ ags_play_wave_channel_run_init(AgsPlayWaveChannelRun *play_wave_channel_run)
   AGS_RECALL(play_wave_channel_run)->build_id = AGS_RECALL_DEFAULT_BUILD_ID;
   AGS_RECALL(play_wave_channel_run)->xml_type = "ags-play-wave-channel-run";
   AGS_RECALL(play_wave_channel_run)->port = NULL;
+
+  play_wave_channel_run->timestamp = ags_timestamp_new();
+
+  play_wave_channel_run->timestamp->flags &= (~AGS_TIMESTAMP_UNIX);
+  play_wave_channel_run->timestamp->flags |= AGS_TIMESTAMP_OFFSET;
+
+  play_wave_channel_run->timestamp->timer.ags_offset.offset = 0;
 }
 
 void
@@ -175,6 +184,11 @@ ags_play_wave_channel_run_finalize(GObject *gobject)
   AgsPlayWaveChannelRun *play_wave_channel_run;
 
   play_wave_channel_run = AGS_PLAY_WAVE_CHANNEL_RUN(gobject);
+
+  /* timestamp */
+  if(play_wave_channel->timestamp != NULL){
+    g_object_unref(G_OBJECT(play_wave_channel->timestamp));
+  }
 
   /* call parent */
   G_OBJECT_CLASS(ags_play_wave_channel_run_parent_class)->finalize(gobject);
@@ -220,18 +234,128 @@ ags_play_wave_channel_run_write(AgsFile *file, xmlNode *parent, AgsPlugin *plugi
   return(node);
 }
 
+void
+ags_play_wave_channel_run_run_inter(AgsRecall *recall)
+{
+  AgsAudio *audio;
+  AgsChannel *channel;
+  AgsWave *wave;
+  AgsPlayWaveAudio *play_wave_audio;
+  AgsPlayWaveAudioRun *play_wave_audio_run;
+  AgsPlayWaveChannel *play_wave_channel;
+
+  AgsMutexManager *mutex_manager;
+
+  GList *list;
+
+  guint line;
+  guint samplerate;
+  guint buffer_size;
+  guint64 x_offset;
+  gboolean do_playback;
+  
+  GValue do_playback_value = {0,};
+  GValue x_offset_value = {0,};
+
+  pthread_mutex_t *application_mutex;
+  pthread_mutex_t *audio_mutex;
+  pthread_mutex_t *channel_mutex;
+  
+  mutex_manager = ags_mutex_manager_get_instance();
+  application_mutex = ags_mutex_manager_get_application_mutex(mutex_manager);
+
+  /* get AgsPlayWaveAudio */
+  play_wave_audio = AGS_PLAY_WAVE_AUDIO(AGS_RECALL_CHANNEL_RUN(play_wave_channel_run)->recall_audio_run->recall_audio);
+
+  /* get AgsPlayWaveAudioRun */
+  play_wave_audio_run = AGS_PLAY_WAVE_AUDIO_RUN(AGS_RECALL_CHANNEL_RUN(play_wave_channel_run)->recall_audio_run);
+
+  /* get AgsPlayWaveChannel */
+  play_wave_channel = AGS_PLAY_WAVE_CHANNEL(play_wave_channel_run->recall_channel_run.recall_channel);
+
+  g_value_init(&do_playback_value, G_TYPE_BOOLEAN);
+  ags_port_safe_read(play_wave_channel->do_playback, &do_playback_value);
+
+  do_playback = g_value_get_boolean(&do_playback_value);
+  g_value_unset(&do_playback_value);
+  
+  if(!do_playback){
+    return;
+  }
+  
+  g_value_init(&x_offset_value, G_TYPE_UINT64);
+  ags_port_safe_read(play_wave_channel->x_offset, &x_offset_value);
+
+  x_offset = g_value_get_boolean(&x_offset_value);
+  g_value_unset(&x_offset_value);
+
+  /* get audio */
+  audio = AGS_RECALL_AUDIO(play_wave_audio)->audio;
+
+  /* get audio mutex */
+  pthread_mutex_lock(application_mutex);
+  
+  audio_mutex = ags_mutex_manager_lookup(mutex_manager,
+					 (GObject *) audio);
+    
+  pthread_mutex_unlock(application_mutex);
+
+  /* get channel */
+  channel = AGS_RECALL_CHANNEL(play_wave_channel)->source;
+
+  /* get channel mutex */
+  pthread_mutex_lock(application_mutex);
+  
+  channel_mutex = ags_mutex_manager_lookup(mutex_manager,
+					   (GObject *) channel);
+    
+  pthread_mutex_unlock(application_mutex);
+  
+  /* get some presets */
+  pthread_mutex_lock(audio_mutex);
+
+  samplerate = audio->samplerate;
+  buffer_size = audio->buffer_size;
+  
+  pthread_mutex_unlock(audio_mutex);
+
+  /* get some fields */
+  pthread_mutex_lock(channel_mutex);
+
+  line = channel->line;
+  
+  pthread_mutex_unlock(channel_mutex);
+
+  /* time stamp offset */
+  play_wave_channel_run->timestamp->timer.ags_offset.offset = (guint64) ((64.0 * (double) samplerate) * floor(x_offset / (64.0 * (double) samplerate)));
+
+  /* find wave */
+  pthread_mutex_lock(audio_mutex);
+
+  list = ags_wave_find_near_timestamp(audio->wave, line,
+				      play_wave_channel_run->timestamp);
+
+  if(list != NULL){
+    wave = list->data;
+  }
+
+  pthread_mutex_unlock(audio_mutex);
+
+  //TODO:JK: implement me
+}
+
 AgsRecall*
 ags_play_wave_channel_run_duplicate(AgsRecall *recall,
 				    AgsRecallID *recall_id,
 				    guint *n_params, GParameter *parameter)
 {
-  AgsPlayWaveChannelRun *copy;
+  AgsPlayWaveChannelRun *copy_play_wave_channel_run;
 
-  copy = AGS_PLAY_WAVE_CHANNEL_RUN(AGS_RECALL_CLASS(ags_play_wave_channel_run_parent_class)->duplicate(recall,
-												       recall_id,
-												       n_params, parameter));
+  copy_play_wave_channel_run = AGS_RECALL_CLASS(ags_play_wave_channel_run_parent_class)->duplicate(recall,
+												   recall_id,
+												   n_params, parameter));
 
-  return((AgsRecall *) copy);
+  return((AgsRecall *) copy_play_wave_channel_run);
 }
 
 /**

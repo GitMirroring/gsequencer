@@ -41,6 +41,8 @@ typedef struct _AgsPlayWaveChannelRunClass AgsPlayWaveChannelRunClass;
 struct _AgsPlayWaveChannelRun
 {
   AgsRecallChannelRun recall_channel_run;
+
+  AgsTimestamp *timestamp;
 };
 
 struct _AgsPlayWaveChannelRunClass

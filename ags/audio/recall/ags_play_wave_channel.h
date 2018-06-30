@@ -40,7 +40,6 @@ struct _AgsPlayWaveChannel
   AgsRecallChannel recall_channel;
 
   AgsWave *wave;
-  AgsTimestamp *timestamp;
 
   AgsPort *do_playback;
   AgsPort *x_offset;
