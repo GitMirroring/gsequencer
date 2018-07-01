@@ -90,19 +90,21 @@ static gpointer ags_dssi_plugin_parent_class = NULL;
 static guint dssi_plugin_signals[LAST_SIGNAL];
 
 GType
-ags_dssi_plugin_get_type (void)
+ags_dssi_plugin_get_type()
 {
-  static GType ags_type_dssi_plugin = 0;
+  static volatile gsize g_define_type_id__volatile = 0;
 
-  if(!ags_type_dssi_plugin){
+  if(g_once_init_enter (&g_define_type_id__volatile)){
+    GType ags_type_dssi_plugin;
+    
     static const GTypeInfo ags_dssi_plugin_info = {
-      sizeof (AgsDssiPluginClass),
+      sizeof(AgsDssiPluginClass),
       NULL, /* dssi_init */
       NULL, /* dssi_finalize */
       (GClassInitFunc) ags_dssi_plugin_class_init,
       NULL, /* class_finalize */
       NULL, /* class_data */
-      sizeof (AgsDssiPlugin),
+      sizeof(AgsDssiPlugin),
       0,    /* n_preallocs */
       (GInstanceInitFunc) ags_dssi_plugin_init,
     };
@@ -111,9 +113,11 @@ ags_dssi_plugin_get_type (void)
 						  "AgsDssiPlugin",
 						  &ags_dssi_plugin_info,
 						  0);
+
+    g_once_init_leave (&g_define_type_id__volatile, ags_type_dssi_plugin);
   }
 
-  return (ags_type_dssi_plugin);
+  return g_define_type_id__volatile;
 }
 
 void
@@ -298,8 +302,22 @@ ags_dssi_plugin_instantiate(AgsBasePlugin *base_plugin,
 {
   gpointer ptr;
   
+  pthread_mutex_t *base_plugin_mutex;
+
+  /* base plugin mutex */
+  pthread_mutex_lock(ags_base_plugin_get_class_mutex());
+
+  base_plugin_mutex = base_plugin->obj_mutex;
+  
+  pthread_mutex_unlock(ags_base_plugin_get_class_mutex());
+
+  /* instantiate */
+  pthread_mutex_lock(base_plugin_mutex);
+  
   ptr = AGS_DSSI_PLUGIN_DESCRIPTOR(base_plugin->plugin_descriptor)->LADSPA_Plugin->instantiate(AGS_DSSI_PLUGIN_DESCRIPTOR(base_plugin->plugin_descriptor)->LADSPA_Plugin,
 											       (unsigned long) samplerate);
+
+  pthread_mutex_unlock(base_plugin_mutex);
 
   return(ptr);
 }
@@ -310,27 +328,69 @@ ags_dssi_plugin_connect_port(AgsBasePlugin *base_plugin,
 			     guint port_index,
 			     gpointer data_location)
 {
+  pthread_mutex_t *base_plugin_mutex;
+
+  /* base plugin mutex */
+  pthread_mutex_lock(ags_base_plugin_get_class_mutex());
+
+  base_plugin_mutex = base_plugin->obj_mutex;
+  
+  pthread_mutex_unlock(ags_base_plugin_get_class_mutex());
+
+  /* connect port */
+  pthread_mutex_lock(base_plugin_mutex);
+  
   AGS_DSSI_PLUGIN_DESCRIPTOR(base_plugin->plugin_descriptor)->LADSPA_Plugin->connect_port((LADSPA_Handle) plugin_handle,
 											  (unsigned long) port_index,
 											  (LADSPA_Data *) data_location);
+
+  pthread_mutex_unlock(base_plugin_mutex);
 }
 
 void
 ags_dssi_plugin_activate(AgsBasePlugin *base_plugin,
 			 gpointer plugin_handle)
 {
+  pthread_mutex_t *base_plugin_mutex;
+
+  /* base plugin mutex */
+  pthread_mutex_lock(ags_base_plugin_get_class_mutex());
+
+  base_plugin_mutex = base_plugin->obj_mutex;
+  
+  pthread_mutex_unlock(ags_base_plugin_get_class_mutex());
+
+  /* activate */
+  pthread_mutex_lock(base_plugin_mutex);
+  
   if(AGS_DSSI_PLUGIN_DESCRIPTOR(base_plugin->plugin_descriptor)->LADSPA_Plugin->activate != NULL){
     AGS_DSSI_PLUGIN_DESCRIPTOR(base_plugin->plugin_descriptor)->LADSPA_Plugin->activate((LADSPA_Handle) plugin_handle);
   }
+  
+  pthread_mutex_unlock(base_plugin_mutex);
 }
 
 void
 ags_dssi_plugin_deactivate(AgsBasePlugin *base_plugin,
 			   gpointer plugin_handle)
 {
+  pthread_mutex_t *base_plugin_mutex;
+
+  /* base plugin mutex */
+  pthread_mutex_lock(ags_base_plugin_get_class_mutex());
+
+  base_plugin_mutex = base_plugin->obj_mutex;
+  
+  pthread_mutex_unlock(ags_base_plugin_get_class_mutex());
+
+  /* deactivate port */
+  pthread_mutex_lock(base_plugin_mutex);
+
   if(AGS_DSSI_PLUGIN_DESCRIPTOR(base_plugin->plugin_descriptor)->LADSPA_Plugin->deactivate != NULL){
     AGS_DSSI_PLUGIN_DESCRIPTOR(base_plugin->plugin_descriptor)->LADSPA_Plugin->deactivate((LADSPA_Handle) plugin_handle);
   }
+
+  pthread_mutex_unlock(base_plugin_mutex);
 }
 
 void
@@ -339,14 +399,38 @@ ags_dssi_plugin_run(AgsBasePlugin *base_plugin,
 		    snd_seq_event_t *seq_event,
 		    guint frame_count)
 {
-  if(AGS_DSSI_PLUGIN_DESCRIPTOR(base_plugin->plugin_descriptor)->run_synth != NULL){
-    AGS_DSSI_PLUGIN_DESCRIPTOR(base_plugin->plugin_descriptor)->run_synth((LADSPA_Handle) plugin_handle,
-									  frame_count,
-									  seq_event,
-									  (unsigned long) 1);
+  void (*run_synth)(LADSPA_Handle instance,
+		    unsigned long sample_count,
+		    snd_seq_event_t *events,
+		    unsigned long event_count);
+  void (*run)(LADSPA_Handle instance,
+              unsigned long sample_count);
+
+  pthread_mutex_t *base_plugin_mutex;
+
+  /* base plugin mutex */
+  pthread_mutex_lock(ags_base_plugin_get_class_mutex());
+
+  base_plugin_mutex = base_plugin->obj_mutex;
+  
+  pthread_mutex_unlock(ags_base_plugin_get_class_mutex());
+
+  /* get fields */
+  pthread_mutex_lock(base_plugin_mutex);
+
+  run_synth = AGS_DSSI_PLUGIN_DESCRIPTOR(base_plugin->plugin_descriptor)->run_synth;
+  run = AGS_DSSI_PLUGIN_DESCRIPTOR(base_plugin->plugin_descriptor)->LADSPA_Plugin->run;
+
+  pthread_mutex_unlock(base_plugin_mutex);
+
+  if(run_synth != NULL){
+    run_synth((LADSPA_Handle) plugin_handle,
+	      (unsigned long) frame_count,
+	      seq_event,
+	      (unsigned long) 1);
   }else{
-    AGS_DSSI_PLUGIN_DESCRIPTOR(base_plugin->plugin_descriptor)->LADSPA_Plugin->run((LADSPA_Handle) plugin_handle,
-										   (unsigned long) frame_count);
+    run((LADSPA_Handle) plugin_handle,
+	(unsigned long) frame_count);
   }
 }
 

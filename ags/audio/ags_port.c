@@ -21,6 +21,11 @@
 
 #include <ags/libags.h>
 
+#include <pthread.h>
+
+#include <stdlib.h>
+#include <string.h>
+
 #include <ags/i18n.h>
 
 void ags_port_class_init(AgsPortClass *port_class);
@@ -76,23 +81,22 @@ enum{
 static gpointer ags_port_parent_class = NULL;
 static guint port_signals[LAST_SIGNAL];
 
-#include <stdlib.h>
-#include <string.h>
-
 GType
-ags_port_get_type (void)
+ags_port_get_type()
 {
-  static GType ags_type_port = 0;
+  static volatile gsize g_define_type_id__volatile = 0;
 
-  if(!ags_type_port){
+  if(g_once_init_enter (&g_define_type_id__volatile)){
+    GType ags_type_port;
+    
     static const GTypeInfo ags_port_info = {
-      sizeof (AgsPortClass),
+      sizeof(AgsPortClass),
       NULL, /* base_init */
       NULL, /* base_finalize */
       (GClassInitFunc) ags_port_class_init,
       NULL, /* class_finalize */
       NULL, /* class_data */
-      sizeof (AgsPort),
+      sizeof(AgsPort),
       0,    /* n_preallocs */
       (GInstanceInitFunc) ags_port_init,
     };
@@ -111,9 +115,11 @@ ags_port_get_type (void)
     g_type_add_interface_static(ags_type_port,
 				AGS_TYPE_CONNECTABLE,
 				&ags_connectable_interface_info);
+
+    g_once_init_leave (&g_define_type_id__volatile, ags_type_port);
   }
 
-  return(ags_type_port);
+  return g_define_type_id__volatile;
 }
 
 void
@@ -647,7 +653,7 @@ ags_port_real_safe_read(AgsPort *port, GValue *value)
 /**
  * ags_port_safe_read:
  * @port: an #AgsPort
- * @value: the #GValue to store result
+ * @value: the #GValue-struct to store result
  *
  * Perform safe read.
  *
@@ -662,6 +668,92 @@ ags_port_safe_read(AgsPort *port, GValue *value)
 		port_signals[SAFE_READ], 0,
 		value);
   g_object_unref(G_OBJECT(port));
+}
+
+/**
+ * ags_port_safe_read_raw:
+ * @port: an #AgsPort
+ * @value: the #GValue-struct to store result
+ *
+ * Perform safe read without conversion.
+ *
+ * Since: 1.4.33
+ */
+void
+ags_port_safe_read_raw(AgsPort *port, GValue *value)
+{
+  guint overall_size;
+  gpointer data;
+
+  pthread_mutex_lock(port->mutex);
+
+  overall_size = port->port_value_length * port->port_value_size;
+
+  if(!port->port_value_is_pointer){
+    if(port->port_value_type == G_TYPE_BOOLEAN){
+      g_value_set_boolean(value, port->port_value.ags_port_boolean);
+    }else if(port->port_value_type == G_TYPE_INT64){
+      g_value_set_int64(value, port->port_value.ags_port_int);
+    }else if(port->port_value_type == G_TYPE_UINT64){
+      g_value_set_uint64(value, port->port_value.ags_port_uint);
+    }else if(port->port_value_type == G_TYPE_FLOAT){
+      gfloat new_value;
+      
+      new_value = port->port_value.ags_port_float;
+      
+      g_value_set_float(value, new_value);
+    }else if(port->port_value_type == G_TYPE_DOUBLE){
+      gdouble new_value;
+      
+      new_value = port->port_value.ags_port_double;
+      
+      g_value_set_double(value, new_value);
+    }else{
+      data = NULL;
+      
+      if(port->port_value_type == G_TYPE_POINTER){
+	data = port->port_value.ags_port_pointer;
+      }else if(port->port_value_type == G_TYPE_OBJECT){
+	data = port->port_value.ags_port_object;
+      }
+
+      g_value_set_pointer(value, data);
+    }
+  }else{
+    data = NULL;
+    
+    if(port->port_value_type == G_TYPE_POINTER){
+      data = port->port_value.ags_port_pointer;
+    }else if(port->port_value_type == G_TYPE_OBJECT){
+      data = port->port_value.ags_port_object;
+    }else{
+      data = (gpointer) malloc(overall_size);
+
+      if(port->port_value_type == G_TYPE_BOOLEAN){
+	memcpy(data, port->port_value.ags_port_boolean_ptr, overall_size);
+      }else if(port->port_value_type == G_TYPE_INT64){
+	memcpy(data, port->port_value.ags_port_int_ptr, overall_size);
+      }else if(port->port_value_type == G_TYPE_UINT64){
+	memcpy(data, port->port_value.ags_port_uint_ptr, overall_size);
+      }else if(port->port_value_type == G_TYPE_FLOAT){
+	guint i;
+
+	for(i = 0; i < port->port_value_length; i++){
+	  ((gfloat *) data)[i] = port->port_value.ags_port_float_ptr[i];
+	}
+      }else if(port->port_value_type == G_TYPE_DOUBLE){
+	guint i;
+
+	for(i = 0; i < port->port_value_length; i++){
+	  ((gdouble *) data)[i] = port->port_value.ags_port_double_ptr[i];
+	}
+      }
+    }
+   
+    g_value_set_pointer(value, data);
+  }
+  
+  pthread_mutex_unlock(port->mutex);
 }
 
 void
@@ -753,7 +845,7 @@ ags_port_real_safe_write(AgsPort *port, GValue *value)
 /**
  * ags_port_safe_write:
  * @port: an #AgsPort
- * @value: the #GValue containing data
+ * @value: the #GValue-struct containing data
  *
  * Perform safe write.
  *
@@ -770,6 +862,15 @@ ags_port_safe_write(AgsPort *port, GValue *value)
   g_object_unref(G_OBJECT(port));
 }
 
+/**
+ * ags_port_safe_write_raw:
+ * @port: an #AgsPort
+ * @value: the #GValue-struct containing data
+ *
+ * Perform safe write without conversion.
+ *
+ * Since: 1.0.0
+ */
 void
 ags_port_safe_write_raw(AgsPort *port, GValue *value)
 {

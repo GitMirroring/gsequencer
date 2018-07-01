@@ -82,19 +82,21 @@ enum{
 static gpointer ags_ladspa_plugin_parent_class = NULL;
 
 GType
-ags_ladspa_plugin_get_type (void)
+ags_ladspa_plugin_get_type()
 {
-  static GType ags_type_ladspa_plugin = 0;
+  static volatile gsize g_define_type_id__volatile = 0;
 
-  if(!ags_type_ladspa_plugin){
+  if(g_once_init_enter (&g_define_type_id__volatile)){
+    GType ags_type_ladspa_plugin;
+
     static const GTypeInfo ags_ladspa_plugin_info = {
-      sizeof (AgsLadspaPluginClass),
+      sizeof(AgsLadspaPluginClass),
       NULL, /* ladspa_init */
       NULL, /* ladspa_finalize */
       (GClassInitFunc) ags_ladspa_plugin_class_init,
       NULL, /* class_finalize */
       NULL, /* class_data */
-      sizeof (AgsLadspaPlugin),
+      sizeof(AgsLadspaPlugin),
       0,    /* n_preallocs */
       (GInstanceInitFunc) ags_ladspa_plugin_init,
     };
@@ -103,9 +105,11 @@ ags_ladspa_plugin_get_type (void)
 						    "AgsLadspaPlugin",
 						    &ags_ladspa_plugin_info,
 						    0);
+
+    g_once_init_leave (&g_define_type_id__volatile, ags_type_ladspa_plugin);
   }
 
-  return (ags_type_ladspa_plugin);
+  return g_define_type_id__volatile;
 }
 
 void
@@ -220,8 +224,22 @@ ags_ladspa_plugin_instantiate(AgsBasePlugin *base_plugin,
 {
   gpointer ladspa_handle;
   
+  pthread_mutex_t *base_plugin_mutex;
+
+  /* base plugin mutex */
+  pthread_mutex_lock(ags_base_plugin_get_class_mutex());
+
+  base_plugin_mutex = base_plugin->obj_mutex;
+  
+  pthread_mutex_unlock(ags_base_plugin_get_class_mutex());
+
+  /* instantiate */
+  pthread_mutex_lock(base_plugin_mutex);
+  
   ladspa_handle = (gpointer) AGS_LADSPA_PLUGIN_DESCRIPTOR(base_plugin->plugin_descriptor)->instantiate(AGS_LADSPA_PLUGIN_DESCRIPTOR(base_plugin->plugin_descriptor),
 												       (unsigned long) samplerate);
+
+  pthread_mutex_unlock(base_plugin_mutex);
 
   return(ladspa_handle);
 }
@@ -232,27 +250,69 @@ ags_ladspa_plugin_connect_port(AgsBasePlugin *base_plugin,
 			       guint port_index,
 			       gpointer data_location)
 {
+  pthread_mutex_t *base_plugin_mutex;
+
+  /* base plugin mutex */
+  pthread_mutex_lock(ags_base_plugin_get_class_mutex());
+
+  base_plugin_mutex = base_plugin->obj_mutex;
+  
+  pthread_mutex_unlock(ags_base_plugin_get_class_mutex());
+
+  /* connect port */
+  pthread_mutex_lock(base_plugin_mutex);
+
   AGS_LADSPA_PLUGIN_DESCRIPTOR(base_plugin->plugin_descriptor)->connect_port((LADSPA_Handle) plugin_handle,
 									     (unsigned long) port_index,
 									     (LADSPA_Data *) data_location);
+
+  pthread_mutex_unlock(base_plugin_mutex);
 }
 
 void
 ags_ladspa_plugin_activate(AgsBasePlugin *base_plugin,
 			   gpointer plugin_handle)
 {
+  pthread_mutex_t *base_plugin_mutex;
+
+  /* base plugin mutex */
+  pthread_mutex_lock(ags_base_plugin_get_class_mutex());
+
+  base_plugin_mutex = base_plugin->obj_mutex;
+  
+  pthread_mutex_unlock(ags_base_plugin_get_class_mutex());
+
+  /* connect port */
+  pthread_mutex_lock(base_plugin_mutex);
+
   if(AGS_LADSPA_PLUGIN_DESCRIPTOR(base_plugin->plugin_descriptor)->activate != NULL){
     AGS_LADSPA_PLUGIN_DESCRIPTOR(base_plugin->plugin_descriptor)->activate((LADSPA_Handle) plugin_handle);
   }
+
+  pthread_mutex_unlock(base_plugin_mutex);
 }
 
 void
 ags_ladspa_plugin_deactivate(AgsBasePlugin *base_plugin,
 			     gpointer plugin_handle)
 {
+  pthread_mutex_t *base_plugin_mutex;
+
+  /* base plugin mutex */
+  pthread_mutex_lock(ags_base_plugin_get_class_mutex());
+
+  base_plugin_mutex = base_plugin->obj_mutex;
+  
+  pthread_mutex_unlock(ags_base_plugin_get_class_mutex());
+
+  /* connect port */
+  pthread_mutex_lock(base_plugin_mutex);
+
   if(AGS_LADSPA_PLUGIN_DESCRIPTOR(base_plugin->plugin_descriptor)->deactivate != NULL){
     AGS_LADSPA_PLUGIN_DESCRIPTOR(base_plugin->plugin_descriptor)->deactivate((LADSPA_Handle) plugin_handle);
   }
+
+  pthread_mutex_unlock(base_plugin_mutex);
 }
 
 void
@@ -261,8 +321,28 @@ ags_ladspa_plugin_run(AgsBasePlugin *base_plugin,
 		      snd_seq_event_t *seq_event,
 		      guint frame_count)
 {
-  AGS_LADSPA_PLUGIN_DESCRIPTOR(base_plugin->plugin_descriptor)->run((LADSPA_Handle) plugin_handle,
-								    (unsigned long) frame_count);
+  void (*run)(LADSPA_Handle instance,
+              unsigned long sample_count);
+
+  pthread_mutex_t *base_plugin_mutex;
+
+  /* base plugin mutex */
+  pthread_mutex_lock(ags_base_plugin_get_class_mutex());
+
+  base_plugin_mutex = base_plugin->obj_mutex;
+  
+  pthread_mutex_unlock(ags_base_plugin_get_class_mutex());
+
+  /* get fields */
+  pthread_mutex_lock(base_plugin_mutex);
+
+  run = AGS_LADSPA_PLUGIN_DESCRIPTOR(base_plugin->plugin_descriptor)->run;
+
+  pthread_mutex_unlock(base_plugin_mutex);
+
+  /* run */
+  run((LADSPA_Handle) plugin_handle,
+      (unsigned long) frame_count);
 }
 
 void

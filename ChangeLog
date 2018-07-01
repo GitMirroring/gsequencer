@@ -11,11 +11,25 @@ ags (1.5.0)
 	* fixed safe functions to remove objects from AgsAudio and AgsChannel
 	* fixed ref-count of ags_recycling_context_replace()
 
+ags (1.4.33)
+
+	[ Joël Krähemann (Maintainer of Advanced Gtk+ Sequencer) ]
+	* fixed missing includes of pthread.h
+	* fixed possible concurrent access to ags_route_dssi_audio_run.c and ags_route_lv2_audio_run.c
+	* TODO:JK: fixed all ags_*_get_type() to use atomic operations
+
 ags (1.4.32)
 
 	[ Joël Krähemann (Maintainer of Advanced Gtk+ Sequencer) ]
 	* reworked CoreAudio output
+	* improved mutex locks in ags_navigation_callbacks.c
+	* improved midi2xml.1.xml to do file attribution
+	* improved midi2xml to output usage as no parameter was given
 	* fixed wrong loop condition in ags_apply_presets.c
+	* fixed unsafe reference count in ags_audio.c and ags_channel.c
+	* fixed wrong reference count in ags_recycling_context.c
+	* fixed AgsSeekSoundcard to use recall context
+	* fixed AgsSeekSoundcard to use correct mutex variable
 
 ags (1.4.31)
 

@@ -309,7 +309,6 @@ ags_menu_action_add_callback(GtkWidget *menu_item, gpointer data)
 void
 ags_menu_action_add_panel_callback(GtkWidget *menu_item, gpointer data)
 {
-  AgsApplicationContext *application_context;
   AgsWindow *window;
   AgsPanel *panel;
   
@@ -318,6 +317,8 @@ ags_menu_action_add_panel_callback(GtkWidget *menu_item, gpointer data)
   AgsMutexManager *mutex_manager;
   AgsThread *main_loop;
   AgsGuiThread *gui_thread;
+
+  AgsApplicationContext *application_context;
 
   pthread_mutex_t *application_mutex;
     
@@ -334,7 +335,7 @@ ags_menu_action_add_panel_callback(GtkWidget *menu_item, gpointer data)
 
   pthread_mutex_unlock(application_mutex);
 
-  /* get task thread */
+  /* get gui thread */
   gui_thread = (AgsGuiThread *) ags_thread_find_type(main_loop,
 						     AGS_TYPE_GUI_THREAD);
 

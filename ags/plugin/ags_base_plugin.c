@@ -71,23 +71,27 @@ enum{
   PROP_UI_PLUGIN,
 };
 
+pthread_mutex_t ags_base_plugin_class_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 static gpointer ags_base_plugin_parent_class = NULL;
 static guint base_plugin_signals[LAST_SIGNAL];
 
 GType
-ags_base_plugin_get_type (void)
+ags_base_plugin_get_type()
 {
-  static GType ags_type_base_plugin = 0;
+  static volatile gsize g_define_type_id__volatile = 0;
 
-  if(!ags_type_base_plugin){
+  if(g_once_init_enter (&g_define_type_id__volatile)){
+    GType ags_type_base_plugin;
+    
     static const GTypeInfo ags_base_plugin_info = {
-      sizeof (AgsBasePluginClass),
+      sizeof(AgsBasePluginClass),
       NULL, /* base_init */
       NULL, /* base_finalize */
       (GClassInitFunc) ags_base_plugin_class_init,
       NULL, /* class_finalize */
       NULL, /* class_data */
-      sizeof (AgsBasePlugin),
+      sizeof(AgsBasePlugin),
       0,    /* n_preallocs */
       (GInstanceInitFunc) ags_base_plugin_init,
     };
@@ -96,9 +100,11 @@ ags_base_plugin_get_type (void)
 						  "AgsBasePlugin",
 						  &ags_base_plugin_info,
 						  0);
+
+    g_once_init_leave (&g_define_type_id__volatile, ags_type_base_plugin);
   }
 
-  return (ags_type_base_plugin);
+  return g_define_type_id__volatile;
 }
 
 void
@@ -383,6 +389,21 @@ ags_base_plugin_init(AgsBasePlugin *base_plugin)
 {
   base_plugin->flags = 0;
 
+  /* create mutex */
+  base_plugin->obj_mutexattr = (pthread_mutexattr_t *) malloc(sizeof(pthread_mutexattr_t));
+  pthread_mutexattr_init(base_plugin->obj_mutexattr);
+  pthread_mutexattr_settype(base_plugin->obj_mutexattr,
+			    PTHREAD_MUTEX_RECURSIVE);
+
+#ifdef __linux__
+  pthread_mutexattr_setprotocol(base_plugin->obj_mutexattr,
+				PTHREAD_PRIO_INHERIT);
+#endif
+
+  base_plugin->obj_mutex = (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t));
+  pthread_mutex_init(base_plugin->obj_mutex,
+		     base_plugin->obj_mutexattr);
+  
   base_plugin->id = NULL;
   
   base_plugin->filename = NULL;
@@ -622,6 +643,12 @@ ags_base_plugin_finalize(GObject *gobject)
 
   base_plugin = AGS_BASE_PLUGIN(gobject);
 
+  pthread_mutexdestroy(base_plugin->obj_mutex);
+  free(base_plugin->obj_mutex);
+
+  pthread_mutexattr_destroy(base_plugin->obj_mutexattr);
+  free(base_plugin->obj_mutexattr);
+
   g_free(base_plugin->filename);
   g_free(base_plugin->effect);
 
@@ -631,6 +658,12 @@ ags_base_plugin_finalize(GObject *gobject)
 
   /* call parent */
   G_OBJECT_CLASS(ags_base_plugin_parent_class)->finalize(gobject);
+}
+
+pthread_mutex_t*
+ags_base_plugin_get_class_mutex()
+{
+  return(&ags_base_plugin_class_mutex);
 }
 
 /**

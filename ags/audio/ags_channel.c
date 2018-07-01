@@ -155,19 +155,21 @@ static gpointer ags_channel_parent_class = NULL;
 static guint channel_signals[LAST_SIGNAL];
 
 GType
-ags_channel_get_type (void)
+ags_channel_get_type()
 {
-  static GType ags_type_channel = 0;
+  static volatile gsize g_define_type_id__volatile = 0;
 
-  if(!ags_type_channel){
+  if(g_once_init_enter (&g_define_type_id__volatile)){
+    GType ags_type_channel;
+    
     static const GTypeInfo ags_channel_info = {
-      sizeof (AgsChannelClass),
+      sizeof(AgsChannelClass),
       NULL, /* base_init */
       NULL, /* base_finalize */
       (GClassInitFunc) ags_channel_class_init,
       NULL, /* class_finalize */
       NULL, /* class_data */
-      sizeof (AgsChannel),
+      sizeof(AgsChannel),
       0,    /* n_preallocs */
       (GInstanceInitFunc) ags_channel_init,
     };
@@ -185,9 +187,11 @@ ags_channel_get_type (void)
     g_type_add_interface_static(ags_type_channel,
 				AGS_TYPE_CONNECTABLE,
 				&ags_connectable_interface_info);
+
+    g_once_init_leave (&g_define_type_id__volatile, ags_type_channel);
   }
 
-  return(ags_type_channel);
+  return g_define_type_id__volatile;
 }
 
 void
@@ -7447,7 +7451,6 @@ ags_channel_set_recycling(AgsChannel *channel,
       ags_channel_recursive_reset_recycling_context(channel,
 						    old_recycling_context,
 						    NULL);
-      
       ags_channel_remove_recall_id(channel,
 				   recall_id->data);
     }else{

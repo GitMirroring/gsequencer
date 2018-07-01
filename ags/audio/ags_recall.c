@@ -152,23 +152,27 @@ enum{
   PROP_PORT,
 };
 
+pthread_mutex_t ags_recall_class_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 static gpointer ags_recall_parent_class = NULL;
 static guint recall_signals[LAST_SIGNAL];
 
 GType
-ags_recall_get_type (void)
+ags_recall_get_type()
 {
-  static GType ags_type_recall = 0;
+  static volatile gsize g_define_type_id__volatile = 0;
 
-  if(!ags_type_recall){
+  if(g_once_init_enter (&g_define_type_id__volatile)){
+    GType ags_type_recall;
+    
     static const GTypeInfo ags_recall_info = {
-      sizeof (AgsRecallClass),
+      sizeof(AgsRecallClass),
       NULL, /* base_init */
       NULL, /* base_finalize */
       (GClassInitFunc) ags_recall_class_init,
       NULL, /* class_finalize */
       NULL, /* class_data */
-      sizeof (AgsRecall),
+      sizeof(AgsRecall),
       0,    /* n_preallocs */
       (GInstanceInitFunc) ags_recall_init,
     };
@@ -217,9 +221,11 @@ ags_recall_get_type (void)
     g_type_add_interface_static(ags_type_recall,
 				AGS_TYPE_PLUGIN,
 				&ags_plugin_interface_info);
+
+    g_once_init_leave (&g_define_type_id__volatile, ags_type_recall);
   }
 
-  return(ags_type_recall);
+  return g_define_type_id__volatile;
 }
 
 void
@@ -765,6 +771,22 @@ ags_recall_init(AgsRecall *recall)
   
   pthread_mutexattr_t *attr;
 
+  /* create mutex */
+  recall->obj_mutexattr = (pthread_mutexattr_t *) malloc(sizeof(pthread_mutexattr_t));
+  pthread_mutexattr_init(recall->obj_mutexattr);
+  pthread_mutexattr_settype(recall->obj_mutexattr,
+			    PTHREAD_MUTEX_RECURSIVE);
+
+#ifdef __linux__
+  pthread_mutexattr_setprotocol(recall->obj_mutexattr,
+				PTHREAD_PRIO_INHERIT);
+#endif
+
+  recall->obj_mutex = (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t));
+  pthread_mutex_init(recall->obj_mutex,
+		     recall->obj_mutexattr);
+
+  /*  */
   config = ags_config_get_instance();
 
   rt_safe = TRUE;
@@ -780,6 +802,8 @@ ags_recall_init(AgsRecall *recall)
 			  6)){
     rt_safe = FALSE;
   }
+
+  g_free(str);
   
   recall->flags = 0;
 
@@ -1462,6 +1486,12 @@ ags_recall_finalize(GObject *gobject)
   
   recall = AGS_RECALL(gobject);
 
+  pthread_mutexdestroy(recall->obj_mutex);
+  free(recall->obj_mutex);
+
+  pthread_mutexattr_destroy(recall->obj_mutexattr);
+  free(recall->obj_mutexattr);
+
 #ifdef AGS_DEBUG
   g_message("finalize %s\n", G_OBJECT_TYPE_NAME(gobject));
 #endif
@@ -1531,6 +1561,12 @@ ags_recall_finalize(GObject *gobject)
 
   /* call parent */
   G_OBJECT_CLASS(ags_recall_parent_class)->finalize(gobject);
+}
+
+pthread_mutex_t*
+ags_recall_get_class_mutex()
+{
+  return(&ags_recall_class_mutex);
 }
 
 /**
