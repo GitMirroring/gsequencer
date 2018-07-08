@@ -20,10 +20,8 @@
 #include <ags/X/ags_wave_window.h>
 #include <ags/X/ags_wave_window_callbacks.h>
 
-#include <ags/object/ags_connectable.h>
-#include <ags/object/ags_soundcard.h>
-
-#include <ags/audio/ags_notation.h>
+#include <ags/libags.h>
+#include <ags/libags-audio.h>
 
 #include <ags/X/ags_window.h>
 #include <ags/X/ags_navigation.h>
@@ -68,9 +66,11 @@ static gpointer ags_wave_window_parent_class = NULL;
 GType
 ags_wave_window_get_type()
 {
-  static GType ags_type_wave_window = 0;
+  static volatile gsize g_define_type_id__volatile = 0;
 
-  if(!ags_type_wave_window){
+  if(g_once_init_enter (&g_define_type_id__volatile)){
+    GType ags_type_wave_window;
+
     static const GTypeInfo ags_wave_window_info = {
       sizeof (AgsWaveWindowClass),
       NULL, /* base_init */
@@ -96,9 +96,11 @@ ags_wave_window_get_type()
     g_type_add_interface_static(ags_type_wave_window,
 				AGS_TYPE_CONNECTABLE,
 				&ags_connectable_interface_info);
+
+    g_once_init_leave (&g_define_type_id__volatile, ags_type_wave_window);
   }
 
-  return(ags_type_wave_window);
+  return g_define_type_id__volatile;
 }
 
 void

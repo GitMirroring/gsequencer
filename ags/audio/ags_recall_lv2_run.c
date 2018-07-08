@@ -23,6 +23,7 @@
 #include <ags/libags.h>
 
 #include <ags/plugin/ags_lv2_manager.h>
+#include <ags/plugin/ags_base_plugin.h>
 #include <ags/plugin/ags_lv2_plugin.h>
 #include <ags/plugin/ags_lv2_worker.h>
 
@@ -70,9 +71,11 @@ static AgsConnectableInterface* ags_recall_lv2_run_parent_connectable_interface;
 GType
 ags_recall_lv2_run_get_type (void)
 {
-  static GType ags_type_recall_lv2_run = 0;
+  static volatile gsize g_define_type_id__volatile = 0;
 
-  if(!ags_type_recall_lv2_run){
+  if(g_once_init_enter (&g_define_type_id__volatile)){
+    GType ags_type_recall_lv2_run;
+
     static const GTypeInfo ags_recall_lv2_run_info = {
       sizeof (AgsRecallLv2RunClass),
       NULL, /* base_init */
@@ -109,9 +112,11 @@ ags_recall_lv2_run_get_type (void)
     g_type_add_interface_static(ags_type_recall_lv2_run,
 				AGS_TYPE_PLUGIN,
 				&ags_plugin_interface_info);
+
+    g_once_init_leave (&g_define_type_id__volatile, ags_type_recall_lv2_run);
   }
 
-  return(ags_type_recall_lv2_run);
+  return g_define_type_id__volatile;
 }
 
 void
@@ -247,15 +252,40 @@ ags_recall_lv2_run_run_init_pre(AgsRecall *recall)
   
   AgsConfig *config;
 
+  LV2_Descriptor *plugin_descriptor;
+
+  guint output_lines, input_lines;
   double samplerate;
   uint32_t buffer_size;
   uint32_t i;
   
+  pthread_mutex_t *recall_mutex;
+  pthread_mutex_t *base_plugin_mutex;
+
   /* call parent */
   AGS_RECALL_CLASS(ags_recall_lv2_run_parent_class)->run_init_pre(recall);
 
   recall_lv2_run = AGS_RECALL_LV2_RUN(recall);
   recall_lv2 = AGS_RECALL_LV2(AGS_RECALL_CHANNEL_RUN(recall->parent->parent)->recall_channel);
+
+  /* recall mutex */
+  pthread_mutex_lock(ags_recall_get_class_mutex());
+
+  recall_mutex = AGS_RECALL(recall_lv2)->obj_mutex;
+  
+  pthread_mutex_unlock(ags_recall_get_class_mutex());
+
+  /* get some fields */
+  pthread_mutex_lock(recall_mutex);
+
+  lv2_plugin = recall_lv2->plugin;
+
+  plugin_descriptor = recall_lv2->plugin_descriptor;
+  
+  output_lines = recall_lv2->output_lines;
+  input_lines = recall_lv2->input_lines;
+  
+  pthread_mutex_unlock(recall_mutex);
 
   /* set up buffer */
   audio_signal = AGS_RECALL_AUDIO_SIGNAL(recall_lv2_run)->source;
@@ -264,16 +294,14 @@ ags_recall_lv2_run_run_init_pre(AgsRecall *recall)
   samplerate = audio_signal->samplerate;
   buffer_size = audio_signal->buffer_size;
   
-  recall_lv2_run->input = (float *) malloc(recall_lv2->input_lines *
+  recall_lv2_run->input = (float *) malloc(input_lines *
 					   buffer_size *
 					   sizeof(float));
-  recall_lv2_run->output = (float *) malloc(recall_lv2->output_lines *
+  recall_lv2_run->output = (float *) malloc(output_lines *
 					    buffer_size *
 					    sizeof(float));
   
   /* instantiate lv2 */
-  lv2_plugin = recall_lv2->plugin;
-  
   recall_lv2_run->lv2_handle = (LV2_Handle *) ags_base_plugin_instantiate(AGS_BASE_PLUGIN(lv2_plugin),
 									  samplerate);
   
@@ -285,47 +313,91 @@ ags_recall_lv2_run_run_init_pre(AgsRecall *recall)
 
   /* can't be done in ags_recall_lv2_run_run_init_inter since possebility of overlapping buffers */
   /* connect audio port */
-  for(i = 0; i < recall_lv2->input_lines; i++){
+  for(i = 0; i < input_lines; i++){
+    uint32_t port_index;
+
+    /* port index */
+    pthread_mutex_lock(recall_mutex);
+
+    port_index = recall_lv2->input_port[i];
+    
+    pthread_mutex_unlock(recall_mutex);
+    
 #ifdef AGS_DEBUG
     g_message("connect port: %d", recall_lv2->input_port[i]);
 #endif
     
-    recall_lv2->plugin_descriptor->connect_port(recall_lv2_run->lv2_handle[0],
-						recall_lv2->input_port[i],
-						recall_lv2_run->input);
+    /* connect port */
+    ags_base_plugin_connect_port(AGS_BASE_PLUGIN(lv2_plugin),
+				 recall_lv2_run->lv2_handle[0],
+				 port_index,
+				 (float *) recall_lv2_run->input);   
   }
 
-  for(i = 0; i < recall_lv2->output_lines; i++){
+  for(i = 0; i < output_lines; i++){
+    uint32_t port_index;
+
+    /* port index */
+    pthread_mutex_lock(recall_mutex);
+
+    port_index = recall_lv2->output_port[i];
+    
+    pthread_mutex_unlock(recall_mutex);
+
 #ifdef AGS_DEBUG
     g_message("connect port: %d", recall_lv2->output_port[i]);
 #endif
     
-    recall_lv2->plugin_descriptor->connect_port(recall_lv2_run->lv2_handle[0],
-						recall_lv2->output_port[i],
-						recall_lv2_run->output);
+    /* connect port */
+    ags_base_plugin_connect_port(AGS_BASE_PLUGIN(lv2_plugin),
+				 recall_lv2_run->lv2_handle[0],
+				 port_index,
+				 (float *) recall_lv2_run->output);   
   }
 
   /* connect event port */
   if((AGS_RECALL_LV2_HAS_EVENT_PORT & (recall_lv2->flags)) != 0){
+    uint32_t port_index;
+
+    /* port index */
+    pthread_mutex_lock(recall_mutex);
+
+    port_index = recall_lv2->event_port;
+    
+    pthread_mutex_unlock(recall_mutex);
+
+    /* connect port */
     recall_lv2_run->event_port = ags_lv2_plugin_alloc_event_buffer(AGS_RECALL_LV2_DEFAULT_MIDI_LENGHT);
     
-    recall_lv2->plugin_descriptor->connect_port(recall_lv2_run->lv2_handle[0],
-						recall_lv2->event_port,
-						recall_lv2_run->event_port);
+    ags_base_plugin_connect_port(AGS_BASE_PLUGIN(lv2_plugin),
+				 recall_lv2_run->lv2_handle[0],
+				 port_index,
+				 recall_lv2_run->event_port);   
   }
   
   /* connect atom port */
   if((AGS_RECALL_LV2_HAS_ATOM_PORT & (recall_lv2->flags)) != 0){
-    recall_lv2_run->atom_port = ags_lv2_plugin_alloc_atom_sequence(AGS_RECALL_LV2_DEFAULT_MIDI_LENGHT);
+    uint32_t port_index;
+
+    /* port index */
+    pthread_mutex_lock(recall_mutex);
+
+    port_index = recall_lv2->atom_port;
     
-    recall_lv2->plugin_descriptor->connect_port(recall_lv2_run->lv2_handle[0],
-						recall_lv2->atom_port,
-						recall_lv2_run->atom_port);   
+    pthread_mutex_unlock(recall_mutex);
+
+    /* connect port */
+    recall_lv2_run->atom_port = ags_lv2_plugin_alloc_atom_sequence(AGS_RECALL_LV2_DEFAULT_MIDI_LENGHT);    
+    
+    ags_base_plugin_connect_port(AGS_BASE_PLUGIN(lv2_plugin),
+				 recall_lv2_run->lv2_handle[0],
+				 port_index,
+				 recall_lv2_run->atom_port);   
   }
   
   /* activate */
-  if(recall_lv2->plugin_descriptor->activate != NULL){
-    recall_lv2->plugin_descriptor->activate(recall_lv2_run->lv2_handle[0]);
+  if(plugin_descriptor->activate != NULL){
+    plugin_descriptor->activate(recall_lv2_run->lv2_handle[0]);
   }
 
   /* set program */
@@ -338,8 +410,17 @@ ags_recall_lv2_run_run_init_pre(AgsRecall *recall)
 
     float *port_data;
     
-    guint port_count;
+    guint bank, program;
+    guint port_count;    
     
+    GValue value = {0,};
+
+    g_value_init(&value,
+		 G_TYPE_FLOAT);
+    
+    /* retrieve port data */
+    pthread_mutex_lock(recall_mutex);
+
     port = AGS_RECALL(recall_lv2)->port;
     port_descriptor = AGS_BASE_PLUGIN(lv2_plugin)->port;
     
@@ -364,18 +445,32 @@ ags_recall_lv2_run_run_init_pre(AgsRecall *recall)
       }
 
       if(list != NULL){
-	port_data[i] = current->port_value.ags_port_float;
+	ags_port_safe_read_raw(current, &value);
+      
+	port_data[i] = g_value_get_float(&value);
       }
 
       port_descriptor = port_descriptor->next;
     }
 
+    pthread_mutex_unlock(recall_mutex);
+
+    /* change program */
+    pthread_mutex_lock(recall_mutex);
+
+    bank = recall_lv2->bank;
+    program = recall_lv2->program;
+    
+    pthread_mutex_unlock(recall_mutex);
+
     ags_lv2_plugin_change_program(lv2_plugin,
 				  recall_lv2_run->lv2_handle[0],
-				  recall_lv2->bank,
-				  recall_lv2->program);
+				  bank,
+				  program);
 
     /* reset port data */    
+    pthread_mutex_lock(recall_mutex);
+    
     port_descriptor = AGS_BASE_PLUGIN(lv2_plugin)->port;
 
     for(i = 0; i < port_count && port_descriptor != NULL;){
@@ -387,7 +482,9 @@ ags_recall_lv2_run_run_init_pre(AgsRecall *recall)
 
 	if(!g_strcmp0(specifier,
 		      current->specifier)){
-	  current->port_value.ags_port_float = port_data[i];
+	  g_value_set_float(&value, port_data[i]);
+	  ags_port_safe_write_raw(current, &value);
+
 	  i++;
 	  
 	  //	  g_message("%s %f", current->specifier, port_data[i]);
@@ -400,6 +497,8 @@ ags_recall_lv2_run_run_init_pre(AgsRecall *recall)
 
       port_descriptor = port_descriptor->next;
     }
+
+    pthread_mutex_unlock(recall_mutex);
 
     free(port_data);
   }
@@ -415,11 +514,19 @@ ags_recall_lv2_run_run_pre(AgsRecall *recall)
   AgsCountBeatsAudioRun *count_beats_audio_run;
   AgsRouteLv2AudioRun *route_lv2_audio_run;
 
+  AgsLv2Plugin *lv2_plugin;
+  
+  LV2_Descriptor *plugin_descriptor;
+
   GList *note, *note_next;
   
+  guint output_lines, input_lines;
   guint copy_mode_in, copy_mode_out;
   uint32_t buffer_size;
   uint32_t i;
+
+  pthread_mutex_t *recall_mutex;
+  pthread_mutex_t *base_plugin_mutex;
 
   /* call parent */
   AGS_RECALL_CLASS(ags_recall_lv2_run_parent_class)->run_pre(recall);
@@ -445,6 +552,32 @@ ags_recall_lv2_run_run_pre(AgsRecall *recall)
     route_lv2_audio_run = NULL;
     count_beats_audio_run = NULL;
   }
+
+  /* recall mutex */
+  pthread_mutex_lock(ags_recall_get_class_mutex());
+
+  recall_mutex = AGS_RECALL(recall_lv2)->obj_mutex;
+  
+  pthread_mutex_unlock(ags_recall_get_class_mutex());
+
+  /* get some fields */
+  pthread_mutex_lock(recall_mutex);
+
+  lv2_plugin = recall_lv2->plugin;
+
+  plugin_descriptor = recall_lv2->plugin_descriptor;
+
+  input_lines = recall_lv2->input_lines;
+  output_lines = recall_lv2->output_lines;
+  
+  pthread_mutex_unlock(recall_mutex);
+
+  /* base plugin mutex */
+  pthread_mutex_lock(ags_base_plugin_get_class_mutex());
+
+  base_plugin_mutex = AGS_BASE_PLUGIN(lv2_plugin)->obj_mutex;
+  
+  pthread_mutex_unlock(ags_base_plugin_get_class_mutex());
   
   /* set up buffer */
   audio_signal = AGS_RECALL_AUDIO_SIGNAL(recall_lv2_run)->source;
@@ -474,16 +607,20 @@ ags_recall_lv2_run_run_pre(AgsRecall *recall)
 	   AGS_NOTE(recall_lv2_run->note->data)->x[0] > count_beats_audio_run->notation_counter))))){
       //    g_message("done");
       /* deactivate */
-      if(recall_lv2->plugin_descriptor->deactivate != NULL){
-	recall_lv2->plugin_descriptor->deactivate(recall_lv2_run->lv2_handle[0]);
-      }
+	ags_base_plugin_deactivate(lv2_plugin,
+				   recall_lv2_run->lv2_handle[i]);
 
       /* cleanup */
       if(recall_lv2->plugin_descriptor->cleanup != NULL){
-	recall_lv2->plugin_descriptor->cleanup(recall_lv2_run->lv2_handle[0]);
+	pthread_mutex_lock(base_plugin_mutex);
+
+	plugin_descriptor->cleanup(recall_lv2_run->lv2_handle[0]);
+
+	pthread_mutex_unlock(base_plugin_mutex);
       }
 
       ags_recall_done(recall);
+      
       return;
     }
   }
@@ -501,12 +638,12 @@ ags_recall_lv2_run_run_pre(AgsRecall *recall)
   
   if(recall_lv2_run->output != NULL){
     ags_audio_buffer_util_clear_float(recall_lv2_run->output, 1,
-				      recall_lv2->output_lines * buffer_size);
+				      output_lines * buffer_size);
   }
 
   if(recall_lv2_run->input != NULL){
     ags_audio_buffer_util_clear_float(recall_lv2_run->input, 1,
-				      recall_lv2->input_lines * buffer_size);
+				      input_lines * buffer_size);
   }
 
   /* copy data  */
@@ -520,8 +657,8 @@ ags_recall_lv2_run_run_pre(AgsRecall *recall)
   note = recall_lv2_run->note;
 
   while(note != NULL){
-    recall_lv2->plugin_descriptor->run(recall_lv2_run->lv2_handle[0],
-				       buffer_size);
+    plugin_descriptor->run(recall_lv2_run->lv2_handle[0],
+			   buffer_size);
 
     note = note->next;
   }
@@ -544,9 +681,17 @@ ags_recall_lv2_run_run_inter(AgsRecall *recall)
   AgsRecallLv2 *recall_lv2;
   AgsRecallLv2Run *recall_lv2_run;
 
+  AgsLv2Plugin *lv2_plugin;
+
+  LV2_Descriptor *plugin_descriptor;
+  
+  guint output_lines, input_lines;
   guint copy_mode_in, copy_mode_out;
   uint32_t buffer_size;
   uint32_t i;
+
+  pthread_mutex_t *recall_mutex;
+  pthread_mutex_t *base_plugin_mutex;
 
   /* call parent */
   AGS_RECALL_CLASS(ags_recall_lv2_run_parent_class)->run_inter(recall);
@@ -565,6 +710,32 @@ ags_recall_lv2_run_run_inter(AgsRecall *recall)
     return;
   }
   
+  /* recall mutex */
+  pthread_mutex_lock(ags_recall_get_class_mutex());
+
+  recall_mutex = AGS_RECALL(recall_lv2)->obj_mutex;
+  
+  pthread_mutex_unlock(ags_recall_get_class_mutex());
+
+  /* get some fields */
+  pthread_mutex_lock(recall_mutex);
+
+  lv2_plugin = recall_lv2->plugin;
+
+  plugin_descriptor = recall_lv2->plugin_descriptor;
+
+  input_lines = recall_lv2->input_lines;
+  output_lines = recall_lv2->output_lines;
+
+  pthread_mutex_unlock(recall_mutex);
+
+  /* base plugin mutex */
+  pthread_mutex_lock(ags_base_plugin_get_class_mutex());
+
+  base_plugin_mutex = AGS_BASE_PLUGIN(lv2_plugin)->obj_mutex;
+  
+  pthread_mutex_unlock(ags_base_plugin_get_class_mutex());
+
   /* set up buffer */
   audio_signal = AGS_RECALL_AUDIO_SIGNAL(recall_lv2_run)->source;
   buffer_size = audio_signal->buffer_size;
@@ -572,16 +743,20 @@ ags_recall_lv2_run_run_inter(AgsRecall *recall)
   if(audio_signal->stream_current == NULL){
     //    g_message("done");
     /* deactivate */
-    if(recall_lv2->plugin_descriptor->deactivate != NULL){
-      recall_lv2->plugin_descriptor->deactivate(recall_lv2_run->lv2_handle[0]);
-    }
+    ags_base_plugin_deactivate(lv2_plugin,
+			       recall_lv2_run->lv2_handle[i]);
 
     /* cleanup */
     if(recall_lv2->plugin_descriptor->cleanup != NULL){
-      recall_lv2->plugin_descriptor->cleanup(recall_lv2_run->lv2_handle[0]);
+      pthread_mutex_lock(base_plugin_mutex);
+
+      plugin_descriptor->cleanup(recall_lv2_run->lv2_handle[0]);
+
+      pthread_mutex_unlock(base_plugin_mutex);
     }
 
     ags_recall_done(recall);
+
     return;
   }
   
@@ -592,17 +767,17 @@ ags_recall_lv2_run_run_inter(AgsRecall *recall)
 						      AGS_AUDIO_BUFFER_UTIL_FLOAT);
   
   if(recall_lv2_run->output != NULL){
-    ags_audio_buffer_util_clear_float(recall_lv2_run->output, recall_lv2->output_lines,
+    ags_audio_buffer_util_clear_float(recall_lv2_run->output, output_lines,
 				      buffer_size);
   }
 
   if(recall_lv2_run->input != NULL){
-    ags_audio_buffer_util_clear_float(recall_lv2_run->input, recall_lv2->input_lines,
+    ags_audio_buffer_util_clear_float(recall_lv2_run->input, input_lines,
 				      buffer_size);
   }
 
   if(recall_lv2_run->input != NULL){
-    ags_audio_buffer_util_copy_buffer_to_buffer(recall_lv2_run->input, (guint) recall_lv2->input_lines, 0,
+    ags_audio_buffer_util_copy_buffer_to_buffer(recall_lv2_run->input, (guint) input_lines, 0,
 						audio_signal->stream_current->data, 1, 0,
 						(guint) audio_signal->buffer_size, copy_mode_in);
   }
@@ -612,8 +787,10 @@ ags_recall_lv2_run_run_inter(AgsRecall *recall)
 
   buffer_size = audio_signal->buffer_size;
 
-  recall_lv2->plugin_descriptor->run(recall_lv2_run->lv2_handle[0],
-				     buffer_size);
+  ags_base_plugin_run(lv2_plugin,
+		      recall_lv2_run->lv2_handle[0],
+		      NULL,
+		      buffer_size);
 
   /* copy data */
   if(recall_lv2_run->output != NULL){
@@ -621,7 +798,7 @@ ags_recall_lv2_run_run_inter(AgsRecall *recall)
 				       buffer_size, ags_audio_buffer_util_format_from_soundcard(audio_signal->format));
     
     ags_audio_buffer_util_copy_buffer_to_buffer(audio_signal->stream_current->data, 1, 0,
-						recall_lv2_run->output, (guint) recall_lv2->output_lines, 0,
+						recall_lv2_run->output, (guint) output_lines, 0,
 						(guint) audio_signal->buffer_size, copy_mode_out);
   }
 }
@@ -658,6 +835,10 @@ ags_recall_lv2_run_load_ports(AgsRecallLv2Run *recall_lv2_run)
     port_descriptor = AGS_BASE_PLUGIN(lv2_plugin)->port;
 
     for(i = 0; port_descriptor != NULL; i++){
+      guint port_index;
+      
+      port_index = AGS_PORT_DESCRIPTOR(port_descriptor->data)->port_index;
+
       if((AGS_PORT_DESCRIPTOR_CONTROL & (AGS_PORT_DESCRIPTOR(port_descriptor->data)->flags)) != 0){
 	port = AGS_RECALL(recall_lv2)->port;
 	current = NULL;
@@ -677,9 +858,10 @@ ags_recall_lv2_run_load_ports(AgsRecallLv2Run *recall_lv2_run)
 #ifdef AGS_DEBUG
 	g_message("connect port: %d", AGS_PORT_DESCRIPTOR(port_descriptor->data)->port_index);
 #endif
-	recall_lv2->plugin_descriptor->connect_port(recall_lv2_run->lv2_handle[0],
-						    (uint32_t) AGS_PORT_DESCRIPTOR(port_descriptor->data)->port_index,
-						    (float *) &(current->port_value.ags_port_float));
+	ags_base_plugin_connect_port(AGS_BASE_PLUGIN(lv2_plugin),
+				     recall_lv2_run->lv2_handle[0],
+				     port_index,
+				     (float *) &(current->port_value.ags_port_float));   
       }
 
       port_descriptor = port_descriptor->next;

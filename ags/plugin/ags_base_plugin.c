@@ -24,6 +24,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <pthread.h>
+
 #include <ags/i18n.h>
 
 void ags_base_plugin_class_init(AgsBasePluginClass *base_plugin);
@@ -643,7 +645,7 @@ ags_base_plugin_finalize(GObject *gobject)
 
   base_plugin = AGS_BASE_PLUGIN(gobject);
 
-  pthread_mutexdestroy(base_plugin->obj_mutex);
+  pthread_mutex_destroy(base_plugin->obj_mutex);
   free(base_plugin->obj_mutex);
 
   pthread_mutexattr_destroy(base_plugin->obj_mutexattr);

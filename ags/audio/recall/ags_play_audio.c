@@ -38,9 +38,11 @@ static gpointer ags_play_audio_parent_class = NULL;
 GType
 ags_play_audio_get_type()
 {
-  static GType ags_type_play_audio = 0;
+  static volatile gsize g_define_type_id__volatile = 0;
 
-  if(!ags_type_play_audio){
+  if(g_once_init_enter (&g_define_type_id__volatile)){
+    GType ags_type_play_audio;
+
     static const GTypeInfo ags_play_audio_info = {
       sizeof (AgsPlayAudioClass),
       NULL, /* base_init */
@@ -57,9 +59,11 @@ ags_play_audio_get_type()
 						 "AgsPlayAudio",
 						 &ags_play_audio_info,
 						 0);
+
+    g_once_init_leave (&g_define_type_id__volatile, ags_type_play_audio);
   }
 
-  return(ags_type_play_audio);
+  return g_define_type_id__volatile;
 }
 
 void

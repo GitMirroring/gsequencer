@@ -25,6 +25,8 @@
 
 #include <dssi.h>
 
+#include <ags/plugin/ags_dssi_plugin.h>
+
 #include <ags/audio/ags_recall.h>
 #include <ags/audio/ags_recall_channel_run.h>
 #include <ags/audio/ags_channel.h>
@@ -50,6 +52,7 @@ struct _AgsRecallDssi
   unsigned long bank;
   unsigned long program;
   
+  AgsDssiPlugin *plugin;
   DSSI_Descriptor *plugin_descriptor;
 
   unsigned long *input_port;

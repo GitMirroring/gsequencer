@@ -19,14 +19,7 @@
 
 #include <ags/audio/recall/ags_play_dssi_audio.h>
 
-#include <ags/util/ags_id_generator.h>
-
-#include <ags/lib/ags_endian.h>
-
-#include <ags/object/ags_config.h>
-#include <ags/object/ags_soundcard.h>
-#include <ags/object/ags_connectable.h>
-#include <ags/object/ags_plugin.h>
+#include <ags/libags.h>
 
 #include <ags/plugin/ags_dssi_manager.h>
 #include <ags/plugin/ags_ladspa_conversion.h>
@@ -101,9 +94,11 @@ static const gchar *ags_play_dssi_audio_control_port[] = {
 GType
 ags_play_dssi_audio_get_type()
 {
-  static GType ags_type_play_dssi_audio = 0;
+  static volatile gsize g_define_type_id__volatile = 0;
 
-  if(!ags_type_play_dssi_audio){
+  if(g_once_init_enter (&g_define_type_id__volatile)){
+    GType ags_type_play_dssi_audio;
+
     static const GTypeInfo ags_play_dssi_audio_info = {
       sizeof (AgsPlayDssiAudioClass),
       NULL, /* base_init */
@@ -140,9 +135,11 @@ ags_play_dssi_audio_get_type()
     g_type_add_interface_static(ags_type_play_dssi_audio,
 				AGS_TYPE_PLUGIN,
 				&ags_plugin_interface_info);
+
+    g_once_init_leave (&g_define_type_id__volatile, ags_type_play_dssi_audio);
   }
 
-  return(ags_type_play_dssi_audio);
+  return g_define_type_id__volatile;
 }
 
 void
@@ -247,6 +244,7 @@ ags_play_dssi_audio_init(AgsPlayDssiAudio *play_dssi_audio)
   play_dssi_audio->bank = 0;
   play_dssi_audio->program = 0;
   
+  play_dssi_audio->plugin = NULL;
   play_dssi_audio->plugin_descriptor = NULL;
 
   play_dssi_audio->input_port = NULL;

@@ -274,9 +274,11 @@ static gpointer ags_recall_factory_parent_class = NULL;
 GType
 ags_recall_factory_get_type (void)
 {
-  static GType ags_type_recall_factory = 0;
+  static volatile gsize g_define_type_id__volatile = 0;
 
-  if(!ags_type_recall_factory){
+  if(g_once_init_enter (&g_define_type_id__volatile)){
+    GType ags_type_recall_factory;
+
     static const GTypeInfo ags_recall_factory_info = {
       sizeof (AgsRecallFactoryClass),
       NULL, /* base_init */
@@ -303,9 +305,11 @@ ags_recall_factory_get_type (void)
     g_type_add_interface_static(ags_type_recall_factory,
 				AGS_TYPE_CONNECTABLE,
 				&ags_connectable_interface_info);
+
+    g_once_init_leave (&g_define_type_id__volatile, ags_type_recall_factory);
   }
 
-  return(ags_type_recall_factory);
+  return g_define_type_id__volatile;
 }
 
 void
@@ -3498,6 +3502,7 @@ ags_recall_factory_create_play_dssi(AgsAudio *audio,
 
     play_dssi_audio_run = (AgsPlayDssiAudioRun *) g_object_new(AGS_TYPE_PLAY_DSSI_AUDIO_RUN,
 							       "soundcard", soundcard,
+							       "audio", audio,
 							       "recall_audio", play_dssi_audio,
 							       "recall_container", play_container,
 							       NULL);
@@ -3538,6 +3543,7 @@ ags_recall_factory_create_play_dssi(AgsAudio *audio,
 
     play_dssi_audio_run = (AgsPlayDssiAudioRun *) g_object_new(AGS_TYPE_PLAY_DSSI_AUDIO_RUN,
 							       "soundcard", soundcard,
+							       "audio", audio,
 							       "recall_audio", play_dssi_audio,
 							       "recall_container", recall_container,
 							       //TODO:JK: add missing dependency "delay-audio"
@@ -3630,6 +3636,7 @@ ags_recall_factory_create_play_lv2(AgsAudio *audio,
 
     play_lv2_audio_run = (AgsPlayLv2AudioRun *) g_object_new(AGS_TYPE_PLAY_LV2_AUDIO_RUN,
 							     "soundcard", soundcard,
+							     "audio", audio,
 							     "recall_audio", play_lv2_audio,
 							     "recall_container", play_container,
 							     NULL);
@@ -3677,6 +3684,7 @@ ags_recall_factory_create_play_lv2(AgsAudio *audio,
 
     play_lv2_audio_run = (AgsPlayLv2AudioRun *) g_object_new(AGS_TYPE_PLAY_LV2_AUDIO_RUN,
 							     "soundcard", soundcard,
+							     "audio", audio,
 							     "recall_audio", play_lv2_audio,
 							     "recall_container", recall_container,
 							     //TODO:JK: add missing dependency "delay-audio"
@@ -6194,6 +6202,7 @@ ags_recall_factory_create_route_dssi(AgsAudio *audio,
 
     route_dssi_audio_run = (AgsRouteDssiAudioRun *) g_object_new(AGS_TYPE_ROUTE_DSSI_AUDIO_RUN,
 								 "soundcard", soundcard,
+								 "audio", audio,
 								 "recall_audio", route_dssi_audio,
 								 "recall_container", play_container,
 								 NULL);
@@ -6229,6 +6238,7 @@ ags_recall_factory_create_route_dssi(AgsAudio *audio,
 
     route_dssi_audio_run = (AgsRouteDssiAudioRun *) g_object_new(AGS_TYPE_ROUTE_DSSI_AUDIO_RUN,
 								 "soundcard", soundcard,
+								 "audio", audio,
 								 "recall_audio", route_dssi_audio,
 								 "recall_container", recall_container,
 								 //TODO:JK: add missing dependency "delay-audio"
@@ -6323,6 +6333,7 @@ ags_recall_factory_create_route_lv2(AgsAudio *audio,
 
     route_lv2_audio_run = (AgsRouteLv2AudioRun *) g_object_new(AGS_TYPE_ROUTE_LV2_AUDIO_RUN,
 							       "soundcard", soundcard,
+							       "audio", audio,
 							       "recall_audio", route_lv2_audio,
 							       "recall_container", play_container,
 							       NULL);
@@ -6362,6 +6373,7 @@ ags_recall_factory_create_route_lv2(AgsAudio *audio,
 
     route_lv2_audio_run = (AgsRouteLv2AudioRun *) g_object_new(AGS_TYPE_ROUTE_LV2_AUDIO_RUN,
 							       "soundcard", soundcard,
+							       "audio", audio,
 							       "recall_audio", route_lv2_audio,
 							       "recall_container", recall_container,
 							       //TODO:JK: add missing dependency "route_lv2-audio"

@@ -57,9 +57,11 @@ static AgsDynamicConnectableInterface *ags_volume_recycling_parent_dynamic_conne
 GType
 ags_volume_recycling_get_type()
 {
-  static GType ags_type_volume_recycling = 0;
+  static volatile gsize g_define_type_id__volatile = 0;
 
-  if(!ags_type_volume_recycling){
+  if(g_once_init_enter (&g_define_type_id__volatile)){
+    GType ags_type_volume_recycling;
+
     static const GTypeInfo ags_volume_recycling_info = {
       sizeof (AgsVolumeRecyclingClass),
       NULL, /* base_init */
@@ -96,9 +98,11 @@ ags_volume_recycling_get_type()
     g_type_add_interface_static(ags_type_volume_recycling,
 				AGS_TYPE_DYNAMIC_CONNECTABLE,
 				&ags_dynamic_connectable_interface_info);
+
+    g_once_init_leave (&g_define_type_id__volatile, ags_type_volume_recycling);
   }
 
-  return (ags_type_volume_recycling);
+  return g_define_type_id__volatile;
 }
 
 void
