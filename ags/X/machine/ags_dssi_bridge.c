@@ -267,7 +267,8 @@ ags_dssi_bridge_init(AgsDssiBridge *dssi_bridge)
 			      AGS_AUDIO_ASYNC |
 			      AGS_AUDIO_OUTPUT_HAS_RECYCLING |
 			      AGS_AUDIO_INPUT_HAS_RECYCLING));
-  ags_audio_set_ability_flags(audio, (AGS_SOUND_ABILITY_NOTATION));
+  ags_audio_set_ability_flags(audio, (AGS_SOUND_ABILITY_PLAYBACK |
+				      AGS_SOUND_ABILITY_NOTATION));
   ags_audio_set_behaviour_flags(audio, (AGS_SOUND_BEHAVIOUR_REVERSE_MAPPING |
 					AGS_SOUND_BEHAVIOUR_DEFAULTS_TO_INPUT));
   g_object_set(audio,
@@ -811,6 +812,8 @@ ags_dssi_bridge_resize_audio_channels(AgsMachine *machine,
 				audio_channels_old);
       
       while(channel != next_pad){
+	ags_channel_set_ability_flags(channel, (AGS_SOUND_ABILITY_NOTATION));
+	
 	/* get some fields */
 	g_object_get(channel,
 		     "output-soundcard", &output_soundcard,
@@ -925,7 +928,7 @@ ags_dssi_bridge_resize_pads(AgsMachine *machine, GType type,
   }else{
     grow = FALSE;
   }
-
+  
   if(g_type_is_a(type, AGS_TYPE_INPUT)){
     if(grow){
       /* AgsInput */
@@ -971,6 +974,8 @@ ags_dssi_bridge_resize_pads(AgsMachine *machine, GType type,
 				    pads_old);
 
       while(channel != NULL){
+	ags_channel_set_ability_flags(channel, (AGS_SOUND_ABILITY_NOTATION));
+
 	/* get some fields */
 	g_object_get(channel,
 		     "output-soundcard", &output_soundcard,
@@ -1038,7 +1043,7 @@ ags_dssi_bridge_map_recall(AgsMachine *machine)
   dssi_bridge = (AgsDssiBridge *) machine;
 
   audio = machine->audio;
-  
+
   /* ags-delay */
   ags_recall_factory_create(audio,
 			    NULL, NULL,
@@ -1099,6 +1104,74 @@ ags_dssi_bridge_map_recall(AgsMachine *machine)
   }
 
   g_list_free(start_play);
+    
+  /* ags-record-midi */
+  ags_recall_factory_create(audio,
+			    NULL, NULL,
+			    "ags-record-midi",
+			    0, 0,
+			    0, 0,
+			    (AGS_RECALL_FACTORY_INPUT |
+			     AGS_RECALL_FACTORY_ADD |
+			     AGS_RECALL_FACTORY_PLAY),
+			    0);
+
+  g_object_get(audio,
+	       "play", &start_play,
+	       NULL);
+  
+  play = ags_recall_find_type(start_play,
+			      AGS_TYPE_RECORD_MIDI_AUDIO_RUN);
+
+  if(play != NULL){
+    recall_record_midi_audio_run = AGS_RECORD_MIDI_AUDIO_RUN(play->data);
+    
+    /* set dependency */
+    g_object_set(G_OBJECT(recall_record_midi_audio_run),
+		 "delay-audio-run", play_delay_audio_run,
+		 NULL);
+
+    /* set dependency */
+    g_object_set(G_OBJECT(recall_record_midi_audio_run),
+		 "count-beats-audio-run", play_count_beats_audio_run,
+		 NULL);
+  }  
+
+  g_list_free(start_play);
+  
+  /* ags-play-notation */
+  ags_recall_factory_create(audio,
+			    NULL, NULL,
+			    "ags-play-notation",
+			    0, 0,
+			    0, 0,
+			    (AGS_RECALL_FACTORY_INPUT |
+			     AGS_RECALL_FACTORY_ADD |
+			     AGS_RECALL_FACTORY_PLAY),
+			    0);
+
+  g_object_get(audio,
+	       "play", &start_play,
+	       NULL);
+  
+  play = ags_recall_find_type(start_play,
+			      AGS_TYPE_PLAY_NOTATION_AUDIO_RUN);
+
+  if(play != NULL){
+    recall_notation_audio_run = AGS_PLAY_NOTATION_AUDIO_RUN(play->data);
+
+    /* set dependency */
+    g_object_set(G_OBJECT(recall_notation_audio_run),
+		 "delay-audio-run", play_delay_audio_run,
+		 NULL);
+
+    /* set dependency */
+    g_object_set(G_OBJECT(recall_notation_audio_run),
+		 "count-beats-audio-run", play_count_beats_audio_run,
+		 NULL);
+  }
+
+  g_list_free(start_play);
   
   /* ags-route-dssi */
   ags_recall_factory_create(audio,
@@ -1108,18 +1181,18 @@ ags_dssi_bridge_map_recall(AgsMachine *machine)
 			    0, 0,
 			    (AGS_RECALL_FACTORY_INPUT |
 			     AGS_RECALL_FACTORY_ADD |
-			     AGS_RECALL_FACTORY_RECALL),
+			     AGS_RECALL_FACTORY_PLAY),
 			    0);
 
   g_object_get(audio,
-	       "recall", &start_recall,
+	       "play", &start_play,
 	       NULL);
   
-  recall = ags_recall_find_type(start_recall,
-				AGS_TYPE_ROUTE_DSSI_AUDIO_RUN);
+  play = ags_recall_find_type(start_play,
+			      AGS_TYPE_ROUTE_DSSI_AUDIO_RUN);
 
-  if(recall != NULL){
-    recall_route_dssi_audio_run = AGS_ROUTE_DSSI_AUDIO_RUN(recall->data);
+  if(play != NULL){
+    recall_route_dssi_audio_run = AGS_ROUTE_DSSI_AUDIO_RUN(play->data);
 
     /* set dependency */
     g_object_set(G_OBJECT(recall_route_dssi_audio_run),
@@ -1134,76 +1207,8 @@ ags_dssi_bridge_map_recall(AgsMachine *machine)
     recall_route_dssi_audio_run = NULL;
   }
 
-  g_list_free(start_recall);
-  
-  /* ags-record-midi */
-  ags_recall_factory_create(audio,
-			    NULL, NULL,
-			    "ags-record-midi",
-			    0, 0,
-			    0, 0,
-			    (AGS_RECALL_FACTORY_INPUT |
-			     AGS_RECALL_FACTORY_ADD |
-			     AGS_RECALL_FACTORY_RECALL),
-			    0);
+  g_list_free(start_play);
 
-  g_object_get(audio,
-	       "recall", &start_recall,
-	       NULL);
-  
-  recall = ags_recall_find_type(start_recall,
-			      AGS_TYPE_RECORD_MIDI_AUDIO_RUN);
-
-  if(recall != NULL){
-    recall_record_midi_audio_run = AGS_RECORD_MIDI_AUDIO_RUN(recall->data);
-    
-    /* set dependency */
-    g_object_set(G_OBJECT(recall_record_midi_audio_run),
-		 "delay-audio-run", play_delay_audio_run,
-		 NULL);
-
-    /* set dependency */
-    g_object_set(G_OBJECT(recall_record_midi_audio_run),
-		 "count-beats-audio-run", play_count_beats_audio_run,
-		 NULL);
-  }  
-
-  g_list_free(start_recall);
-  
-  /* ags-play-notation */
-  ags_recall_factory_create(audio,
-			    NULL, NULL,
-			    "ags-play-notation",
-			    0, 0,
-			    0, 0,
-			    (AGS_RECALL_FACTORY_INPUT |
-			     AGS_RECALL_FACTORY_ADD |
-			     AGS_RECALL_FACTORY_RECALL),
-			    0);
-
-    g_object_get(audio,
-	       "recall", &start_recall,
-	       NULL);
-    
-  recall = ags_recall_find_type(start_recall,
-				AGS_TYPE_PLAY_NOTATION_AUDIO_RUN);
-
-  if(recall != NULL){
-    recall_notation_audio_run = AGS_PLAY_NOTATION_AUDIO_RUN(recall->data);
-
-    /* set dependency */
-    g_object_set(G_OBJECT(recall_notation_audio_run),
-		 "delay-audio-run", play_delay_audio_run,
-		 NULL);
-
-    /* set dependency */
-    g_object_set(G_OBJECT(recall_notation_audio_run),
-		 "count-beats-audio-run", play_count_beats_audio_run,
-		 NULL);
-  }
-
-  g_list_free(start_recall);
-  
   /* depending on destination */
   ags_dssi_bridge_input_map_recall(dssi_bridge,
 				   0,
@@ -1293,7 +1298,7 @@ ags_dssi_bridge_input_map_recall(AgsDssiBridge *dssi_bridge,
 
     /* recall - use note length */
     recall = ags_recall_template_find_type(start_recall,
-					   AGS_TYPE_ENVELOPE_CHANNEL);
+					 AGS_TYPE_ENVELOPE_CHANNEL);
 
     if(recall != NULL){
       GValue use_note_length_value = {0,};

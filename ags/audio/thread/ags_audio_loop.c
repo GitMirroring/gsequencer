@@ -915,24 +915,28 @@ ags_audio_loop_run(AgsThread *thread)
     }
 
     /* sequencer thread */
-    sequencer_thread = thread;
+    sequencer_thread = ags_thread_find_type(thread,
+					    AGS_TYPE_SEQUENCER_THREAD);
 
-    while((sequencer_thread = ags_thread_find_type(sequencer_thread,
-						   AGS_TYPE_SEQUENCER_THREAD)) != NULL){
-      if((AGS_THREAD_RUNNING & (g_atomic_int_get(&(sequencer_thread->flags)))) != 0){
-	ags_thread_stop(sequencer_thread);
+    while(sequencer_thread != NULL){
+      if(AGS_IS_SEQUENCER_THREAD(sequencer_thread)){
+	if((AGS_THREAD_RUNNING & (g_atomic_int_get(&(sequencer_thread->flags)))) != 0){
+	  ags_thread_stop(sequencer_thread);
+	}
       }
 
       sequencer_thread = g_atomic_pointer_get(&(sequencer_thread->next));
     }
 
     /* export thread */
-    export_thread = thread;
+    export_thread = ags_thread_find_type(thread,
+					 AGS_TYPE_EXPORT_THREAD);
 
-    while((export_thread = ags_thread_find_type(export_thread,
-						AGS_TYPE_EXPORT_THREAD)) != NULL){
-      if((AGS_THREAD_RUNNING & (g_atomic_int_get(&(export_thread->flags)))) != 0){
-	ags_thread_stop(export_thread);
+    while(export_thread != NULL){
+      if(AGS_IS_EXPORT_THREAD(export_thread)){
+	if((AGS_THREAD_RUNNING & (g_atomic_int_get(&(export_thread->flags)))) != 0){
+	  ags_thread_stop(export_thread);
+	}
       }
 
       export_thread = g_atomic_pointer_get(&(export_thread->next));
@@ -1066,6 +1070,12 @@ ags_audio_loop_play_channel(AgsAudioLoop *audio_loop)
       /* not super threaded */
       sound_scope = AGS_SOUND_SCOPE_PLAYBACK;
       
+      if(ags_playback_get_recall_id(playback, sound_scope) == NULL){
+	list_play = list_play->next;
+	
+	continue;
+      }
+    
       if((recall_id = ags_channel_check_scope(channel, sound_scope)) != NULL){
 	ags_channel_recursive_run_stage(channel,
 					sound_scope, playback_staging_flags);
@@ -1114,33 +1124,36 @@ ags_audio_loop_play_channel_super_threaded(AgsAudioLoop *audio_loop,
   g_object_get(playback,
 	       "channel", &channel,
 	       NULL);
+
+  sound_scope = AGS_SOUND_SCOPE_PLAYBACK;
   
-  for(sound_scope = 0; sound_scope < AGS_SOUND_SCOPE_LAST; sound_scope++){    
-    if((recall_id = ags_channel_check_scope(channel, sound_scope)) != NULL){
-      thread = ags_playback_get_channel_thread(playback,
-					       sound_scope);
+  if((recall_id = ags_channel_check_scope(channel, sound_scope)) != NULL){
+    thread = ags_playback_get_channel_thread(playback,
+					     sound_scope);
 
-      if(thread != NULL){
-	channel_thread = (AgsChannelThread *) thread;
+    if(thread != NULL){
+      channel_thread = (AgsChannelThread *) thread;
       
-	if((AGS_THREAD_RUNNING & (g_atomic_int_get(&(thread->flags)))) != 0 &&
-	   (AGS_THREAD_SYNCED & (g_atomic_int_get(&(thread->sync_flags)))) != 0){
-	  /* wakeup wait */
-	  pthread_mutex_lock(channel_thread->wakeup_mutex);
+      if((AGS_THREAD_RUNNING & (g_atomic_int_get(&(thread->flags)))) != 0 &&
+	 (AGS_THREAD_SYNCED & (g_atomic_int_get(&(thread->sync_flags)))) != 0){
+	/* wakeup wait */
+	pthread_mutex_lock(channel_thread->wakeup_mutex);
 
-	  g_atomic_int_and(&(channel_thread->flags),
-			   (~AGS_CHANNEL_THREAD_WAIT));
+	g_atomic_int_and(&(channel_thread->flags),
+			 (~AGS_CHANNEL_THREAD_WAIT));
 	    
-	  if((AGS_CHANNEL_THREAD_DONE & (g_atomic_int_get(&(channel_thread->flags)))) == 0){
-	    pthread_cond_signal(channel_thread->wakeup_cond);
-	  }
-	    
-	  pthread_mutex_unlock(channel_thread->wakeup_mutex);
+	if((AGS_CHANNEL_THREAD_DONE & (g_atomic_int_get(&(channel_thread->flags)))) == 0){
+	  pthread_cond_signal(channel_thread->wakeup_cond);
 	}
-      }
+	    
+	pthread_mutex_unlock(channel_thread->wakeup_mutex);
 
-      g_list_free(recall_id);
+	audio_loop->sync_thread = g_list_prepend(audio_loop->sync_thread,
+						 channel_thread);
+      }
     }
+      
+    g_list_free(recall_id);
   }
 }
 
@@ -1161,39 +1174,40 @@ ags_audio_loop_sync_channel_super_threaded(AgsAudioLoop *audio_loop,
 	       "channel", &channel,
 	       NULL);
 
-  for(sound_scope = 0; sound_scope < AGS_SOUND_SCOPE_LAST; sound_scope++){    
-    if((recall_id = ags_channel_check_scope(channel, sound_scope)) != NULL){
-      thread = ags_playback_get_channel_thread(playback,
-					       sound_scope);
+  sound_scope = AGS_SOUND_SCOPE_PLAYBACK;
 
-      if(thread != NULL){
-	channel_thread = (AgsChannelThread *) thread;
+  if((recall_id = ags_channel_check_scope(channel, sound_scope)) != NULL){
+    thread = ags_playback_get_channel_thread(playback,
+					     sound_scope);
+
+    if(thread != NULL){
+      channel_thread = (AgsChannelThread *) thread;
 	
-	pthread_mutex_lock(channel_thread->done_mutex);
+      pthread_mutex_lock(channel_thread->done_mutex);
   
-	if((AGS_THREAD_RUNNING & (g_atomic_int_get(&(thread->flags)))) != 0 &&
-	   (AGS_THREAD_SYNCED & (g_atomic_int_get(&(thread->sync_flags)))) != 0){      
-	  if((AGS_CHANNEL_THREAD_WAIT_SYNC & (g_atomic_int_get(&(channel_thread->flags)))) != 0){
-	    g_atomic_int_and(&(channel_thread->flags),
-			     (~AGS_CHANNEL_THREAD_DONE_SYNC));
+      if(g_list_find(audio_loop->sync_thread, channel_thread) != NULL &&
+	 (AGS_THREAD_RUNNING & (g_atomic_int_get(&(thread->flags)))) != 0 &&
+	 (AGS_THREAD_SYNCED & (g_atomic_int_get(&(thread->sync_flags)))) != 0){      
+	if((AGS_CHANNEL_THREAD_WAIT_SYNC & (g_atomic_int_get(&(channel_thread->flags)))) != 0){
+	  g_atomic_int_and(&(channel_thread->flags),
+			   (~AGS_CHANNEL_THREAD_DONE_SYNC));
 	
-	    while((AGS_CHANNEL_THREAD_DONE_SYNC & (g_atomic_int_get(&(channel_thread->flags)))) == 0 &&
-		  (AGS_CHANNEL_THREAD_WAIT_SYNC & (g_atomic_int_get(&(channel_thread->flags)))) != 0){
-	      pthread_cond_wait(channel_thread->done_cond,
-				channel_thread->done_mutex);
-	    }
+	  while((AGS_CHANNEL_THREAD_DONE_SYNC & (g_atomic_int_get(&(channel_thread->flags)))) == 0 &&
+		(AGS_CHANNEL_THREAD_WAIT_SYNC & (g_atomic_int_get(&(channel_thread->flags)))) != 0){
+	    pthread_cond_wait(channel_thread->done_cond,
+			      channel_thread->done_mutex);
 	  }
 	}
-
-	g_atomic_int_or(&(channel_thread->flags),
-			(AGS_CHANNEL_THREAD_WAIT_SYNC |
-			 AGS_CHANNEL_THREAD_DONE_SYNC));
-
-	pthread_mutex_unlock(channel_thread->done_mutex);
       }
-      
-      g_list_free(recall_id);
+
+      g_atomic_int_or(&(channel_thread->flags),
+		      (AGS_CHANNEL_THREAD_WAIT_SYNC |
+		       AGS_CHANNEL_THREAD_DONE_SYNC));
+
+      pthread_mutex_unlock(channel_thread->done_mutex);
     }
+      
+    g_list_free(recall_id);
   }
 }
 

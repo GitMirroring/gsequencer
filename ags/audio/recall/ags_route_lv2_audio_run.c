@@ -81,7 +81,6 @@ void ags_route_lv2_audio_run_read_resolve_dependency(AgsFileLookup *file_lookup,
 
 void ags_route_lv2_audio_run_feed_midi(AgsRecall *recall,
 				       AgsNote *note);
-
 void ags_route_lv2_audio_run_alloc_input_callback_feed_note(AgsRouteLv2AudioRun *route_lv2_audio_run,
 							    AgsNotation *notation,
 							    guint audio_start_mapping, guint audio_end_mapping,
@@ -969,6 +968,10 @@ ags_route_lv2_audio_run_feed_midi(AgsRecall *recall,
 	}
 
 	g_object_get(generic_channel_recall->data,
+		     "recall-channel", &recall_lv2,
+		     NULL);
+	
+	g_object_get(generic_channel_recall->data,
 		     "child", &start_generic_recycling_recall,
 		     NULL);
 
@@ -989,9 +992,11 @@ ags_route_lv2_audio_run_feed_midi(AgsRecall *recall,
 	      /* prepend note */
 	      //		route_lv2_audio_run->feed_midi = g_list_prepend(route_lv2_audio_run->feed_midi,
 	      //						 note);
-	      
-	      recall_lv2_run->route_lv2_audio_run = (GObject *) route_lv2_audio_run;
 
+	      g_object_set(recall_lv2_run,
+			   "route-lv2-audio-run", route_lv2_audio_run,
+			   NULL);
+	      
 	      /* key on */
 	      seq_event = recall_lv2_run->event_buffer[0];
 		
@@ -1012,12 +1017,12 @@ ags_route_lv2_audio_run_feed_midi(AgsRecall *recall,
 	      g_object_ref(note);
 		
 	      /* write to port */
-	      if((AGS_RECALL_LV2_HAS_ATOM_PORT & (recall_lv2->flags)) != 0){
+	      if(ags_recall_lv2_test_flags(recall_lv2, AGS_RECALL_LV2_HAS_ATOM_PORT)){
 		ags_lv2_plugin_atom_sequence_append_midi(recall_lv2_run->atom_port,
 							 AGS_RECALL_LV2_DEFAULT_MIDI_LENGHT,
 							 seq_event,
 							 1);
-	      }else if((AGS_RECALL_LV2_HAS_EVENT_PORT & (recall_lv2->flags)) != 0){
+	      }else if(ags_recall_lv2_test_flags(recall_lv2, AGS_RECALL_LV2_HAS_EVENT_PORT)){
 		ags_lv2_plugin_event_buffer_append_midi(recall_lv2_run->event_port,
 							AGS_RECALL_LV2_DEFAULT_MIDI_LENGHT,
 							seq_event,
@@ -1133,7 +1138,7 @@ ags_route_lv2_audio_run_alloc_input_callback(AgsDelayAudioRun *delay_audio_run,
 
   guint audio_channel;
   guint64 notation_counter;
-  guint audio_start_mapping, audio_end_mapping;  
+  guint audio_start_mapping, audio_end_mapping;
   
   if((guint) floor(delay) != 0){
     //    g_message("d %f", delay);
@@ -1144,7 +1149,7 @@ ags_route_lv2_audio_run_alloc_input_callback(AgsDelayAudioRun *delay_audio_run,
 	       "audio", &audio,
 	       "audio-channel", &audio_channel,
 	       "recall-audio", &route_lv2_audio,
-	       "count-beats-aduio-run", &count_beats_audio_run,
+	       "count-beats-audio-run", &count_beats_audio_run,
 	       NULL);
 
   /* feed note - first attempt */
@@ -1168,7 +1173,7 @@ ags_route_lv2_audio_run_alloc_input_callback(AgsDelayAudioRun *delay_audio_run,
     notation = list->data;
   }
   
-  ags_route_lv2_audio_run_alloc_input_callback_feed_note(route_lv2_audio_run,
+  ags_route_lv2_audio_run_alloc_input_callback_feed_note(notation,
 							 notation,
 							 audio_start_mapping, audio_end_mapping,
 							 notation_counter);
@@ -1185,10 +1190,10 @@ ags_route_lv2_audio_run_alloc_input_callback(AgsDelayAudioRun *delay_audio_run,
       notation = list->data;
     }
 
-    ags_route_lv2_audio_run_alloc_input_callback_feed_note(route_lv2_audio_run,
-							   notation,
-							   audio_start_mapping, audio_end_mapping,
-							   notation_counter);
+    ags_route_lv2_audio_run_alloc_input_callback_feed_note(notation,
+							 notation,
+							 audio_start_mapping, audio_end_mapping,
+							 notation_counter);
   }
 
   g_list_free(start_list);

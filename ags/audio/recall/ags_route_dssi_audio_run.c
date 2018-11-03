@@ -74,11 +74,11 @@ void ags_route_dssi_audio_run_read_resolve_dependency(AgsFileLookup *file_lookup
 
 void ags_route_dssi_audio_run_feed_midi(AgsRecall *recall,
 					AgsNote *note);
-
 void ags_route_dssi_audio_run_alloc_input_callback_feed_note(AgsRouteDssiAudioRun *route_dssi_audio_run,
 							     AgsNotation *notation,
 							     guint audio_start_mapping, guint audio_end_mapping,
 							     guint64 notation_counter);
+
 
 /**
  * SECTION:ags_route_dssi_audio_run
@@ -1116,8 +1116,8 @@ ags_route_dssi_audio_run_alloc_input_callback(AgsDelayAudioRun *delay_audio_run,
 
   guint audio_channel;
   guint64 notation_counter;
-  guint audio_start_mapping, audio_end_mapping; 
-  
+  guint audio_start_mapping, audio_end_mapping;
+    
   if((guint) floor(delay) != 0){
     //    g_message("d %f", delay);
     return;
@@ -1127,7 +1127,7 @@ ags_route_dssi_audio_run_alloc_input_callback(AgsDelayAudioRun *delay_audio_run,
 	       "audio", &audio,
 	       "audio-channel", &audio_channel,
 	       "recall-audio", &route_dssi_audio,
-	       "count-beats-aduio-run", &count_beats_audio_run,
+	       "count-beats-audio-run", &count_beats_audio_run,
 	       NULL);
 
   /* feed note - first attempt */
@@ -1151,7 +1151,7 @@ ags_route_dssi_audio_run_alloc_input_callback(AgsDelayAudioRun *delay_audio_run,
     notation = list->data;
   }
   
-  ags_route_dssi_audio_run_alloc_input_callback_feed_note(route_dssi_audio_run,
+  ags_route_dssi_audio_run_alloc_input_callback_feed_note(notation,
 							  notation,
 							  audio_start_mapping, audio_end_mapping,
 							  notation_counter);
@@ -1168,10 +1168,10 @@ ags_route_dssi_audio_run_alloc_input_callback(AgsDelayAudioRun *delay_audio_run,
       notation = list->data;
     }
 
-    ags_route_dssi_audio_run_alloc_input_callback_feed_note(route_dssi_audio_run,
-							    notation,
-							    audio_start_mapping, audio_end_mapping,
-							    notation_counter);
+    ags_route_dssi_audio_run_alloc_input_callback_feed_note(notation,
+							  notation,
+							  audio_start_mapping, audio_end_mapping,
+							  notation_counter);
   }
 
   g_list_free(start_list);

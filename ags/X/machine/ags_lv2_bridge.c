@@ -24,6 +24,8 @@
 #include <ags/libags-audio.h>
 #include <ags/libags-gui.h>
 
+#include <lv2/lv2plug.in/ns/lv2ext/lv2_programs.h>
+
 #include <ags/X/ags_window.h>
 #include <ags/X/ags_effect_bridge.h>
 #include <ags/X/ags_effect_bulk.h>
@@ -1039,6 +1041,9 @@ ags_lv2_bridge_resize_audio_channels(AgsMachine *machine,
 		     NULL);
 
 	if(first_recycling != NULL){
+	  ags_channel_set_ability_flags(channel, (AGS_SOUND_ABILITY_PLAYBACK |
+						  AGS_SOUND_ABILITY_NOTATION));
+
 	  /* audio signal */
 	  audio_signal = ags_audio_signal_new(output_soundcard,
 					      (GObject *) first_recycling,
@@ -1166,6 +1171,8 @@ ags_lv2_bridge_resize_pads(AgsMachine *machine, GType channel_type,
 		     NULL);
 
 	if(first_recycling != NULL){
+	  ags_channel_set_ability_flags(channel, (AGS_SOUND_ABILITY_NOTATION));
+
 	  /* audio signal */
 	  audio_signal = ags_audio_signal_new(output_soundcard,
 					      (GObject *) first_recycling,
@@ -1229,7 +1236,7 @@ ags_lv2_bridge_map_recall(AgsMachine *machine)
   lv2_bridge = (AgsLv2Bridge *) machine;
 
   audio = machine->audio;
-  
+
   /* ags-delay */
   if((AGS_MACHINE_IS_SYNTHESIZER & (machine->flags)) != 0){
     ags_recall_factory_create(audio,
@@ -1239,14 +1246,13 @@ ags_lv2_bridge_map_recall(AgsMachine *machine)
 			      0, 0,
 			      (AGS_RECALL_FACTORY_OUTPUT |
 			       AGS_RECALL_FACTORY_ADD |
-			       AGS_RECALL_FACTORY_PLAY |
-			       AGS_RECALL_FACTORY_RECALL),
+			       AGS_RECALL_FACTORY_PLAY),
 			      0);
 
     g_object_get(audio,
 		 "play", &start_play,
 		 NULL);
-    
+  
     play = ags_recall_find_type(start_play,
 				AGS_TYPE_DELAY_AUDIO_RUN);
 
@@ -1267,14 +1273,13 @@ ags_lv2_bridge_map_recall(AgsMachine *machine)
 			      0, 0,
 			      (AGS_RECALL_FACTORY_OUTPUT |
 			       AGS_RECALL_FACTORY_ADD |
-			       AGS_RECALL_FACTORY_PLAY |
-			       AGS_RECALL_FACTORY_RECALL),
+			       AGS_RECALL_FACTORY_PLAY),
 			      0);
-
+  
     g_object_get(audio,
 		 "play", &start_play,
 		 NULL);
-    
+
     play = ags_recall_find_type(start_play,
 				AGS_TYPE_COUNT_BEATS_AUDIO_RUN);
 
@@ -1293,7 +1298,7 @@ ags_lv2_bridge_map_recall(AgsMachine *machine)
     }
 
     g_list_free(start_play);
-    
+
     /* ags-record-midi */
     ags_recall_factory_create(audio,
 			      NULL, NULL,
@@ -1302,18 +1307,18 @@ ags_lv2_bridge_map_recall(AgsMachine *machine)
 			      0, 0,
 			      (AGS_RECALL_FACTORY_INPUT |
 			       AGS_RECALL_FACTORY_ADD |
-			       AGS_RECALL_FACTORY_RECALL),
+			       AGS_RECALL_FACTORY_PLAY),
 			      0);
 
     g_object_get(audio,
-		 "recall", &start_recall,
+		 "play", &start_play,
 		 NULL);
-    
-    recall = ags_recall_find_type(start_recall,
-				  AGS_TYPE_RECORD_MIDI_AUDIO_RUN);
 
-    if(recall != NULL){
-      recall_record_midi_audio_run = AGS_RECORD_MIDI_AUDIO_RUN(recall->data);
+    play = ags_recall_find_type(start_play,
+				AGS_TYPE_RECORD_MIDI_AUDIO_RUN);
+
+    if(play != NULL){
+      recall_record_midi_audio_run = AGS_RECORD_MIDI_AUDIO_RUN(play->data);
     
       /* set dependency */
       g_object_set(G_OBJECT(recall_record_midi_audio_run),
@@ -1326,8 +1331,42 @@ ags_lv2_bridge_map_recall(AgsMachine *machine)
 		   NULL);
     }  
 
-    g_list_free(start_recall);
+    g_list_free(start_play);
+
+    /* ags-play-notation */
+    ags_recall_factory_create(audio,
+			      NULL, NULL,
+			      "ags-play-notation",
+			      0, 0,
+			      0, 0,
+			      (AGS_RECALL_FACTORY_INPUT |
+			       AGS_RECALL_FACTORY_ADD |
+			       AGS_RECALL_FACTORY_PLAY),
+			      0);
     
+    g_object_get(audio,
+		 "play", &start_play,
+		 NULL);
+
+    play = ags_recall_find_type(start_play,
+				AGS_TYPE_PLAY_NOTATION_AUDIO_RUN);
+
+    if(play != NULL){
+      recall_notation_audio_run = AGS_PLAY_NOTATION_AUDIO_RUN(play->data);
+
+      /* set dependency */
+      g_object_set(G_OBJECT(recall_notation_audio_run),
+		   "delay-audio-run", play_delay_audio_run,
+		   NULL);
+
+      /* set dependency */
+      g_object_set(G_OBJECT(recall_notation_audio_run),
+		   "count-beats-audio-run", play_count_beats_audio_run,
+		   NULL);
+    }
+    
+    g_list_free(start_play);
+
     /* ags-route-lv2 */
     ags_recall_factory_create(audio,
 			      NULL, NULL,
@@ -1336,18 +1375,18 @@ ags_lv2_bridge_map_recall(AgsMachine *machine)
 			      0, 0,
 			      (AGS_RECALL_FACTORY_INPUT |
 			       AGS_RECALL_FACTORY_ADD |
-			       AGS_RECALL_FACTORY_RECALL),
+			       AGS_RECALL_FACTORY_PLAY),
 			      0);
-
-    g_object_get(audio,
-		 "recall", &start_recall,
-		 NULL);
     
-    recall = ags_recall_find_type(start_recall,
-				  AGS_TYPE_ROUTE_LV2_AUDIO_RUN);
+    g_object_get(audio,
+		 "play", &start_play,
+		 NULL);
 
-    if(recall != NULL){
-      recall_route_lv2_audio_run = AGS_ROUTE_LV2_AUDIO_RUN(recall->data);
+    play = ags_recall_find_type(start_play,
+				AGS_TYPE_ROUTE_LV2_AUDIO_RUN);
+
+    if(play != NULL){
+      recall_route_lv2_audio_run = AGS_ROUTE_LV2_AUDIO_RUN(play->data);
 
       /* set dependency */
       g_object_set(G_OBJECT(recall_route_lv2_audio_run),
@@ -1362,43 +1401,9 @@ ags_lv2_bridge_map_recall(AgsMachine *machine)
       recall_route_lv2_audio_run = NULL;
     }
 
-    g_list_free(start_recall);
-    
-    /* ags-play-notation */
-    ags_recall_factory_create(audio,
-			      NULL, NULL,
-			      "ags-play-notation",
-			      0, 0,
-			      0, 0,
-			      (AGS_RECALL_FACTORY_INPUT |
-			       AGS_RECALL_FACTORY_ADD |
-			       AGS_RECALL_FACTORY_RECALL),
-			      0);
-
-    g_object_get(audio,
-		 "recall", &start_recall,
-		 NULL);
-    
-    recall = ags_recall_find_type(start_recall,
-				  AGS_TYPE_PLAY_NOTATION_AUDIO_RUN);
-
-    if(recall != NULL){
-      recall_notation_audio_run = AGS_PLAY_NOTATION_AUDIO_RUN(recall->data);
-
-      /* set dependency */
-      g_object_set(G_OBJECT(recall_notation_audio_run),
-		   "delay-audio-run", play_delay_audio_run,
-		   NULL);
-
-      /* set dependency */
-      g_object_set(G_OBJECT(recall_notation_audio_run),
-		   "count-beats-audio-run", play_count_beats_audio_run,
-		   NULL);
-    }
-
-    g_list_free(start_recall);
+    g_list_free(start_play);
   }
-  
+
   /* depending on destination */
   ags_lv2_bridge_input_map_recall(lv2_bridge,
 				  0,
@@ -1531,7 +1536,7 @@ ags_lv2_bridge_input_map_recall(AgsLv2Bridge *lv2_bridge,
 		   "next-pad", &current,
 		   NULL);
     }
-
+    
     if(ags_recall_global_get_rt_safe() ||
        ags_recall_global_get_performance_mode()){
       /* ags-copy */

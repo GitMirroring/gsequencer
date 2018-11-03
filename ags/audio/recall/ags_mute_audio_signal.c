@@ -32,6 +32,7 @@
 #include <ags/audio/recall/ags_mute_recycling.h>
 
 #include <stdlib.h>
+#include <string.h>
 
 void ags_mute_audio_signal_class_init(AgsMuteAudioSignalClass *mute_audio_signal);
 void ags_mute_audio_signal_init(AgsMuteAudioSignal *mute_audio_signal);

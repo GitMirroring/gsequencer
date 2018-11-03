@@ -1338,7 +1338,7 @@ ags_wave_edit_draw_selection(AgsWaveEdit *wave_edit)
   GtkStyle *wave_edit_style;
 
   GObject *soundcard;
-
+  
   cairo_t *cr;
 
   double zoom, zoom_factor;

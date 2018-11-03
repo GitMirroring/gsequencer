@@ -21,13 +21,19 @@
 
 #include <ags/libags.h>
 
+#include <ags/audio/ags_wave.h>
+#include <ags/audio/ags_buffer.h>
 #include <ags/audio/ags_recycling.h>
+#include <ags/audio/ags_audio_signal.h>
 #include <ags/audio/ags_recall_id.h>
 #include <ags/audio/ags_recall_container.h>
+#include <ags/audio/ags_audio_buffer_util.h>
 
 #include <ags/audio/recall/ags_play_wave_audio.h>
 #include <ags/audio/recall/ags_play_wave_audio_run.h>
 #include <ags/audio/recall/ags_play_wave_channel.h>
+
+#include <math.h>
 
 #include <ags/i18n.h>
 
@@ -36,24 +42,12 @@ void ags_play_wave_channel_run_init(AgsPlayWaveChannelRun *play_wave_channel_run
 void ags_play_wave_channel_run_dispose(GObject *gobject);
 void ags_play_wave_channel_run_finalize(GObject *gobject);
 
-void ags_play_wave_channel_run_run_inter(AgsRecall *recall);
-
 void ags_play_wave_channel_run_run_inter_add_audio_signal(AgsPlayWaveChannelRun *play_wave_channel_run,
 							  AgsChannel *channel,
 							  GObject *output_soundcard,
-							  AgsRecallID *recall_id,
-							  guint samplerate,
-							  guint buffer_size,
-							  guint format);
-void ags_play_wave_channel_run_run_inter_buffer(AgsPlayWaveChannelRun *play_wave_channel_run,
-						AgsChannel *channel,
-						AgsWave *wave,
-						GObject *output_soundcard,
-						AgsRecallID *recall_id,
-						guint samplerate,
-						guint buffer_size,
-						guint format,
-						guint64 x_offset);
+							  AgsRecallID *recall_id);
+
+void ags_play_wave_channel_run_run_inter(AgsRecall *recall);
 
 /**
  * SECTION:ags_play_wave_channel_run
@@ -173,16 +167,20 @@ void
 ags_play_wave_channel_run_run_inter_add_audio_signal(AgsPlayWaveChannelRun *play_wave_channel_run,
 						     AgsChannel *channel,
 						     GObject *output_soundcard,
-						     AgsRecallID *recall_id,
-						     guint samplerate,
-						     guint buffer_size,
-						     guint format)
+						     AgsRecallID *recall_id)
 {
   AgsChannel *output;
   AgsRecycling *first_recycling;
 
+  guint samplerate;
+  guint buffer_size;
+  guint format;
+
   g_object_get(channel,
 	       "first-recycling", &first_recycling,
+	       "samplerate", &samplerate,
+	       "buffer-size", &buffer_size,
+	       "format", &format,
 	       NULL);
 	  
   play_wave_channel_run->audio_signal = ags_audio_signal_new(output_soundcard,
@@ -202,93 +200,6 @@ ags_play_wave_channel_run_run_inter_add_audio_signal(AgsPlayWaveChannelRun *play
 				 play_wave_channel_run->audio_signal);	  
 
   ags_connectable_connect(AGS_CONNECTABLE(play_wave_channel_run->audio_signal));
-}
-  
-void
-ags_play_wave_channel_run_run_inter_buffer(AgsPlayWaveChannelRun *play_wave_channel_run,
-					   AgsChannel *channel,
-					   AgsWave *wave,
-					   GObject *output_soundcard,
-					   AgsRecallID *recall_id,
-					   guint samplerate,
-					   guint buffer_size,
-					   guint format,
-					   guint64 x_offset)
-{
-  AgsBuffer *buffer;
-    
-  GList *start_list, *list;
-
-  if(!AGS_IS_WAVE(wave)){
-    return;
-  }
-    
-  g_object_get(wave,
-	       "buffer", &start_list,
-	       NULL);
-
-  list = start_list;
-
-  while(list != NULL){
-    guint current_buffer_size;
-    guint64 current_offset;
-    guint current_format;
-      
-    buffer = list->data;
-      
-    g_object_get(buffer,
-		 "buffer-size", &current_buffer_size,
-		 "format", &current_format,
-		 "x", &current_offset,
-		 NULL);
-
-    if(current_offset + current_buffer_size > x_offset &&
-       current_offset < x_offset + buffer_size){
-      guint start_frame;
-      guint frame_count;
-      guint copy_mode;
-	
-      if(play_wave_channel_run->audio_signal == NULL){
-	ags_play_wave_channel_run_run_inter_add_audio_signal(play_wave_channel_run,
-							     channel,
-							     output_soundcard,
-							     recall_id,
-							     samplerate,
-							     buffer_size,
-							     format);
-      }
-
-      start_frame = 0;
-      frame_count = current_buffer_size;
-
-      if(current_offset > x_offset){
-	start_frame = current_offset - x_offset;
-      }
-
-      if(buffer_size < frame_count){
-	frame_count = buffer_size;
-      }
-
-      if(start_frame + buffer_size > frame_count){
-	frame_count = (start_frame + buffer_size) - frame_count;
-      }
-
-      copy_mode = ags_audio_buffer_util_get_copy_mode(ags_audio_buffer_util_format_from_soundcard(format),
-						      ags_audio_buffer_util_format_from_soundcard(current_format));
-	
-      ags_audio_buffer_util_copy_buffer_to_buffer(play_wave_channel_run->audio_signal->stream_current->data, 1, 0,
-						  buffer->data, 1, start_frame,
-						  frame_count, copy_mode);
-    }
-      
-    if(current_offset > x_offset + buffer_size){
-      break;
-    }
-      
-    list = list->next;
-  }
-
-  g_list_free(start_list);
 }
 
 void
@@ -314,8 +225,11 @@ ags_play_wave_channel_run_run_inter(AgsRecall *recall)
   guint buffer_size;
   guint format;
   guint64 x_offset;
+  guint64 x_point_offset;
   guint64 relative_offset;
   gdouble delay;
+  guint frame_count;
+  guint attack;
   gboolean do_playback;
   gboolean do_loop;
   
@@ -325,7 +239,7 @@ ags_play_wave_channel_run_run_inter(AgsRecall *recall)
 
   pthread_mutex_t *audio_mutex;
   pthread_mutex_t *channel_mutex;
-  
+
   play_wave_channel_run = (AgsPlayWaveChannelRun *) recall;
   
   g_object_get(play_wave_channel_run,
@@ -381,6 +295,14 @@ ags_play_wave_channel_run_run_inter(AgsRecall *recall)
 
   relative_offset = AGS_WAVE_DEFAULT_BUFFER_LENGTH * samplerate;
 
+  attack = (x_offset % relative_offset) % buffer_size;
+
+  frame_count = buffer_size - attack;
+
+  if(x_offset + frame_count > relative_offset * floor(x_offset / relative_offset) + relative_offset){
+    frame_count = relative_offset * floor((x_offset + frame_count) / relative_offset) - x_offset;
+  }
+  
   /* clear */
   if(play_wave_channel_run->audio_signal != NULL){
     ags_audio_buffer_util_clear_buffer(play_wave_channel_run->audio_signal->stream_current->data, 1,
@@ -389,7 +311,7 @@ ags_play_wave_channel_run_run_inter(AgsRecall *recall)
   
   /* time stamp offset */
   ags_timestamp_set_ags_offset(play_wave_channel_run->timestamp,
-			       (guint64) ((64.0 * (double) samplerate) * floor(x_offset / (64.0 * (double) samplerate))));
+			       (guint64) (relative_offset * floor(x_offset / (relative_offset))));
   
   /* find wave */
   wave = NULL;
@@ -398,45 +320,84 @@ ags_play_wave_channel_run_run_inter(AgsRecall *recall)
 				      play_wave_channel_run->timestamp);
 
   if(list != NULL){
+    AgsBuffer *buffer;
+
     wave = list->data;
 
-    ags_play_wave_channel_run_run_inter_buffer(play_wave_channel_run,
-					       channel,
-					       wave,
-					       output_soundcard,
-					       recall_id,
-					       samplerate,
-					       buffer_size,
-					       format,
-					       x_offset);
+    x_point_offset = x_offset - attack;
+    buffer = ags_wave_find_point(wave,
+				 x_point_offset,
+				 FALSE);
+
+    if(buffer != NULL){
+      guint copy_mode;
+      guint current_format;
+    
+      g_object_get(buffer,
+		   "format", &current_format,
+		   NULL);
+	
+      if(play_wave_channel_run->audio_signal == NULL){
+	ags_play_wave_channel_run_run_inter_add_audio_signal(play_wave_channel_run,
+							     channel,
+							     output_soundcard,
+							     recall_id);
+      }
+
+      copy_mode = ags_audio_buffer_util_get_copy_mode(ags_audio_buffer_util_format_from_soundcard(format),
+						      ags_audio_buffer_util_format_from_soundcard(current_format));
+	
+      ags_audio_buffer_util_copy_buffer_to_buffer(play_wave_channel_run->audio_signal->stream_current->data, 1, 0,
+						  buffer->data, 1, attack,
+						  frame_count, copy_mode);
+    }
   }
 
-  if(x_offset + buffer_size > (guint64) ((64.0 * (double) samplerate) * (1.0 + floor(x_offset / (64.0 * (double) samplerate))))){
-    /* time stamp offset */
-    ags_timestamp_set_ags_offset(play_wave_channel_run->timestamp,
-				 (guint64) ((64.0 * (double) samplerate) * (1.0 + floor(x_offset / (64.0 * (double) samplerate)))));
+  /* 2nd attempt */
+  ags_timestamp_set_ags_offset(play_wave_channel_run->timestamp,
+			       relative_offset * floor((x_offset + frame_count) / relative_offset));
   
-    /* find wave */
-    wave = NULL;
-  
+  /* play */
+  if(attack != 0 ||
+     frame_count != buffer_size){
     list = ags_wave_find_near_timestamp(start_list, line,
 					play_wave_channel_run->timestamp);
 
     if(list != NULL){
+      AgsBuffer *buffer;
+
       wave = list->data;
 
-      ags_play_wave_channel_run_run_inter_buffer(play_wave_channel_run,
-						 channel,
-						 wave,
-						 output_soundcard,
-						 recall_id,
-						 samplerate,
-						 buffer_size,
-						 format,
-						 x_offset);
+      x_point_offset = x_offset + frame_count;
+      buffer = ags_wave_find_point(wave,
+				   x_point_offset,
+				   FALSE);
+
+      if(buffer != NULL){
+	guint copy_mode;
+	guint current_format;
+    
+	g_object_get(buffer,
+		     "format", &current_format,
+		     NULL);
+	
+	if(play_wave_channel_run->audio_signal == NULL){
+	  ags_play_wave_channel_run_run_inter_add_audio_signal(play_wave_channel_run,
+							       channel,
+							       output_soundcard,
+							       recall_id);
+	}
+
+	copy_mode = ags_audio_buffer_util_get_copy_mode(ags_audio_buffer_util_format_from_soundcard(format),
+							ags_audio_buffer_util_format_from_soundcard(current_format));
+	
+	ags_audio_buffer_util_copy_buffer_to_buffer(play_wave_channel_run->audio_signal->stream_current->data, 1, frame_count,
+						    buffer->data, 1, 0,
+						    buffer_size - frame_count, copy_mode);
+      }
     }
   }
-
+  
   /* check loop */
   x_offset += buffer_size;
   

@@ -756,7 +756,7 @@ ags_ramp_acceleration_dialog_apply(AgsApplicable *applicable)
 	(line = ags_notebook_next_active_tab(notebook,
 					     line)) != -1){
     AgsChannel *channel;
-    AgsPort *play_port, *recall_port;
+    GList *play_port, *recall_port;
 
     guint j;
     guint tmp;
@@ -816,7 +816,7 @@ ags_ramp_acceleration_dialog_apply(AgsApplicable *applicable)
       timestamp->timer.ags_offset.offset = AGS_AUTOMATION_DEFAULT_OFFSET * floor(x0 / AGS_AUTOMATION_DEFAULT_OFFSET);
 
       for(nth_match = 0; nth_match < match_count; nth_match++){
-	list_automation = play_port->automation;
+	list_automation = AGS_PORT(play_port->data)->automation;
 	list_automation = ags_automation_find_near_timestamp(list_automation, line,
 							     timestamp);
 
@@ -825,15 +825,15 @@ ags_ramp_acceleration_dialog_apply(AgsApplicable *applicable)
 				       line,
 				       channel_type, specifier);
 	  g_object_set(current,
-		       "port", play_port,
+		       "port", play_port->data,
 		       NULL);
 
 	  current->timestamp->timer.ags_offset.offset = timestamp->timer.ags_offset.offset;
 
 	  ags_audio_add_automation(machine->audio,
 				   current);
-	  play_port->automation = ags_automation_add(play_port->automation,
-						     current);	  
+	  ags_port_add_automation(AGS_PORT(play_port->data),
+				  current);
 	}else{
 	  current = list_automation->data;
 	}
@@ -915,7 +915,7 @@ ags_ramp_acceleration_dialog_apply(AgsApplicable *applicable)
       timestamp->timer.ags_offset.offset = AGS_AUTOMATION_DEFAULT_OFFSET * floor(x0 / AGS_AUTOMATION_DEFAULT_OFFSET);
 
       for(nth_match = 0; nth_match < match_count; nth_match++){
-	list_automation = recall_port->automation;
+	list_automation = AGS_PORT(recall_port->data)->automation;
 	list_automation = ags_automation_find_near_timestamp(list_automation, line,
 							     timestamp);
 
@@ -924,15 +924,15 @@ ags_ramp_acceleration_dialog_apply(AgsApplicable *applicable)
 				       line,
 				       channel_type, specifier);
 	  g_object_set(current,
-		       "port", recall_port,
+		       "port", recall_port->data,
 		       NULL);
 
 	  current->timestamp->timer.ags_offset.offset = timestamp->timer.ags_offset.offset;
 
 	  ags_audio_add_automation(machine->audio,
 				   current);
-	  recall_port->automation = ags_automation_add(recall_port->automation,
-						       current);	  
+	  ags_port_add_automation(AGS_PORT(recall_port->data),
+				  current);
 	}else{
 	  current = list_automation->data;
 	}
@@ -982,9 +982,9 @@ ags_ramp_acceleration_dialog_apply(AgsApplicable *applicable)
 	  acceleration->x = ((gdouble) x0 + (gdouble) ((gdouble) (x1 - x0) * (gdouble) ((gdouble) (i) / ((gdouble) step_count))));
 	  acceleration->y = ((gdouble) y0 + ((gdouble) (y1 - y0) * (gdouble) ((gdouble) (i + 1) / ((gdouble) step_count))));
 
-	  //#ifdef AGS_DEBUG
+#ifdef AGS_DEBUG
 	  g_message("line %d - %d %f", line, acceleration->x, acceleration->y);
-	  //#endif
+#endif
 	
 	  ags_automation_add_acceleration(current,
 					  acceleration,
@@ -1013,10 +1013,13 @@ ags_ramp_acceleration_dialog_reset(AgsApplicable *applicable)
   AgsRampAccelerationDialog *ramp_acceleration_dialog;
 
   AgsAudio *audio;
-
-  GList *start_automation;
+  AgsChannel *channel;
   
-  gchar **specifier;
+  GList *start_port, *port;
+
+  gchar **collected_specifier;
+
+  guint length;
 
   ramp_acceleration_dialog = AGS_RAMP_ACCELERATION_DIALOG(applicable);
 
@@ -1033,19 +1036,171 @@ ags_ramp_acceleration_dialog_reset(AgsApplicable *applicable)
   
   audio = machine->audio;
   
-  /*  */  
-  g_object_get(audio,
-	       "automation", &start_automation,
-	       NULL);
-  
-  specifier = ags_automation_get_specifier_unique(start_automation);
+  collected_specifier = (gchar **) malloc(sizeof(gchar*));
 
-  for(; *specifier != NULL; specifier++){
-    gtk_combo_box_text_append_text(ramp_acceleration_dialog->port,
-				   g_strdup(*specifier));
+  collected_specifier[0] = NULL;
+  length = 1;
+  
+  /* audio */
+  port =
+    start_port = ags_audio_collect_all_audio_ports(audio);
+
+  while(port != NULL){
+    AgsPluginPort *plugin_port;
+
+    gchar *specifier;
+
+    gboolean is_enabled;
+    gboolean contains_control_name;
+    
+    g_object_get(port->data,
+		 "specifier", &specifier,
+		 "plugin-port", &plugin_port,
+		 NULL);
+
+#ifdef HAVE_GLIB_2_44
+    contains_control_name = g_strv_contains(collected_specifier,
+					    specifier);
+#else
+    contains_control_name = ags_strv_contains(collected_specifier,
+					      specifier);
+#endif
+
+    if(plugin_port != NULL &&
+       !contains_control_name){
+      gtk_combo_box_text_append_text(ramp_acceleration_dialog->port,
+				     g_strdup(specifier));
+
+      /* add to collected specifier */
+      collected_specifier = (gchar **) realloc(collected_specifier,
+				     (length + 1) * sizeof(gchar *));
+      collected_specifier[length - 1] = g_strdup(specifier);
+      collected_specifier[length] = NULL;
+
+      length++;
+    }
+    
+    /* iterate */
+    port = port->next;
   }
 
-  g_list_free(start_automation);
+  g_list_free(start_port);
+    
+  /* output */
+  g_object_get(audio,
+	       "output", &channel,
+	       NULL);
+
+  while(channel != NULL){
+    /* output */
+    port =
+      start_port = ags_channel_collect_all_channel_ports(channel);
+
+    while(port != NULL){
+      AgsPluginPort *plugin_port;
+
+      gchar *specifier;
+
+      gboolean is_enabled;
+      gboolean contains_control_name;
+    
+      g_object_get(port->data,
+		   "specifier", &specifier,
+		   "plugin-port", &plugin_port,
+		   NULL);
+
+#ifdef HAVE_GLIB_2_44
+      contains_control_name = g_strv_contains(collected_specifier,
+					      specifier);
+#else
+      contains_control_name = ags_strv_contains(collected_specifier,
+						specifier);
+#endif
+
+      if(plugin_port != NULL &&
+	 !contains_control_name){
+	gtk_combo_box_text_append_text(ramp_acceleration_dialog->port,
+				       g_strdup(specifier));
+
+	/* add to collected specifier */
+	collected_specifier = (gchar **) realloc(collected_specifier,
+						 (length + 1) * sizeof(gchar *));
+	collected_specifier[length - 1] = g_strdup(specifier);
+	collected_specifier[length] = NULL;
+
+	length++;
+      }
+    
+      /* iterate */
+      port = port->next;
+    }
+
+    g_list_free(start_port);
+    
+    /* iterate */
+    g_object_get(channel,
+		 "next", &channel,
+		 NULL);
+  }
+  
+  /* input */
+  g_object_get(audio,
+	       "input", &channel,
+	       NULL);
+
+  while(channel != NULL){
+    /* input */
+    port =
+      start_port = ags_channel_collect_all_channel_ports(channel);
+
+    while(port != NULL){
+      AgsPluginPort *plugin_port;
+
+      gchar *specifier;
+
+      gboolean is_enabled;
+      gboolean contains_control_name;
+    
+      g_object_get(port->data,
+		   "specifier", &specifier,
+		   "plugin-port", &plugin_port,
+		   NULL);
+
+#ifdef HAVE_GLIB_2_44
+      contains_control_name = g_strv_contains(collected_specifier,
+					      specifier);
+#else
+      contains_control_name = ags_strv_contains(collected_specifier,
+						specifier);
+#endif
+
+      if(plugin_port != NULL &&
+	 !contains_control_name){
+	gtk_combo_box_text_append_text(ramp_acceleration_dialog->port,
+				       g_strdup(specifier));
+
+	/* add to collected specifier */
+	collected_specifier = (gchar **) realloc(collected_specifier,
+						 (length + 1) * sizeof(gchar *));
+	collected_specifier[length - 1] = g_strdup(specifier);
+	collected_specifier[length] = NULL;
+
+	length++;
+      }
+    
+      /* iterate */
+      port = port->next;
+    }
+
+    g_list_free(start_port);
+    
+    /* iterate */
+    g_object_get(channel,
+		 "next", &channel,
+		 NULL);
+  }
+  
+  g_strfreev(collected_specifier);
 }
 
 gboolean

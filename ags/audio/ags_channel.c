@@ -5009,7 +5009,7 @@ ags_channel_set_link(AgsChannel *channel, AgsChannel *link,
 
     pthread_mutex_t *mutex;
     
-    if(AGS_IS_OUTPUT(channel)){
+    if(AGS_IS_INPUT(channel)){
       current = channel;
       current_link = link;
 
@@ -7597,14 +7597,53 @@ ags_channel_remove_recall_container(AgsChannel *channel, GObject *recall_contain
 void
 ags_channel_add_recall(AgsChannel *channel, GObject *recall, gboolean play_context)
 {
+  GObject *output_soundcard, *input_soundcard;
+
+  gint output_soundcard_channel, input_soundcard_channel;
+  guint samplerate;
+  guint buffer_size;
+  guint format;
   gboolean success;
+  
+  pthread_mutex_t *channel_mutex;
   
   if(!AGS_IS_CHANNEL(channel) ||
      !AGS_IS_RECALL(recall)){
     return;
   }
 
+  /* get channel mutex */
+  pthread_mutex_lock(ags_channel_get_class_mutex());
+
+  channel_mutex = channel->obj_mutex;
+  
+  pthread_mutex_unlock(ags_channel_get_class_mutex());
+
+  /* get some fields */
+  pthread_mutex_lock(channel_mutex);
+
+  output_soundcard = channel->output_soundcard;
+  output_soundcard_channel = channel->output_soundcard_channel;
+
+  input_soundcard = channel->input_soundcard;
+  input_soundcard_channel = channel->input_soundcard_channel;
+
+  samplerate = channel->samplerate;
+  buffer_size = channel->buffer_size;
+  format = channel->format; 
+  
+  pthread_mutex_unlock(channel_mutex);
+  
   success = FALSE;
+  g_object_set(recall,
+	       "output-soundcard", output_soundcard,
+	       "output-soundcard-channel", output_soundcard_channel,
+	       "input-soundcard", input_soundcard,
+	       "input-soundcard-channel", input_soundcard_channel,
+	       "samplerate", samplerate,
+	       "buffer-size", buffer_size,
+	       "format", format,
+	       NULL);
   
   if(play_context){
     pthread_mutex_t *play_mutex;
@@ -9812,7 +9851,7 @@ ags_channel_real_play_recall(AgsChannel *channel,
     /* copy play context */
     pthread_mutex_lock(play_mutex);
 
-    list_start = g_list_copy(channel->play);
+    list_start = ags_list_util_copy_and_ref(channel->play);
 
     pthread_mutex_unlock(play_mutex);
 
@@ -9832,7 +9871,7 @@ ags_channel_real_play_recall(AgsChannel *channel,
     /* copy recall context */
     pthread_mutex_lock(recall_mutex);
 
-    list_start = g_list_copy(channel->recall);
+    list_start = ags_list_util_copy_and_ref(channel->recall);
     
     pthread_mutex_unlock(recall_mutex);
 
@@ -9841,8 +9880,27 @@ ags_channel_real_play_recall(AgsChannel *channel,
       list_start = g_list_reverse(list_start);
   }
   
-  /* play  */
-  staging_flags = staging_mask & staging_flags;
+  /* automate and play  */
+   staging_flags = staging_mask & staging_flags;
+
+  if((AGS_SOUND_STAGING_AUTOMATE & (staging_flags)) != 0){
+    while(list != NULL){
+      recall = AGS_RECALL(list->data);
+    
+      /* play stages */
+      if(AGS_IS_RECALL_CHANNEL(recall)){
+	ags_recall_set_staging_flags(recall,
+				     AGS_SOUND_STAGING_AUTOMATE);
+	ags_recall_unset_staging_flags(recall,
+				       AGS_SOUND_STAGING_AUTOMATE);
+      }
+      
+      list = list->next;
+    }
+  }
+
+  staging_flags &= (~AGS_SOUND_STAGING_AUTOMATE);
+  list = list_start;
   
   while((list = ags_recall_find_recycling_context(list,
 						  (GObject *) recycling_context)) != NULL){
@@ -9857,7 +9915,8 @@ ags_channel_real_play_recall(AgsChannel *channel,
     list = list->next;
   }
   
-  g_list_free(list_start);
+  g_list_free_full(list_start,
+		   g_object_unref);
 
   //FIXME:JK: uncomment
   //  ags_channel_set_staging_flags(channel, sound_scope,

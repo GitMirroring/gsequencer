@@ -1837,8 +1837,9 @@ ags_automation_edit_draw_acceleration(AgsAutomationEdit *automation_edit,
   gdouble y_upper;
   double zoom, zoom_factor;
   double viewport_x, viewport_y;
-  double x, y;
-  double a_x, b_x, a_y, b_y;
+  guint x, y;
+  guint a_x, b_x;
+  gdouble a_y, b_y;
   double width, height;
   
   static const gdouble white_gc = 65535.0;

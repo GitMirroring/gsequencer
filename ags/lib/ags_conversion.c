@@ -21,6 +21,8 @@
 
 #include <ags/object/ags_marshal.h>
 
+#include <stdlib.h>
+
 #include <ags/i18n.h>
 
 void ags_conversion_class_init(AgsConversionClass *conversion);
@@ -205,8 +207,17 @@ ags_conversion_set_property(GObject *gobject,
 {
   AgsConversion *conversion;
 
+  pthread_mutex_t *conversion_mutex;
+  
   conversion = AGS_CONVERSION(gobject);
 
+  /* get conversion mutex */
+  pthread_mutex_lock(ags_conversion_get_class_mutex());
+  
+  conversion_mutex = conversion->obj_mutex;
+
+  pthread_mutex_unlock(ags_conversion_get_class_mutex());
+  
   switch(prop_id){
   case PROP_NAME:
     {
@@ -214,7 +225,11 @@ ags_conversion_set_property(GObject *gobject,
 
       name = (gchar *) g_value_get_string(value);
 
+      pthread_mutex_lock(conversion_mutex);
+      
       if(conversion->name == name){
+	pthread_mutex_unlock(conversion_mutex);
+	
 	return;
       }
       
@@ -223,6 +238,8 @@ ags_conversion_set_property(GObject *gobject,
       }
 
       conversion->name = g_strdup(name);
+
+      pthread_mutex_unlock(conversion_mutex);
     }
     break;
   case PROP_DESCRIPTION:
@@ -231,7 +248,11 @@ ags_conversion_set_property(GObject *gobject,
 
       description = (gchar *) g_value_get_string(value);
 
+      pthread_mutex_lock(conversion_mutex);
+
       if(conversion->description == description){
+	pthread_mutex_unlock(conversion_mutex);
+
 	return;
       }
       
@@ -240,6 +261,8 @@ ags_conversion_set_property(GObject *gobject,
       }
 
       conversion->description = g_strdup(description);
+
+      pthread_mutex_unlock(conversion_mutex);
     }
     break;
   default:
@@ -256,14 +279,35 @@ ags_conversion_get_property(GObject *gobject,
 {
   AgsConversion *conversion;
 
+  pthread_mutex_t *conversion_mutex;
+  
   conversion = AGS_CONVERSION(gobject);
+
+  /* get conversion mutex */
+  pthread_mutex_lock(ags_conversion_get_class_mutex());
+  
+  conversion_mutex = conversion->obj_mutex;
+
+  pthread_mutex_unlock(ags_conversion_get_class_mutex());
 
   switch(prop_id){
   case PROP_NAME:
-    g_value_set_string(value, conversion->name);
+    {
+      pthread_mutex_lock(conversion_mutex);
+
+      g_value_set_string(value, conversion->name);
+
+      pthread_mutex_unlock(conversion_mutex);
+    }
     break;
   case PROP_DESCRIPTION:
-    g_value_set_string(value, conversion->description);
+    {
+      pthread_mutex_lock(conversion_mutex);
+
+      g_value_set_string(value, conversion->description);
+
+      pthread_mutex_unlock(conversion_mutex);
+    }
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(gobject, prop_id, param_spec);
@@ -278,10 +322,19 @@ ags_conversion_finalize(GObject *gobject)
   
   conversion = AGS_CONVERSION(gobject);
 
+  /* conversion mutex */
+  pthread_mutexattr_destroy(conversion->obj_mutexattr);
+  free(conversion->obj_mutexattr);
+
+  pthread_mutex_destroy(conversion->obj_mutex);
+  free(conversion->obj_mutex);
+
+  /* name */
   if(conversion->name != NULL){
     g_free(conversion->name);
   }
 
+  /* description */
   if(conversion->description != NULL){
     g_free(conversion->description);
   }

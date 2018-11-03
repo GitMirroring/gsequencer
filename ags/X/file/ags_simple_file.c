@@ -52,8 +52,13 @@
 #include <ags/X/machine/ags_synth_input_line.h>
 #include <ags/X/machine/ags_syncsynth.h>
 #include <ags/X/machine/ags_oscillator.h>
+
+#ifdef AGS_WITH_LIBINSTPATCH
 #include <ags/X/machine/ags_ffplayer.h>
+#endif
+
 #include <ags/X/machine/ags_audiorec.h>
+
 #include <ags/X/machine/ags_ladspa_bridge.h>
 #include <ags/X/machine/ags_dssi_bridge.h>
 #include <ags/X/machine/ags_lv2_bridge.h>
@@ -3219,8 +3224,10 @@ ags_simple_file_read_machine_launch(AgsFileLaunch *file_launch,
     ags_simple_file_read_synth_launch((AgsSimpleFile *) file_launch->file, file_launch->node, (AgsSynth *) machine);
   }else if(AGS_IS_SYNCSYNTH(machine)){
     ags_simple_file_read_syncsynth_launch((AgsSimpleFile *) file_launch->file, file_launch->node, (AgsSyncsynth *) machine);
+#ifdef AGS_WITH_LIBINSTPATCH
   }else if(AGS_IS_FFPLAYER(machine)){
     ags_simple_file_read_ffplayer_launch((AgsSimpleFile *) file_launch->file, file_launch->node, (AgsFFPlayer *) machine);
+#endif
   }else if(AGS_IS_AUDIOREC(machine)){
     ags_simple_file_read_audiorec_launch((AgsSimpleFile *) file_launch->file, file_launch->node, (AgsAudiorec *) machine);
   }else if(AGS_IS_DSSI_BRIDGE(machine)){
@@ -7069,6 +7076,7 @@ ags_simple_file_write_machine(AgsSimpleFile *simple_file, xmlNode *parent, AgsMa
     xmlNewProp(node,
 	       "audio-loop-end",
 	       g_strdup_printf("%u", (guint) syncsynth->loop_end->adjustment->value));
+#ifdef AGS_WITH_LIBINSTPATCH
   }else if(AGS_IS_FFPLAYER(machine)){
     AgsFFPlayer *ffplayer;
 
@@ -7088,6 +7096,7 @@ ags_simple_file_write_machine(AgsSimpleFile *simple_file, xmlNode *parent, AgsMa
 		 "instrument",
 		 gtk_combo_box_text_get_active_text(ffplayer->instrument));
     }
+#endif
   }else if(AGS_IS_AUDIOREC(machine)){
     AgsAudiorec *audiorec;
 
