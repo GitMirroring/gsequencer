@@ -1,5 +1,5 @@
 #                                               -*- Autoconf -*-
-# Copyright (C) 2005-2018 Jo\u00EBl Kr\u00E4hemann
+# Copyright (C) 2005-2023 Joel Kraehemann
 #
 # Copying and distribution of this file, with or without modification,
 # are permitted in any medium without royalty provided the copyright
@@ -8,11 +8,11 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT([gsequencer],[2.4.8],[jkraehemann@gmail.com])
-AM_INIT_AUTOMAKE([subdir-objects])
+AC_INIT([gsequencer],[2.5.0],[jkraehemann@gmail.com])
+AM_INIT_AUTOMAKE([subdir-objects -Wno-portability])
 AC_CONFIG_SRCDIR([ags/config.h.in])
 AC_CONFIG_HEADERS([ags/config.h])
-AC_CONFIG_HEADERS([ags/ags_config.h])
+AC_CONFIG_HEADERS([ags/ags_api_config.h])
 AC_CONFIG_MACRO_DIR([m4])
 AC_USE_SYSTEM_EXTENSIONS([_GNU_SOURCE])
 
@@ -20,115 +20,171 @@ AM_GNU_GETTEXT([external])
 AM_GNU_GETTEXT_VERSION([0.19.8])
 
 # options
-AC_ARG_ENABLE(gnulib, [AS_HELP_STRING([--enable-gnulib],
-				      [gnulib builtin functions (default is no)])],
-	      [],			       
-	      [enable_gnulib=no])
+AC_ARG_VAR(HTMLHELP_XSL, path to Docbook XML htmlhelp XSL file)
+AC_ARG_VAR(FO_XSL, path to Docbook XML fo XSL file)
+
+AC_ARG_VAR(GOBJECT_API_DOC, path for use with sed to GObject API Reference Manual)
+AC_ARG_VAR(GTK_API_DOC, path for use with sed to Gtk+-2.0 API Reference Manual)
+AC_ARG_VAR(LIBAGS_API_DOC, path for use with sed to Libags API Reference Manual)
+AC_ARG_VAR(LIBAGS_AUDIO_API_DOC, path for use with sed to Libags-audio API Reference Manual)
+AC_ARG_VAR(LIBAGS_GUI_API_DOC, path for use with sed to Libags-gui API Reference Manual)
+
+AC_ARG_VAR(LIBAGS_API_DIR, install path of Libags API Reference Manual)
+AC_ARG_VAR(LIBAGS_AUDIO_API_DIR, install path of Libags-audio API Reference Manual)
+AC_ARG_VAR(LIBAGS_GUI_API_DIR, install path of Libags-gui API Reference Manual)
+AC_ARG_VAR(LIBGSEQUENCER_API_DIR, install path of Libgsequencer API Reference Manual)
+
+AC_ARG_ENABLE(debug, [AS_HELP_STRING([--enable-debug],
+                                     [enable debug symbols (default is no)])],
+              [],
+              [enable_debug=no])
+
+AC_ARG_ENABLE(devel, [AS_HELP_STRING([--enable-devel],
+                                     [enable devel mode (default is no)])],
+              [],
+              [enable_devel=no])
+
+AC_ARG_ENABLE(public-libgsequencer, [AS_HELP_STRING([--enable-public-libgsequencer],
+                                                    [provide public libgsequencer (default is yes)])],
+              [],
+              [enable_public_libgsequencer=yes])
+
+AC_ARG_ENABLE(upstream-gtk-doc, [AS_HELP_STRING([--enable-upstream-gtk-doc],
+                                                [put API reference manual in upstream dedicated directory (default is yes)])],
+              [],
+              [enable_upstream_gtk_doc=yes])
+
+AC_ARG_ENABLE(single-docdir, [AS_HELP_STRING([--enable-single-docdir],
+                                             [put API reference manual in upstream dedicated directory (default is no)])],
+              [],
+              [enable_single_docdir=no])
 
 AC_ARG_ENABLE(strip-rt-events, [AS_HELP_STRING([--enable-strip-rt-events],
-					       [strip rt events (default is yes)])],
-	      [],
-	      [enable_strip_rt_events=yes])
+                                               [strip rt events (default is yes)])],
+              [],
+              [enable_strip_rt_events=yes])
 
 AC_ARG_ENABLE(rt, [AS_HELP_STRING([--enable-rt],
-			          [enable rt (default is yes)])],
-	      [],
-	      [enable_rt=yes])
+                                  [enable rt (default is yes)])],
+              [],
+              [enable_rt=yes])
 
 AC_ARG_ENABLE(w32api, [AS_HELP_STRING([--enable-w32api],
-		      		      [enable w32 API (default is no)])],
-	      [],
-	      [enable_w32api=no])
+                                      [enable w32 API (default is no)])],
+              [],
+              [enable_w32api=no])
+
+AC_ARG_ENABLE(w32-exe-env, [AS_HELP_STRING([--enable-w32-exe-env],
+                     	                    [enable w32 exe environment (default is no)])],
+              [],
+              [enable_w32_exe_env=no])
 
 AC_ARG_ENABLE(osxapi, [AS_HELP_STRING([--enable-osxapi],
-		      		      [enable OS X API (default is no)])],
-	      [],
-	      [enable_osxapi=no])
+                                      [enable OS X API (default is no)])],
+              [],
+              [enable_osxapi=no])
+
+AC_ARG_ENABLE(osx-dmg-env, [AS_HELP_STRING([--enable-osx-dmg-env],
+                                      [enable OS X DMG environment (default is no)])],
+              [],
+              [enable_osx_dmg_env=no])
 
 AC_ARG_ENABLE(alsa, [AS_HELP_STRING([--enable-alsa],
-				    [enable alsa (default is yes)])],
-	      [],
-	      [enable_alsa=yes])
+                                    [enable alsa (default is yes)])],
+              [],
+              [enable_alsa=yes])
+
+AC_ARG_ENABLE(alsa-compat, [AS_HELP_STRING([--enable-alsa-compat],
+                                    [enable alsa compatibility library (default is no)])],
+              [],
+              [enable_alsa_compat=no])
 
 AC_ARG_ENABLE(oss, [AS_HELP_STRING([--enable-oss],
-				   [enable oss (default is no)])],
-	      [],
-	      [enable_oss=no])
+                                   [enable oss (default is no)])],
+              [],
+              [enable_oss=no])
 
 AC_ARG_ENABLE(jack, [AS_HELP_STRING([--enable-jack],
-				    [enable jack (default is yes)])],
-	      [],
-	      [enable_jack=yes])
+                                    [enable jack (default is yes)])],
+              [],
+              [enable_jack=yes])
 
 AC_ARG_ENABLE(pulse, [AS_HELP_STRING([--enable-pulse],
-				     [enable pulse (default is yes)])],
-	      [],
-	      [enable_pulse=yes])
+                                     [enable pulse (default is yes)])],
+              [],
+              [enable_pulse=yes])
 
 AC_ARG_ENABLE(core-audio, [AS_HELP_STRING([--enable-core-audio],
-					  [enable core audio (default is no)])],
-	      [],
-	      [enable_core_audio=no])
+                                          [enable core audio (default is no)])],
+              [],
+              [enable_core_audio=no])
 
 AC_ARG_ENABLE(audio-unit, [AS_HELP_STRING([--enable-audio-unit],
-					  [enable audio unit (default is no)])],
-	      [],
-	      [enable_audio_unit=no])
+                                          [enable audio unit (default is no)])],
+              [],
+              [enable_audio_unit=no])
 
 AC_ARG_ENABLE(wasapi, [AS_HELP_STRING([--enable-wasapi],
-				      [enable WASAPI (default is no)])],
-	      [],
-	      [enable_wasapi=no])
+                                      [enable WASAPI (default is no)])],
+              [],
+              [enable_wasapi=no])
 
 AC_ARG_ENABLE(libinstpatch, [AS_HELP_STRING([--enable-libinstpatch],
-					    [enable libinstpatch (default is yes)])],
-	      [],
-	      [enable_libinstpatch=yes])
+                                            [enable libinstpatch (default is yes)])],
+              [],
+              [enable_libinstpatch=yes])
 
 AC_ARG_ENABLE(vst3, [AS_HELP_STRING([--enable-vst3],
-				    [enable vst3 (default is no)])],
-	      [],
-	      [enable_vst3=no])
+                                    [enable vst3 (default is no)])],
+              [],
+              [enable_vst3=no])
 
 AC_ARG_ENABLE(pulse, [AS_HELP_STRING([--enable-pulse],
-				     [enable pulse (default is yes)])],
-	      [],
-	      [enable_pulse=yes])
-
-AC_ARG_ENABLE(xmlrpc, [AS_HELP_STRING([--enable-xmlrpc],
-				      [enable xmlrpc (default is no)])],
-	      [],
-	      [enable_xmlrpc=no])
+                                     [enable pulse (default is yes)])],
+              [],
+              [enable_pulse=yes])
 
 AC_ARG_ENABLE(x11, [AS_HELP_STRING([--enable-x11],
-				   [enable X11 (default is yes)])],
-	      [],
-	      [enable_x11=yes])
+                                   [enable X11 (default is yes)])],
+              [],
+              [enable_x11=yes])
 
 AC_ARG_ENABLE(quartz, [AS_HELP_STRING([--enable-quartz],
-				      [enable quartz (default is no)])],
-	      [],
-	      [enable_quartz=no])
+                                      [enable quartz (default is no)])],
+              [],
+              [enable_quartz=no])
 
 AC_ARG_ENABLE(run-functional-tests, [AS_HELP_STRING([--enable-run-functional-tests],
-			            [run functional tests (default is no)])],
-	      [],
-	      [enable_run_functional_tests=no])
+                                    [run functional tests (default is no)])],
+              [],
+              [enable_run_functional_tests=no])
 
 AC_ARG_ENABLE(fast-test-mode, [AS_HELP_STRING([--enable-fast-test-mode],
-			      [fast test mode (default is no)])],
-	      [],
-	      [enable_fast_test_mode=no])
+                              [fast test mode (default is no)])],
+              [],
+              [enable_fast_test_mode=no])
 
 AC_ARG_ENABLE(run-system-tests, [AS_HELP_STRING([--enable-run-system-tests],
-		       	    	[run system tests (default is no)])],
-	      [],
-	      [enable_run_system_tests=no])
+                                [run system tests (default is no)])],
+              [],
+              [enable_run_system_tests=no])
 
 AC_ARG_ENABLE(experimental, [AS_HELP_STRING([--enable-experimental],
-		       	    	[experimental (default is no)])],
-	      [],
-	      [enable_experimental=no])
+                                [experimental (default is no)])],
+              [],
+              [enable_experimental=no])
+
+AC_ARG_WITH([poppler],
+            [AS_HELP_STRING([--with-poppler],
+                            [enable support for poppler])],
+            [],
+            [with_poppler=no])
+
+AC_ARG_WITH([gstreamer],
+            [AS_HELP_STRING([--without-gstreamer],
+                            [disable support for gstreamer])],
+            [],
+            [with_gstreamer=yes])
 
 # Checks for programs.
 AC_PROG_CC
@@ -137,19 +193,32 @@ AC_PROG_CPP
 AC_PROG_CXX
 AC_PROG_INSTALL
 
+# Checks for programs.
+AC_PROG_CC
+AC_PROG_CPP
+AC_PROG_CXX
+AC_PROG_INSTALL
+
+gl_EARLY
+
 # libtool
 LT_PREREQ([2.4.2])
-LT_INIT
+LT_INIT([win32-dll])
 AC_SUBST([LIBTOOL_DEPS])
 AC_ENABLE_SHARED
-
-AM_CONDITIONAL([WITH_GNULIB], [test "x$enable_gnulib" == xyes])
 
 AC_SUBST([GSEQUENCER_CFLAGS])
 AC_SUBST([GSEQUENCER_LDFLAGS])
 
 AC_SUBST([MIDI2XML_CFLAGS])
 AC_SUBST([MIDI2XML_LDFLAGS])
+
+AC_SUBST([LIBAGS_CPPFLAGS])
+AC_SUBST([LIBAGS_THREAD_CPPFLAGS])
+AC_SUBST([LIBAGS_SERVER_CPPFLAGS])
+AC_SUBST([LIBAGS_AUDIO_CPPFLAGS])
+AC_SUBST([LIBAGS_GUI_CPPFLAGS])
+AC_SUBST([LIBGSEQUENCER_CPPFLAGS])
 
 AC_SUBST([LIBGSEQUENCER_TEST_LIBADD])
 
@@ -165,9 +234,6 @@ AS_IF([test "x$enable_x11" != xno],
 
 AS_IF([test "x$enable_quartz" != xno],
       [AC_DEFINE([AGS_WITH_QUARTZ], [1], [quartz enabled])
-       PKG_CHECK_MODULES([GTK_MAC_INTEGRATION], [gtk-mac-integration-gtk2 >= 2.0.7])
-       AC_SUBST(GTK_MAC_INTEGRATION_CFLAGS)
-       AC_SUBST(GTK_MAC_INTEGRATION_LIBS)
        AC_MSG_NOTICE([quartz enabled])],
       [AC_MSG_NOTICE([quartz disabled])])
 
@@ -180,8 +246,7 @@ AC_CHECK_LIB([m], [main], , AC_MSG_ERROR("No math library present"))
 AS_IF([test "x$enable_strip_rt_events" != xno],
       [AC_DEFINE([AGS_STRIP_RT_EVENTS], [1], [striping rt-events enabled])
       AC_MSG_NOTICE([striping rt-events enabled])],
-      [AC_MSG_NOTICE([striping rt-events disabled])
-       ])
+      [AC_MSG_NOTICE([striping rt-events disabled])])
 
 # FIXME: Replace `main' with a function in `-lrt':
 AS_IF([test "x$enable_rt" != xno],
@@ -189,13 +254,12 @@ AS_IF([test "x$enable_rt" != xno],
       RT_LIBS="-lrt"
       AC_CHECK_LIB([rt], [main], , AC_MSG_ERROR("No rt library present"))
       AC_MSG_NOTICE([rt enabled])],
-      [AC_MSG_NOTICE([rt disabled])
-       ])
+      [AC_MSG_NOTICE([rt disabled])])
 
 # Checks for header files.
 AC_PATH_X
 AC_FUNC_ALLOCA
-# AC_CHECK_HEADERS([fcntl.h float.h inttypes.h langinfo.h libintl.h limits.h locale.h netinet/in.h stddef.h stdint.h stdlib.h string.h sys/ioctl.h sys/param.h sys/socket.h sys/time.h unistd.h ladspa.h lv2.h], , AC_MSG_ERROR("missing headers"))
+AC_CHECK_HEADERS([stdlib.h string.h unistd.h], , AC_MSG_ERROR("missing headers"))
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_CHECK_HEADER_STDBOOL
@@ -208,21 +272,37 @@ AC_TYPE_UINT32_T
 AC_TYPE_UINT8_T
 AC_CHECK_TYPES([ptrdiff_t])
 
+WITH_W32API=0
+
 AS_IF([test "x$enable_w32api" != xno],
       [AC_DEFINE([AGS_W32API], [1], [w32api enabled])
-      W32API_CFLAGS="-nostdinc -I./lib -I/usr/lib/gcc/x86_64-w64-mingw32/7.4.0/include -I/usr/x86_64-w64-mingw32/sys-root/mingw/include -I/usr/x86_64-w64-mingw32/sys-root/mingw/include/dssi -include ags/config.h "
-      W32API_LIBS="-L./lib -lgnu"
+#      W32API_CFLAGS="-nostdinc -I./lib -I/usr/lib/gcc/x86_64-w64-mingw32/7.4.0/include -I/usr/x86_64-w64-mingw32/sys-root/mingw/include -I/usr/x86_64-w64-mingw32/sys-root/mingw/include/dssi -include ags/config.h "
+#      W32API_LIBS="-L./lib -lgnu"
+      AC_SUBST(W32API_CFLAGS)
+      AC_SUBST(W32API_LIBS)
       AC_MSG_NOTICE([w32api enabled])],
-      AC_MSG_NOTICE([w32api disabled]))
+      [AC_MSG_NOTICE([w32api disabled])])
 AM_CONDITIONAL([WITH_W32API], [test "x$enable_w32api" == xyes])
+
+AS_IF([test "x$enable_w32_exe_env" != xno],
+      [AC_DEFINE([AGS_W32_EXE_ENV], [1], [w32 exe environment enabled])
+      AC_MSG_NOTICE([w32 exe environment enabled])],
+      [AC_MSG_NOTICE([w32 exe environment disabled])])
+AM_CONDITIONAL([WITH_W32_EXE_ENV], [test "x$enable_w32_exe_env" == xyes])
 
 AS_IF([test "x$enable_osxapi" != xno],
       [AC_DEFINE([AGS_OSXAPI], [1], [OS X api enabled])
-      OSXAPI_CFLAGS=""
-      OSXAPI_LIBS=""
+      AC_SUBST(OSXAPI_CFLAGS)
+      AC_SUBST(OSXAPI_LIBS)
       AC_MSG_NOTICE([OS X api enabled])],
-      AC_MSG_NOTICE([OS X api disabled]))
+      [AC_MSG_NOTICE([OS X api disabled])])
 AM_CONDITIONAL([WITH_OSXAPI], [test "x$enable_osxapi" == xyes])
+
+AS_IF([test "x$enable_osx_dmg_env" != xno],
+      [AC_DEFINE([AGS_OSX_DMG_ENV], [1], [OS X DMG environment enabled])
+      AC_MSG_NOTICE([OS X DMG environment enabled])],
+      [AC_MSG_NOTICE([OS X DMG environment disabled])])
+AM_CONDITIONAL([WITH_OSX_DMG_ENV], [test "x$enable_osx_dmg_env" == xyes])
 
 PKG_CHECK_MODULES([UUID], [uuid >= 1.0.1])
 AC_SUBST(UUID_CFLAGS)
@@ -234,23 +314,19 @@ AS_IF([test "x$enable_alsa" != xno],
        AC_SUBST(LIBASOUND2_LIBS)
        AC_DEFINE([AGS_WITH_ALSA], [1], [ALSA enabled])
        AC_MSG_NOTICE([ALSA enabled])],
-      [AC_MSG_NOTICE([ALSA disabled])
-       AC_CHECK_HEADERS([alsa/seq_event.h],
-			[AC_DEFINE([HAVE_ALSA_SEQ_EVENT_H], [1], [ALSA sequencer event available])]
-			[PKG_CHECK_MODULES([LIBASOUND2], [alsa >= 1.0.5])
-			AC_SUBST(LIBASOUND2_CFLAGS)
-			AC_SUBST(LIBASOUND2_LIBS)],
-		  	[AC_MSG_NOTICE([ALSA sequencer event not available])],[
-#if HAVE_ALSA_SEQ_EVENT_H
-#  include <alsa/seq_event.h>
-#  include <alsa/seq_midi_event.h>
-#endif
-			])])
+      [AC_MSG_NOTICE([ALSA disabled])])
+
+AS_IF([test "x$enable_alsa_compat" != xno],
+      [PKG_CHECK_MODULES([LIBDSSIALSACOMPAT], [libdssialsacompat >= 1.0.0])
+       AC_SUBST(LIBDSSIALSACOMPAT_CFLAGS)
+       AC_SUBST(LIBDSSIALSACOMPAT_LIBS)
+       AC_MSG_NOTICE([ALSA compatibility library enabled])],
+      [AC_MSG_NOTICE([ALSA compatibility library disabled])])
 
 AS_IF([test "x$enable_oss" != xno],
       [AC_DEFINE([AGS_WITH_OSS], [1], [OSS enabled])
        AC_MSG_NOTICE([OSS enabled])],
-      AC_MSG_NOTICE([OSS disabled]))
+      [AC_MSG_NOTICE([OSS disabled])])
 
 AS_IF([test "x$enable_core_audio" != xno],
       [AC_DEFINE([AGS_WITH_CORE_AUDIO], [1], [core-audio enabled])
@@ -261,18 +337,18 @@ AS_IF([test "x$enable_core_audio" != xno],
       AC_SUBST(CORE_AUDIO_LIBS)
 
       AC_MSG_NOTICE([core audio enabled])],
-      AC_MSG_NOTICE([core audio disabled]))
+      [AC_MSG_NOTICE([core audio disabled])])
 
 AS_IF([test "x$enable_audio_unit" != xno],
-      [AC_DEFINE([AGS_WITH_AUDIO_UNIT], [1], [core-audio enabled])
+      [AC_DEFINE([AGS_WITH_AUDIO_UNIT], [1], [audio-unit enabled])
 
       AUDIO_UNIT_CFLAGS= 
       AUDIO_UNIT_LIBS="-framework AudioUnit -framework AudioToolbox"
       AC_SUBST(AUDIO_UNIT_CFLAGS)
       AC_SUBST(AUDIO_UNIT_LIBS)
 
-      AC_MSG_NOTICE([core audio enabled])],
-      AC_MSG_NOTICE([core audio disabled]))
+      AC_MSG_NOTICE([audio-unit enabled])],
+      [AC_MSG_NOTICE([audio-unit disabled])])
 
 AS_IF([test "x$enable_wasapi" != xno],
       [AC_DEFINE([AGS_WITH_WASAPI], [1], [wasapi enabled])
@@ -282,7 +358,7 @@ AS_IF([test "x$enable_wasapi" != xno],
       AC_SUBST(WASAPI_LIBS)
 
       AC_MSG_NOTICE([wasapi enabled])],
-      AC_MSG_NOTICE([wasapi disabled]))
+      [AC_MSG_NOTICE([wasapi disabled])])
 
 AS_IF([test "x$enable_jack" != xno],
       [AC_DEFINE([AGS_WITH_JACK], [1], [JACK enabled])
@@ -292,9 +368,9 @@ AS_IF([test "x$enable_jack" != xno],
       AC_SUBST(JACK_LIBS)
 
       AC_CHECK_FUNC([jack_port_uuid],
-		    [AC_DEFINE([HAVE_JACK_PORT_UUID], [1], [Jack port uuid available])])
+                    [AC_DEFINE([HAVE_JACK_PORT_UUID], [1], [Jack port uuid available])])
       AC_MSG_NOTICE([JACK enabled])],
-      AC_MSG_NOTICE([JACK disabled]))
+      [AC_MSG_NOTICE([JACK disabled])])
 
 AS_IF([test "x$enable_pulse" != xno],
       [AC_DEFINE([AGS_WITH_PULSE], [1], [PULSE enabled])
@@ -304,7 +380,7 @@ AS_IF([test "x$enable_pulse" != xno],
       AC_SUBST(PULSE_LIBS)
 
       AC_MSG_NOTICE([PULSE enabled])],
-      AC_MSG_NOTICE([PULSE disabled]))
+      [AC_MSG_NOTICE([PULSE disabled])])
 
 PKG_CHECK_MODULES([LIBXML2], [libxml-2.0 >= 2.8.0])
 AC_SUBST(LIBXML2_CFLAGS)
@@ -322,93 +398,172 @@ PKG_CHECK_MODULES([FFTW], [fftw3 >= 3.3.4])
 AC_SUBST(FFTW_CFLAGS)
 AC_SUBST(FFTW_LIBS)
 
-PKG_CHECK_MODULES([GLIB], [glib-2.0 >= 2.32.3])
+PKG_CHECK_MODULES([GLIB], [glib-2.0 >= 2.56.0])
 AC_SUBST(GLIB_CFLAGS)
 AC_SUBST(GLIB_LIBS)
 
-PKG_CHECK_MODULES([GOBJECT], [gobject-2.0 >= 2.32.3 glib-2.0 >= 2.32.3 gmodule-2.0 >= 2.32.3 gthread-2.0 >= 2.32.3])
+PKG_CHECK_MODULES([GOBJECT], [gobject-2.0 >= 2.56.0 glib-2.0 >= 2.56.0 gmodule-2.0 >= 2.56.0 gthread-2.0 >= 2.56.0])
 AC_SUBST(GOBJECT_CFLAGS)
 AC_SUBST(GOBJECT_LIBS)
 
-AC_CHECK_LIB(glib-2.0, g_strv_length,
-	     AC_DEFINE([HAVE_GLIB_2_6], [1], [GLib 2.6 available]))
-AC_CHECK_LIB(glib-2.0, g_strv_contains,
-	     AC_DEFINE([HAVE_GLIB_2_44], [1], [GLib 2.44 available]))
-AC_CHECK_LIB(glib-2.0, g_object_setv,
-	     AC_DEFINE([HAVE_GLIB_2_54], [1], [GLib 2.54 available]))
+AC_DEFINE([HAVE_GLIB_2_6], [1], [GLib 2.6 available])
+AC_DEFINE([HAVE_GLIB_2_44], [1], [GLib 2.44 available])
+AC_DEFINE([HAVE_GLIB_2_52], [1], [GLib 2.52 available])
+AC_DEFINE([HAVE_GLIB_2_54], [1], [GLib 2.54 available])
+AC_DEFINE([HAVE_GLIB_2_56], [1], [GLib 2.56 available])
+AC_DEFINE([HAVE_GLIB_2_62], [0], [GLib 2.62 available])
+AC_DEFINE([HAVE_GLIB_2_68], [0], [GLib 2.68 available])
 
+AS_IF([test "x$enable_introspection" != xno],
+      [AC_MSG_NOTICE([introspection enabled])],
+      [AC_MSG_NOTICE([introspection disabled])])
+AM_CONDITIONAL([HAVE_INTROSPECTION], [test "x$enable_introspection" == xyes])
+# GOBJECT_INTROSPECTION_CHECK([1.30.0])
 
-PKG_CHECK_MODULES([GIO], [gio-2.0 >= 2.32.3 glib-2.0 >= 2.32.3 gmodule-2.0 >= 2.32.3 gthread-2.0 >= 2.32.3])
+PKG_CHECK_MODULES([GIO], [gio-2.0 >= 2.56.0 glib-2.0 >= 2.56.0 gmodule-2.0 >= 2.56.0 gthread-2.0 >= 2.56.0])
 AC_SUBST(GIO_CFLAGS)
 AC_SUBST(GIO_LIBS)
 
-AC_CHECK_LIB(atk-1.0, atk_value_get_value_and_text,
-             [AC_DEFINE([HAVE_ATK_2_12], [1], [Atk 2.12 available])])
+PKG_CHECK_MODULES([LIBSOUP], [libsoup-3.0 >= 3.0.0])
+AC_SUBST(LIBSOUP_CFLAGS)
+AC_SUBST(LIBSOUP_LIBS)
+
+AC_DEFINE([HAVE_ATK_2_12], [1], [Atk 2.12 available])
+
+AS_IF([test "x$enable_debug" != xno],
+      [AC_DEFINE([AGS_WITH_DEBUG], [1], [debug symbols enabled])
+      
+      AC_MSG_NOTICE([debug enabled])],
+      [AC_MSG_NOTICE([debug disabled])])
+AM_CONDITIONAL([AGS_WITH_DEBUG], [test "x$enable_debug" == xyes])
+
+AS_IF([test "x$enable_devel" != xno],
+      [AC_DEFINE([AGS_WITH_DEVEL], [1], [devel mode enabled])
+      
+      AC_MSG_NOTICE([devel enabled])],
+      [AC_MSG_NOTICE([devel disabled])])
+AM_CONDITIONAL([AGS_WITH_DEVEL], [test "x$enable_devel" == xyes])
+
+AS_IF([test "x$enable_public_libgsequencer" != xno],
+      [AC_DEFINE([AGS_WITH_PUBLIC_LIBGSEQUENCER], [1], [public libgsequencer enabled])
+      
+      AC_MSG_NOTICE([public libgsequencer enabled])],
+      [AC_MSG_NOTICE([public libgsequencer disabled])])
+AM_CONDITIONAL([AGS_WITH_PUBLIC_LIBGSEQUENCER], [test "x$enable_public_libgsequencer" == xyes])
+
+AS_IF([test "x$enable_upstream_gtk_doc" != xno],
+      [AC_DEFINE([AGS_WITH_UPSTREAM_GTK_DOC], [1], [upstream API reference directory enabled])
+      
+      AC_MSG_NOTICE([upstream API reference directory enabled])],
+      [AC_MSG_NOTICE([upstream API reference directory disabled])])
+AM_CONDITIONAL([AGS_WITH_UPSTREAM_GTK_DOC], [test "x$enable_upstream_gtk_doc" == xyes])
+
+AS_IF([test "x$enable_single_docdir" != xno],
+      [AC_DEFINE([AGS_WITH_SINGLE_DOCDIR], [1], [single documentation directory enabled])
+      
+      AC_MSG_NOTICE([single documentation directory enabled])],
+      [AC_MSG_NOTICE([single documentation directory disabled])])
+AM_CONDITIONAL([AGS_WITH_SINGLE_DOCDIR], [test "x$enable_single_docdir" == xyes])
 
 AS_IF([test "x$enable_libinstpatch" != xno],
       [PKG_CHECK_MODULES([LIBINSTPATCH], [libinstpatch-1.0 >= 1.0])
       AC_SUBST(LIBINSTPATCH_CFLAGS)
       AC_SUBST(LIBINSTPATCH_LIBS)
       AC_DEFINE([AGS_WITH_LIBINSTPATCH], [1], [Disable if you don't want libinstpatch])],
-      AC_MSG_NOTICE([libinstpatch disabled]))
+      [AC_MSG_NOTICE([libinstpatch disabled])])
 AM_CONDITIONAL([WITH_LIBINSTPATCH], [test "x$enable_libinstpatch" == xyes])
+
+WITH_VST3=0
 
 AS_IF([test "x$enable_vst3" != xno],
       [AC_DEFINE([AGS_WITH_VST3], [1], [VST3 enabled])
-
-      AC_SUBST(VST3_CXXFLAGS)
-      AC_SUBST(VST3_LIBS)
-      
+      AC_SUBST(LIBAGS_VST3_RELEASE_TYPE)
+      AC_SUBST(LIBAGS_VST3_CPPFLAGS)
+      AC_SUBST(LIBAGS_VST3_CXXFLAGS)
+      AC_SUBST(LIBAGS_VST3_LDFLAGS)
+      AC_SUBST(LIBAGS_VST3_LIBS)
       AC_MSG_NOTICE([VST3 enabled])],
-      AC_MSG_NOTICE([VST3 disabled]))
-
-PKG_CHECK_MODULES([FONTCONFIG], [fontconfig >= 2.9.0])
-AC_SUBST(FONTCONFIG_CFLAGS)
-AC_SUBST(FONTCONFIG_LIBS)
-
-PKG_CHECK_MODULES([GDKPIXBUF], [gdk-pixbuf-2.0 >= 2.32.2])
-AC_SUBST(GDKPIXBUF_CFLAGS)
-AC_SUBST(GDKPIXBUF_LIBS)
+      [AC_MSG_NOTICE([VST3 disabled])])
+AM_CONDITIONAL([WITH_VST3], [test "x$enable_vst3" == xyes])
 
 PKG_CHECK_MODULES([CAIRO], [cairo >= 1.12.0])
 AC_SUBST(CAIRO_CFLAGS)
 AC_SUBST(CAIRO_LIBS)
 
-PKG_CHECK_MODULES([GTK], [gtk+-2.0 >= 2.24.10])
+PKG_CHECK_MODULES([GTK], [gtk2 >= 2.24.x])
 AC_SUBST(GTK_CFLAGS)
 AC_SUBST(GTK_LIBS)
 
-AS_IF([test "x$enable_xmlrpc" != xno],
-      [AC_CHECK_PROG([XMLRPC_C_CONFIG], [xmlrpc-c-config], [1], [0], [$PATH], [1])
-      AC_SUBST(XMLRPC_UTIL_CFLAGS, $(xmlrpc-c-config server-util --cflags))
-      AC_SUBST(XMLRPC_UTIL_LIBS, $(xmlrpc-c-config server-util --libs))
-      AC_SUBST(XMLRPC_CLIENT_CFLAGS, $(xmlrpc-c-config client --cflags))
-      AC_SUBST(XMLRPC_CLIENT_LIBS, $(xmlrpc-c-config client --libs))
-#      AC_SUBST(XMLRPC_SERVER_CFLAGS, $(xmlrpc-c-config abyss --cflags))
-#      AC_SUBST(XMLRPC_SERVER_LIBS, $(xmlrpc-c-config abyss --libs))
-      AC_SUBST(XMLRPC_SERVER_CGI_CFLAGS, $(xmlrpc-c-config cgi-server --cflags))
-      AC_SUBST(XMLRPC_SERVER_CGI_LIBS, $(xmlrpc-c-config cgi-server --libs))
-      AC_SUBST(XMLRPC_SERVER_ABYSS_CFLAGS, $(xmlrpc-c-config abyss-server --cflags))
-      AC_SUBST(XMLRPC_SERVER_ABYSS_LIBS, $(xmlrpc-c-config abyss-server --libs))
-      AC_MSG_NOTICE([xmlrpc-c enabled])
-      AC_DEFINE([AGS_WITH_XMLRPC_C], [1], [Disable if you don't want xmlrpc-c])],
-      AC_MSG_NOTICE([xmlrpc-c disabled]))
+AS_IF([test "x$with_poppler" != xno],
+      [PKG_CHECK_MODULES([POPPLER], [poppler-glib >= 0.71.0])
+       AC_SUBST(POPPLER_CFLAGS)
+       AC_SUBST(POPPLER_LIBS)
+       AC_DEFINE([AGS_WITH_POPPLER], [1],
+                 [Define if you have poppler])
+      ])
+
+AS_IF([test "x$with_gstreamer" != xno],
+      [PKG_CHECK_MODULES([GSTREAMER], [gstreamer-1.0 >= 1.6.0 gstreamer-audio-1.0 >= 1.6.0 gstreamer-video-1.0 >= 1.6.0 gstreamer-app-1.0 >= 1.6.0 gstreamer-pbutils-1.0 >= 1.6.0])
+       AC_SUBST(GSTREAMER_CFLAGS)
+       AC_SUBST(GSTREAMER_LIBS)
+       AC_DEFINE([AGS_WITH_GSTREAMER], [1],
+                 [Define if you have gstreamer])
+      ])
+AM_CONDITIONAL([WITH_GSTREAMER], [test "x$with_gstreamer" == xyes])
 
 AS_IF([test "x$enable_run_functional_tests" == xyes],
       [AC_MSG_NOTICE([run functional tests enabled])],
-      AC_MSG_NOTICE([run functional tests disabled]))
+      [AC_MSG_NOTICE([run functional tests disabled])])
 AM_CONDITIONAL([RUN_FUNCTIONAL_TESTS], [test "x$enable_run_functional_tests" == xyes])
 
 AS_IF([test "x$enable_fast_test_mode" == xyes],
       [AC_MSG_NOTICE([fast test mode enabled])],
-      AC_MSG_NOTICE([fast test mode disabled]))
+      [AC_MSG_NOTICE([fast test mode disabled])])
 AM_CONDITIONAL([FAST_TEST_MODE], [test "x$enable_fast_test_mode" == xyes])
 
 # Checks for library functions.
 AC_FUNC_MALLOC
 AC_FUNC_MMAP
 AC_FUNC_REALLOC
-AC_CHECK_FUNCS([__argz_count __argz_next __argz_stringify atexit clock_gettime floor getcwd localeconv mblen mbrlen memchr mempcpy memset munmap nl_langinfo setlocale socket sqrt stpcpy strcasecmp strchr strcspn strdup strstr strtol strtoul])
+AC_CHECK_FUNCS([__argz_count __argz_next __argz_stringify atexit clock_gettime floor memmove memset pow putenv realpath regcomp setlocale sqrt strchr strdup strerror strrchr strstr strtoul])
+
+AC_CANONICAL_HOST
+
+build_gnu=no
+build_linux=no
+build_windows=no
+build_mac=no
+build_freebsd=no
+
+# Detect the target system
+case "${host_os}" in
+    gnu*)
+        build_gnu=yes
+        ;;
+    linux*)
+        build_linux=yes
+        ;;
+    freebsd*)
+        build_freebsd=yes
+        ;;
+    cygwin*|mingw*)
+        build_windows=yes
+        ;;
+    darwin*)
+        build_mac=yes
+        ;;
+    *)
+        AC_MSG_NOTICE(["OS $host_os is not supported"])
+        ;;
+esac
+
+# Pass the conditionals to automake
+AM_CONDITIONAL([GNU], [test "$build_gnu" = "yes"])
+AM_CONDITIONAL([LINUX], [test "$build_linux" = "yes"])
+AM_CONDITIONAL([FREEBSD], [test "$build_freebsd" = "yes"])
+AM_CONDITIONAL([WINDOWS], [test "$build_windows" = "yes"])
+AM_CONDITIONAL([OSX], [test "$build_mac" = "yes"])
+
 
 # check for gtk-doc
 m4_ifdef([GTK_DOC_CHECK], [
@@ -421,10 +576,13 @@ AM_CONDITIONAL([WITH_SYSTEM_TESTS], [test "x$enable_run_system_tests" == xyes])
 AM_CONDITIONAL([WITH_VST3], [test "x$enable_vst3" == xyes])
 AM_CONDITIONAL([WITH_EXPERIMENTAL], [test "x$enable_experimental" == xyes])
 
+AGS_POTFILES([])
+
 LIBAGS_SYMBOLS([])
 LIBAGS_THREAD_SYMBOLS([])
 LIBAGS_SERVER_SYMBOLS([])
 LIBAGS_AUDIO_SYMBOLS([])
+LIBAGS_VST_SYMBOLS([])
 LIBAGS_GUI_SYMBOLS([])
 
 LIBAGS_MARSHALLERS([])
@@ -432,22 +590,172 @@ LIBAGS_GUI_MARSHALLERS([])
 
 AGS_DEVELOPER_BOOK_LISTINGS([])
 
+AGS_DOCS_BOOKS([])
 AGS_DOCS_API([])
+
+
+AS_IF([test "x$INTROSPECTION_SCANNER" != x],
+      [AC_SUBST(INTROSPECTION_SCANNER, $INTROSPECTION_SCANNER)
+       AC_MSG_NOTICE([INTROSPECTION_SCANNER = $INTROSPECTION_SCANNER])],
+      [AC_SUBST(INTROSPECTION_SCANNER, /usr/bin/g-ir-scanner)
+       AC_MSG_NOTICE([INTROSPECTION_SCANNER = $INTROSPECTION_SCANNER])])
+
+AS_IF([test "x$INTROSPECTION_COMPILER" != x],
+      [AC_SUBST(INTROSPECTION_COMPILER, $INTROSPECTION_COMPILER)
+       AC_MSG_NOTICE([INTROSPECTION_COMPILER = $INTROSPECTION_COMPILER])],
+      [AC_SUBST(INTROSPECTION_COMPILER, /usr/bin/g-ir-compiler)
+       AC_MSG_NOTICE([INTROSPECTION_COMPILER = $INTROSPECTION_COMPILER])])
+
+AS_IF([test "x$HTMLHELP_XSL" != x],
+      [AC_SUBST(HTMLHELP_XSL, $HTMLHELP_XSL)
+       AC_MSG_NOTICE([HTMLHELP_XSL = $HTMLHELP_XSL])],
+      [AC_SUBST(HTMLHELP_XSL, /usr/share/xml/docbook/stylesheet/docbook-xsl/htmlhelp/htmlhelp.xsl)
+       AC_MSG_NOTICE([HTMLHELP_XSL = $HTMLHELP_XSL])])
+
+AS_IF([test "x$FO_XSL" != x],
+      [AC_SUBST(FO_XSL, $FO_XSL)
+       AC_MSG_NOTICE([FO_XSL = $FO_XSL])],
+      [AC_SUBST(FO_XSL, /usr/share/xml/docbook/stylesheet/docbook-xsl/fo/docbook.xsl)
+       AC_MSG_NOTICE([FO_XSL = $FO_XSL])])
+
+AS_IF([test "x$enable_upstream_gtk_doc" != xno],
+[AS_IF([test "x$GOBJECT_API_DOC" != x],
+      [AC_SUBST(GOBJECT_API_DOC, $GOBJECT_API_DOC)
+       AC_MSG_NOTICE([GOBJECT_API_DOC = $GOBJECT_API_DOC])],
+      [AC_SUBST(GOBJECT_API_DOC, '/usr/share/doc/libglib2.0-doc/gobject')
+       AC_MSG_NOTICE([GOBJECT_API_DOC = $GOBJECT_API_DOC])])
+
+AS_IF([test "x$GTK_API_DOC" != x],
+      [AC_SUBST(GTK_API_DOC, $GTK_API_DOC)
+       AC_MSG_NOTICE([GTK_API_DOC = $GTK_API_DOC])],
+      [AC_SUBST(GTK_API_DOC, '/usr/share/doc/libgtk-3-doc/gtk3')
+       AC_MSG_NOTICE([GTK_API_DOC = $GTK_API_DOC])])
+
+AS_IF([test "x$LIBAGS_API_DOC" != x],
+      [AC_SUBST(LIBAGS_API_DOC, $LIBAGS_API_DOC)
+       AC_MSG_NOTICE([LIBAGS_API_DOC = $LIBAGS_API_DOC])],
+      [AC_SUBST(LIBAGS_API_DOC, '/usr/share/doc/libags-doc/api')
+       AC_MSG_NOTICE([LIBAGS_API_DOC = $LIBAGS_API_DOC])])
+
+AS_IF([test "x$LIBAGS_AUDIO_API_DOC" != x],
+      [AC_SUBST(LIBAGS_AUDIO_API_DOC, $LIBAGS_AUDIO_API_DOC)
+       AC_MSG_NOTICE([LIBAGS_AUDIO_API_DOC = $LIBAGS_AUDIO_API_DOC])],
+      [AC_SUBST(LIBAGS_AUDIO_API_DOC, '/usr/share/doc/libags-audio-doc/api')
+       AC_MSG_NOTICE([LIBAGS_AUDIO_API_DOC = $LIBAGS_AUDIO_API_DOC])])
+
+AS_IF([test "x$LIBAGS_GUI_API_DOC" != x],
+      [AC_SUBST(LIBAGS_GUI_API_DOC, $LIBAGS_GUI_API_DOC)
+       AC_MSG_NOTICE([LIBAGS_GUI_API_DOC = $LIBAGS_GUI_API_DOC])],
+      [AC_SUBST(LIBAGS_GUI_API_DOC, '/usr/share/doc/libags-gui-doc/api')
+       AC_MSG_NOTICE([LIBAGS_GUI_API_DOC = $LIBAGS_GUI_API_DOC])])
+
+AS_IF([test "x$LIBGSEQUENCER_API_DOC" != x],
+      [AC_SUBST(LIBGSEQUENCER_API_DOC, $LIBGSEQUENCER_API_DOC)
+       AC_MSG_NOTICE([LIBGSEQUENCER_API_DOC = $LIBGSEQUENCER_API_DOC])],
+      [AC_SUBST(LIBGSEQUENCER_API_DOC, '/usr/share/doc/libgsequencer-doc/api')
+       AC_MSG_NOTICE([LIBGSEQUENCER_API_DOC = $LIBGSEQUENCER_API_DOC])])
+
+AS_IF([test "x$LIBAGS_API_DIR" != x],
+      [AC_SUBST(LIBAGS_API_DIR, $LIBAGS_API_DIR)
+       AC_MSG_NOTICE([LIBAGS_API_DIR = $LIBAGS_API_DIR])],
+      [AC_SUBST(LIBAGS_API_DIR, $datadir/doc/libags-doc/api)
+       AC_MSG_NOTICE([LIBAGS_API_DIR = $LIBAGS_API_DIR])])
+
+AS_IF([test "x$LIBAGS_AUDIO_API_DIR" != x],
+      [AC_SUBST(LIBAGS_AUDIO_API_DIR, $LIBAGS_AUDIO_API_DIR)
+       AC_MSG_NOTICE([LIBAGS_AUDIO_API_DIR = $LIBAGS_AUDIO_API_DIR])],
+      [AC_SUBST(LIBAGS_AUDIO_API_DIR, $datadir/doc/libags-audio-doc/api)
+       AC_MSG_NOTICE([LIBAGS_AUDIO_API_DIR = $LIBAGS_AUDIO_API_DIR])])
+
+AS_IF([test "x$LIBAGS_GUI_API_DIR" != x],
+      [AC_SUBST(LIBAGS_GUI_API_DIR, $LIBAGS_GUI_API_DIR)
+       AC_MSG_NOTICE([LIBAGS_GUI_API_DIR = $LIBAGS_GUI_API_DIR])],
+      [AC_SUBST(LIBAGS_GUI_API_DIR, $datadir/doc/libags-gui-doc/api)
+       AC_MSG_NOTICE([LIBAGS_GUI_API_DIR = $LIBAGS_GUI_API_DIR])])
+
+AS_IF([test "x$LIBGSEQUENCER_API_DIR" != x],
+      [AC_SUBST(LIBGSEQUENCER_API_DIR, $LIBGSEQUENCER_API_DIR)
+       AC_MSG_NOTICE([LIBGSEQUENCER_API_DIR = $LIBGSEQUENCER_API_DIR])],
+      [AC_SUBST(LIBGSEQUENCER_API_DIR, $datadir/doc/libgsequencer-doc/api)
+       AC_MSG_NOTICE([LIBGSEQUENCER_API_DIR = $LIBGSEQUENCER_API_DIR])])
+],
+[
+AS_IF([test "x$GOBJECT_API_DOC" != x],
+      [AC_SUBST(GOBJECT_API_DOC, $GOBJECT_API_DOC)
+       AC_MSG_NOTICE([GOBJECT_API_DOC = $GOBJECT_API_DOC])],
+      [AC_SUBST(GOBJECT_API_DOC, '../gobject')
+       AC_MSG_NOTICE([GOBJECT_API_DOC = $GOBJECT_API_DOC])])
+
+AS_IF([test "x$GTK_API_DOC" != x],
+      [AC_SUBST(GTK_API_DOC, $GTK_API_DOC)
+       AC_MSG_NOTICE([GTK_API_DOC = $GTK_API_DOC])],
+      [AC_SUBST(GTK_API_DOC, '../gtk2')
+       AC_MSG_NOTICE([GTK_API_DOC = $GTK_API_DOC])])
+
+AS_IF([test "x$LIBAGS_API_DOC" != x],
+      [AC_SUBST(LIBAGS_API_DOC, $LIBAGS_API_DOC)
+       AC_MSG_NOTICE([LIBAGS_API_DOC = $LIBAGS_API_DOC])],
+      [AC_SUBST(LIBAGS_API_DOC, '../libags')
+       AC_MSG_NOTICE([LIBAGS_API_DOC = $LIBAGS_API_DOC])])
+
+AS_IF([test "x$LIBAGS_AUDIO_API_DOC" != x],
+      [AC_SUBST(LIBAGS_AUDIO_API_DOC, $LIBAGS_AUDIO_API_DOC)
+       AC_MSG_NOTICE([LIBAGS_AUDIO_API_DOC = $LIBAGS_AUDIO_API_DOC])],
+      [AC_SUBST(LIBAGS_AUDIO_API_DOC, '../libags_audio')
+       AC_MSG_NOTICE([LIBAGS_AUDIO_API_DOC = $LIBAGS_AUDIO_API_DOC])])
+
+AS_IF([test "x$LIBAGS_GUI_API_DOC" != x],
+      [AC_SUBST(LIBAGS_GUI_API_DOC, $LIBAGS_GUI_API_DOC)
+       AC_MSG_NOTICE([LIBAGS_GUI_API_DOC = $LIBAGS_GUI_API_DOC])],
+      [AC_SUBST(LIBAGS_GUI_API_DOC, '../libags_gui')
+       AC_MSG_NOTICE([LIBAGS_GUI_API_DOC = $LIBAGS_GUI_API_DOC])])
+
+AS_IF([test "x$LIBGSEQUENCER_API_DOC" != x],
+      [AC_SUBST(LIBGSEQUENCER_API_DOC, $LIBGSEQUENCER_API_DOC)
+       AC_MSG_NOTICE([LIBGSEQUENCER_API_DOC = $LIBGSEQUENCER_API_DOC])],
+      [AC_SUBST(LIBGSEQUENCER_API_DOC, '../libgsequencer')
+       AC_MSG_NOTICE([LIBGSEQUENCER_API_DOC = $LIBGSEQUENCER_API_DOC])])
+
+AS_IF([test "x$LIBAGS_API_DIR" != x],
+      [AC_SUBST(LIBAGS_API_DIR, $LIBAGS_API_DIR)
+       AC_MSG_NOTICE([LIBAGS_API_DIR = $LIBAGS_API_DIR])],
+      [AC_SUBST(LIBAGS_API_DIR, $datadir/gtk-doc/html/libags)
+       AC_MSG_NOTICE([LIBAGS_API_DIR = $LIBAGS_API_DIR])])
+
+AS_IF([test "x$LIBAGS_AUDIO_API_DIR" != x],
+      [AC_SUBST(LIBAGS_AUDIO_API_DIR, $LIBAGS_AUDIO_API_DIR)
+       AC_MSG_NOTICE([LIBAGS_AUDIO_API_DIR = $LIBAGS_AUDIO_API_DIR])],
+      [AC_SUBST(LIBAGS_AUDIO_API_DIR, $datadir/gtk-doc/html/libags_audio)
+       AC_MSG_NOTICE([LIBAGS_AUDIO_API_DIR = $LIBAGS_AUDIO_API_DIR])])
+
+AS_IF([test "x$LIBAGS_GUI_API_DIR" != x],
+      [AC_SUBST(LIBAGS_GUI_API_DIR, $LIBAGS_GUI_API_DIR)
+       AC_MSG_NOTICE([LIBAGS_GUI_API_DIR = $LIBAGS_GUI_API_DIR])],
+      [AC_SUBST(LIBAGS_GUI_API_DIR, $datadir/gtk-doc/html/libags_gui)
+       AC_MSG_NOTICE([LIBAGS_GUI_API_DIR = $LIBAGS_GUI_API_DIR])])
+
+AS_IF([test "x$LIBGSEQUENCER_API_DIR" != x],
+      [AC_SUBST(LIBGSEQUENCER_API_DIR, $LIBGSEQUENCER_API_DIR)
+       AC_MSG_NOTICE([LIBGSEQUENCER_API_DIR = $LIBGSEQUENCER_API_DIR])],
+      [AC_SUBST(LIBGSEQUENCER_API_DIR, $datadir/gtk-doc/html/libgsequencer)
+       AC_MSG_NOTICE([LIBGSEQUENCER_API_DIR = $LIBGSEQUENCER_API_DIR])])
+])
 
 gl_INIT
 
 AM_EXTRA_RECURSIVE_TARGETS([ags-docs])
 AC_CONFIG_FILES([
-Makefile
 lib/Makefile
+Makefile
+m4/Makefile
+po/Makefile.in
+po/Makefile
 unit-system-tests.mk
 functional-system-tests.mk
 docs/reference/libags/Makefile
 docs/reference/libags-audio/Makefile
 docs/reference/libags-gui/Makefile
 docs/reference/libgsequencer/Makefile
-m4/Makefile
-po/Makefile.in
 libags.pc
 libags_audio.pc
 libags_gui.pc
