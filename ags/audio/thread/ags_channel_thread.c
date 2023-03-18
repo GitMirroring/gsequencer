@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -19,10 +19,10 @@
 
 #include <ags/audio/thread/ags_channel_thread.h>
 
-#include <ags/libags.h>
-
 #include <ags/audio/ags_channel.h>
 #include <ags/audio/ags_playback.h>
+
+#include <ags/audio/thread/ags_audio_loop.h>
 
 #include <math.h>
 
@@ -61,6 +61,8 @@ enum{
   PROP_DEFAULT_OUTPUT_SOUNDCARD,
   PROP_CHANNEL,
   PROP_SOUND_SCOPE,
+  PROP_PROCESSING,
+  PROP_TASK_LAUNCHER,
 };
 
 static gpointer ags_channel_thread_parent_class = NULL;
@@ -131,7 +133,7 @@ ags_channel_thread_class_init(AgsChannelThreadClass *channel_thread)
    *
    * The assigned default soundcard.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_object("default-output-soundcard",
 				   i18n_pspec("default output soundcard assigned to"),
@@ -147,7 +149,7 @@ ags_channel_thread_class_init(AgsChannelThreadClass *channel_thread)
    *
    * The assigned #AgsChannel.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_object("channel",
 				   i18n_pspec("channel assigned to"),
@@ -158,6 +160,37 @@ ags_channel_thread_class_init(AgsChannelThreadClass *channel_thread)
 				  PROP_CHANNEL,
 				  param_spec);
 
+  /**
+   * AgsChannelThread:processing:
+   *
+   * The processing state.
+   * 
+   * Since: 3.11.0
+   */
+  param_spec = g_param_spec_boolean("processing",
+				    i18n_pspec("do processing"),
+				    i18n_pspec("Enable or disable processing"),
+				    FALSE,
+				    G_PARAM_READABLE | G_PARAM_WRITABLE);
+  g_object_class_install_property(gobject,
+				  PROP_PROCESSING,
+				  param_spec);
+
+  /**
+   * AgsChannelThread:task-launcher:
+   *
+   * The assigned #AgsTaskLauncher.
+   * 
+   * Since: 3.11.0
+   */
+  param_spec = g_param_spec_object("task-launcher",
+				   i18n_pspec("task launcher using"),
+				   i18n_pspec("The task launcher this thread uses"),
+				   AGS_TYPE_TASK_LAUNCHER,
+				   G_PARAM_READABLE);
+  g_object_class_install_property(gobject,
+				  PROP_TASK_LAUNCHER,
+				  param_spec);
   
   /* AgsThread */
   thread = (AgsThreadClass *) channel_thread;
@@ -180,53 +213,61 @@ ags_channel_thread_init(AgsChannelThread *channel_thread)
 
   AgsConfig *config;
 
+  gdouble frequency;
   guint samplerate;
   guint buffer_size;
   
+  static const guint staging_program[] = {
+    (AGS_SOUND_STAGING_AUTOMATE | AGS_SOUND_STAGING_RUN_INTER | AGS_SOUND_STAGING_FX),
+  };
+
   thread = (AgsThread *) channel_thread;
 
-  g_atomic_int_or(&(thread->flags),
-		  (AGS_THREAD_START_SYNCED_FREQ));
+  ags_thread_set_flags(thread, (AGS_THREAD_START_SYNCED_FREQ |
+				AGS_THREAD_IMMEDIATE_SYNC));
   
   config = ags_config_get_instance();
   
   samplerate = ags_soundcard_helper_config_get_samplerate(config);
   buffer_size = ags_soundcard_helper_config_get_buffer_size(config);
-  
-  thread->freq = ceil((gdouble) samplerate / (gdouble) buffer_size) + AGS_SOUNDCARD_DEFAULT_OVERCLOCK;  
 
-  g_atomic_int_set(&(channel_thread->flags),
+  frequency = ((gdouble) samplerate / (gdouble) buffer_size) + AGS_SOUNDCARD_DEFAULT_OVERCLOCK;
+
+  g_object_set(thread,
+	       "frequency", frequency,
+	       NULL);
+
+  g_atomic_int_set(&(channel_thread->status_flags),
 		   0);
 
   channel_thread->default_output_soundcard = NULL;
   
   /* start */
-  pthread_mutexattr_init(&(channel_thread->wakeup_attr));
-  pthread_mutexattr_settype(&(channel_thread->wakeup_attr),
-			    PTHREAD_MUTEX_RECURSIVE);
-
-  channel_thread->wakeup_mutex = (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t));
-  pthread_mutex_init(channel_thread->wakeup_mutex,
-		     &(channel_thread->wakeup_attr));
+  g_mutex_init(&(channel_thread->wakeup_mutex));
   
-  channel_thread->wakeup_cond = (pthread_cond_t *) malloc(sizeof(pthread_cond_t));
-  pthread_cond_init(channel_thread->wakeup_cond, NULL);
+  g_cond_init(&(channel_thread->wakeup_cond));
 
   /* sync */
-  pthread_mutexattr_init(&(channel_thread->done_attr));
-  pthread_mutexattr_settype(&(channel_thread->done_attr),
-			    PTHREAD_MUTEX_RECURSIVE);
-
-  channel_thread->done_mutex = (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t));
-  pthread_mutex_init(channel_thread->done_mutex,
-		     &(channel_thread->done_attr));
+  g_mutex_init(&(channel_thread->done_mutex));
   
-  channel_thread->done_cond = (pthread_cond_t *) malloc(sizeof(pthread_cond_t));
-  pthread_cond_init(channel_thread->done_cond, NULL);
+  g_cond_init(&(channel_thread->done_cond));
 
   /* channel and sound scope */
   channel_thread->channel = NULL;
   channel_thread->sound_scope = -1;
+
+  /* staging program */
+  channel_thread->do_fx_staging = TRUE;
+
+  channel_thread->staging_program = (guint *) g_malloc(sizeof(guint));
+
+  channel_thread->staging_program[0] = staging_program[0];
+  
+  channel_thread->staging_program_count = 1;
+
+  channel_thread->processing = FALSE;
+
+  channel_thread->task_launcher = ags_task_launcher_new();  
 }
 
 void
@@ -237,16 +278,12 @@ ags_channel_thread_set_property(GObject *gobject,
 {
   AgsChannelThread *channel_thread;
 
-  pthread_mutex_t *thread_mutex;
+  GRecMutex *thread_mutex;
 
   channel_thread = AGS_CHANNEL_THREAD(gobject);
 
   /* get thread mutex */
-  pthread_mutex_lock(ags_thread_get_class_mutex());
-  
-  thread_mutex = AGS_THREAD(gobject)->obj_mutex;
-  
-  pthread_mutex_unlock(ags_thread_get_class_mutex());
+  thread_mutex = AGS_THREAD_GET_OBJ_MUTEX(channel_thread);
 
   switch(prop_id){
   case PROP_DEFAULT_OUTPUT_SOUNDCARD:
@@ -255,10 +292,10 @@ ags_channel_thread_set_property(GObject *gobject,
 
       default_output_soundcard = g_value_get_object(value);
 
-      pthread_mutex_lock(thread_mutex);
+      g_rec_mutex_lock(thread_mutex);
 
       if(channel_thread->default_output_soundcard == default_output_soundcard){
-	pthread_mutex_unlock(thread_mutex);
+	g_rec_mutex_unlock(thread_mutex);
 
 	return;
       }
@@ -273,7 +310,7 @@ ags_channel_thread_set_property(GObject *gobject,
 
       channel_thread->default_output_soundcard = default_output_soundcard;
 
-      pthread_mutex_unlock(thread_mutex);
+      g_rec_mutex_unlock(thread_mutex);
     }
     break;
   case PROP_CHANNEL:
@@ -282,10 +319,10 @@ ags_channel_thread_set_property(GObject *gobject,
 
       channel = (AgsChannel *) g_value_get_object(value);
 
-      pthread_mutex_lock(thread_mutex);
+      g_rec_mutex_lock(thread_mutex);
 
       if(channel_thread->channel == (GObject *) channel){
-	pthread_mutex_unlock(thread_mutex);
+	g_rec_mutex_unlock(thread_mutex);
 	
 	return;
       }
@@ -300,7 +337,20 @@ ags_channel_thread_set_property(GObject *gobject,
 
       channel_thread->channel = (GObject *) channel;
 
-      pthread_mutex_unlock(thread_mutex);
+      g_rec_mutex_unlock(thread_mutex);
+    }
+    break;
+  case PROP_PROCESSING:
+    {
+      gboolean processing;
+
+      processing = g_value_get_boolean(value);
+
+      g_rec_mutex_lock(thread_mutex);
+
+      channel_thread->processing = processing;
+
+      g_rec_mutex_unlock(thread_mutex);
     }
     break;
   default:
@@ -317,34 +367,48 @@ ags_channel_thread_get_property(GObject *gobject,
 {
   AgsChannelThread *channel_thread;
 
-  pthread_mutex_t *thread_mutex;
+  GRecMutex *thread_mutex;
 
   channel_thread = AGS_CHANNEL_THREAD(gobject);
 
   /* get thread mutex */
-  pthread_mutex_lock(ags_thread_get_class_mutex());
-  
-  thread_mutex = AGS_THREAD(gobject)->obj_mutex;
-  
-  pthread_mutex_unlock(ags_thread_get_class_mutex());
+  thread_mutex = AGS_THREAD_GET_OBJ_MUTEX(channel_thread);
 
   switch(prop_id){
   case PROP_DEFAULT_OUTPUT_SOUNDCARD:
     {
-      pthread_mutex_lock(thread_mutex);
+      g_rec_mutex_lock(thread_mutex);
 
       g_value_set_object(value, channel_thread->default_output_soundcard);
 
-      pthread_mutex_unlock(thread_mutex);
+      g_rec_mutex_unlock(thread_mutex);
     }
     break;
   case PROP_CHANNEL:
     {
-      pthread_mutex_lock(thread_mutex);
+      g_rec_mutex_lock(thread_mutex);
 
       g_value_set_object(value, G_OBJECT(channel_thread->channel));
 
-      pthread_mutex_unlock(thread_mutex);
+      g_rec_mutex_unlock(thread_mutex);
+    }
+    break;
+  case PROP_PROCESSING:
+    {
+      g_rec_mutex_lock(thread_mutex);
+
+      g_value_set_boolean(value, channel_thread->processing);
+
+      g_rec_mutex_unlock(thread_mutex);
+    }
+    break;
+  case PROP_TASK_LAUNCHER:
+    {
+      g_rec_mutex_lock(thread_mutex);
+
+      g_value_set_object(value, G_OBJECT(channel_thread->task_launcher));
+
+      g_rec_mutex_unlock(thread_mutex);
     }
     break;
   default:
@@ -362,16 +426,24 @@ ags_channel_thread_dispose(GObject *gobject)
 
   /* soundcard */
   if(channel_thread->default_output_soundcard != NULL){
-    g_object_unref(channel_thread->default_output_soundcard);
+    gpointer tmp;
+
+    tmp = channel_thread->default_output_soundcard;
 
     channel_thread->default_output_soundcard = NULL;
+
+    g_object_unref(tmp);
   }
 
   /* channel */
   if(channel_thread->channel != NULL){
-    g_object_unref(channel_thread->channel);
+    gpointer tmp;
+
+    tmp = channel_thread->channel;
 
     channel_thread->channel = NULL;
+
+    g_object_unref(tmp);
   }
 
   /* call parent */
@@ -387,26 +459,24 @@ ags_channel_thread_finalize(GObject *gobject)
 
   /* soundcard */
   if(channel_thread->default_output_soundcard != NULL){
-    g_object_unref(channel_thread->default_output_soundcard);
+    gpointer tmp;
+
+    tmp = channel_thread->default_output_soundcard;
+
+    channel_thread->default_output_soundcard = NULL;
+
+    g_object_unref(tmp);
   }
-
-  /* wakeup mutex and cond */
-  pthread_mutex_destroy(channel_thread->wakeup_mutex);
-  free(channel_thread->wakeup_mutex);
-  
-  pthread_cond_destroy(channel_thread->wakeup_cond);
-  free(channel_thread->wakeup_cond);
-
-  /* sync mutex and cond */
-  pthread_mutex_destroy(channel_thread->done_mutex);
-  free(channel_thread->done_mutex);
-  
-  pthread_cond_destroy(channel_thread->done_cond);
-  free(channel_thread->done_cond);
 
   /* channel */
   if(channel_thread->channel != NULL){
-    g_object_unref(channel_thread->channel);
+    gpointer tmp;
+
+    tmp = channel_thread->channel;
+
+    channel_thread->channel = NULL;
+
+    g_object_unref(tmp);
   }
 
   /* call parent */
@@ -416,18 +486,17 @@ ags_channel_thread_finalize(GObject *gobject)
 void
 ags_channel_thread_start(AgsThread *thread)
 {
+#ifdef AGS_DEBUG
   g_message("channel thread start");
+#endif
   
   /* reset status */
-  g_atomic_int_or(&(AGS_CHANNEL_THREAD(thread)->flags),
-		   (AGS_CHANNEL_THREAD_WAIT |
-		    AGS_CHANNEL_THREAD_DONE |
-		    AGS_CHANNEL_THREAD_WAIT_SYNC |
-		    AGS_CHANNEL_THREAD_DONE_SYNC));
-  
-  if((AGS_THREAD_SINGLE_LOOP & (g_atomic_int_get(&(thread->flags)))) == 0){
-    AGS_THREAD_CLASS(ags_channel_thread_parent_class)->start(thread);
-  }
+  ags_channel_thread_set_status_flags(thread, (AGS_CHANNEL_THREAD_STATUS_WAIT |
+					       AGS_CHANNEL_THREAD_STATUS_DONE |
+					       AGS_CHANNEL_THREAD_STATUS_WAIT_SYNC |
+					       AGS_CHANNEL_THREAD_STATUS_DONE_SYNC));
+
+  AGS_THREAD_CLASS(ags_channel_thread_parent_class)->start(thread);
 }
 
 void
@@ -436,165 +505,191 @@ ags_channel_thread_run(AgsThread *thread)
   AgsChannel *channel;
   AgsPlayback *playback;
   
+  AgsAudioLoop *audio_loop;
   AgsChannelThread *channel_thread;
+
+  AgsTaskLauncher *task_launcher;
 
   GList *recall_id;
   
   gint sound_scope;
+  gboolean processing;
 
+  GRecMutex *thread_mutex;
+
+  /* real-time setup */
 #ifdef AGS_WITH_RT
-  if((AGS_THREAD_RT_SETUP & (g_atomic_int_get(&(thread->flags)))) == 0){
+  if(!ags_thread_test_status_flags(thread, AGS_THREAD_STATUS_RT_SETUP)){
     AgsPriority *priority;
-
+    
     struct sched_param param;
 
     gchar *str;
-    
+
     priority = ags_priority_get_instance();
-    
+        
     /* Declare ourself as a real time task */
-    param.sched_priority = AGS_RT_PRIORITY;
-      
+    param.sched_priority = 45;
+    
     str = ags_priority_get_value(priority,
 				 AGS_PRIORITY_RT_THREAD,
-				 "default");
+				 AGS_PRIORITY_KEY_AUDIO);
 
     if(str != NULL){
       param.sched_priority = (int) g_ascii_strtoull(str,
 						    NULL,
 						    10);
-
-      g_free(str);
     }
-
-    if(sched_setscheduler(0, SCHED_FIFO, &param) == -1) {
-      perror("sched_setscheduler failed");
+      
+    if(str == NULL ||
+       ((!g_ascii_strncasecmp(str,
+			      "0",
+			      2)) != TRUE)){
+      if(sched_setscheduler(0, SCHED_FIFO, &param) == -1) {
+	perror("sched_setscheduler failed");
+      }
     }
+    
+    g_free(str);
 
-    g_atomic_int_or(&(thread->flags),
-		    AGS_THREAD_RT_SETUP);
+    ags_thread_set_status_flags(thread, AGS_THREAD_STATUS_RT_SETUP);
   }
 #endif
 
-  if((AGS_THREAD_INITIAL_RUN & (g_atomic_int_get(&(thread->flags)))) != 0 ||
-     (AGS_THREAD_SYNCED & (g_atomic_int_get(&(thread->sync_flags)))) == 0){
+  audio_loop = thread->parent;
+
+  if(!ags_thread_test_status_flags(thread, AGS_THREAD_STATUS_SYNCED)){
     return;
   }
 
   channel_thread = AGS_CHANNEL_THREAD(thread);
 
+  processing = FALSE;
+  
+  task_launcher = NULL;
+  
   g_object_get(channel_thread,
-	       "channel", &channel,
+	       "processing", &processing,
+	       "task-launcher", &task_launcher,
 	       NULL);
-
-  g_object_unref(channel);
   
-  g_object_get(channel,
-	       "playback", &playback,
-	        NULL);
+  ags_task_launcher_run(task_launcher);
 
-  g_object_unref(playback);
+  if(processing){
+    channel = NULL;
   
-  /* start - wait until signaled */
-  pthread_mutex_lock(channel_thread->wakeup_mutex);
+    g_object_get(channel_thread,
+		 "channel", &channel,
+		 NULL);
 
-  if((AGS_CHANNEL_THREAD_DONE & (g_atomic_int_get(&(channel_thread->flags)))) == 0 &&
-     (AGS_CHANNEL_THREAD_WAIT & (g_atomic_int_get(&(channel_thread->flags)))) != 0){
+    playback = NULL;
+  
+    g_object_get(channel,
+		 "playback", &playback,
+		 NULL);
+  
+    /* start - wait until signaled */
+    g_mutex_lock(&(channel_thread->wakeup_mutex));
 
-    g_atomic_int_and(&(channel_thread->flags),
-		     (~AGS_CHANNEL_THREAD_DONE));
+    if(!ags_channel_thread_test_status_flags(channel_thread, AGS_CHANNEL_THREAD_STATUS_DONE) &&
+       ags_channel_thread_test_status_flags(channel_thread, AGS_CHANNEL_THREAD_STATUS_WAIT)){
+      ags_channel_thread_unset_status_flags(channel_thread, AGS_CHANNEL_THREAD_STATUS_DONE);
     
-    while((AGS_CHANNEL_THREAD_DONE & (g_atomic_int_get(&(channel_thread->flags)))) == 0 &&
-	  (AGS_CHANNEL_THREAD_WAIT & (g_atomic_int_get(&(channel_thread->flags)))) != 0){
-      pthread_cond_wait(channel_thread->wakeup_cond,
-			channel_thread->wakeup_mutex);
+      while(!ags_channel_thread_test_status_flags(channel_thread, AGS_CHANNEL_THREAD_STATUS_DONE) &&
+	    ags_channel_thread_test_status_flags(channel_thread, AGS_CHANNEL_THREAD_STATUS_WAIT)){
+	g_cond_wait(&(channel_thread->wakeup_cond),
+		    &(channel_thread->wakeup_mutex));
+      }
     }
-  }
   
-  g_atomic_int_or(&(channel_thread->flags),
-		  (AGS_CHANNEL_THREAD_DONE |
-		   AGS_CHANNEL_THREAD_WAIT));
+    ags_channel_thread_set_status_flags(channel_thread, (AGS_CHANNEL_THREAD_STATUS_WAIT |
+							 AGS_CHANNEL_THREAD_STATUS_DONE));
   
-  pthread_mutex_unlock(channel_thread->wakeup_mutex);
+    g_mutex_unlock(&(channel_thread->wakeup_mutex));
   
-  /* 
-   * do audio processing
-   */  
-  if(channel_thread->sound_scope >= 0){
-    sound_scope = channel_thread->sound_scope;
+    /* 
+     * do audio processing
+     */  
+    if(channel_thread->sound_scope >= 0){
+      sound_scope = channel_thread->sound_scope;
 
-    if(ags_playback_get_recall_id(playback, sound_scope) != NULL){    
-      if((recall_id = ags_channel_check_scope(channel, sound_scope)) != NULL){
-#if 0
-	ags_channel_recursive_run_stage(channel,
-					sound_scope, (AGS_SOUND_STAGING_FEED_INPUT_QUEUE |
-						      AGS_SOUND_STAGING_AUTOMATE |
-						      AGS_SOUND_STAGING_RUN_PRE));
-
-	ags_channel_recursive_run_stage(channel,
-					sound_scope, (AGS_SOUND_STAGING_RUN_INTER));
-
-	ags_channel_recursive_run_stage(channel,
-					sound_scope, (AGS_SOUND_STAGING_RUN_POST |
-						      AGS_SOUND_STAGING_DO_FEEDBACK |
-						      AGS_SOUND_STAGING_FEED_OUTPUT_QUEUE));
-#else
-	ags_channel_recursive_run_stage(channel,
-					sound_scope, (AGS_SOUND_STAGING_AUTOMATE |
-						      AGS_SOUND_STAGING_RUN_PRE |
-						      AGS_SOUND_STAGING_RUN_INTER |
-						      AGS_SOUND_STAGING_RUN_POST));
-#endif
+      if(sound_scope != AGS_SOUND_SCOPE_PLAYBACK ||
+	 ags_playback_get_recall_id(playback, sound_scope) != NULL){    
+	if((recall_id = ags_channel_check_scope(channel, sound_scope)) != NULL){
+	  guint *staging_program;
 	
-	g_list_free_full(recall_id,
-			 g_object_unref);
-      }
-    }
-  }else{
-    for(sound_scope = 0; sound_scope < AGS_SOUND_SCOPE_LAST; sound_scope++){
-      if(ags_playback_get_recall_id(playback, sound_scope) == NULL){
-	continue;
-      }
+	  guint staging_program_count;
+	  guint nth;
 
-      if((recall_id = ags_channel_check_scope(channel, sound_scope)) != NULL){
-#if 0
-	ags_channel_recursive_run_stage(channel,
-					sound_scope, (AGS_SOUND_STAGING_FEED_INPUT_QUEUE |
-						      AGS_SOUND_STAGING_AUTOMATE |
-						      AGS_SOUND_STAGING_RUN_PRE));
-
-	ags_channel_recursive_run_stage(channel,
-					sound_scope, (AGS_SOUND_STAGING_RUN_INTER));
-
-	ags_channel_recursive_run_stage(channel,
-					sound_scope, (AGS_SOUND_STAGING_RUN_POST |
-						      AGS_SOUND_STAGING_DO_FEEDBACK |
-						      AGS_SOUND_STAGING_FEED_OUTPUT_QUEUE));
-#else
-	ags_channel_recursive_run_stage(channel,
-					sound_scope, (AGS_SOUND_STAGING_AUTOMATE |
-						      AGS_SOUND_STAGING_RUN_PRE |
-						      AGS_SOUND_STAGING_RUN_INTER |
-						      AGS_SOUND_STAGING_RUN_POST));
-#endif
+	  staging_program = ags_channel_thread_get_staging_program(channel_thread,
+								   &staging_program_count);
 	
-	g_list_free_full(recall_id,
-			 g_object_unref);
+	  for(nth = 0; nth < staging_program_count; nth++){
+	    ags_channel_recursive_run_stage(channel,
+					    sound_scope, staging_program[nth]);
+	  }
+
+	  g_free(staging_program);
+	  
+	  g_list_free_full(recall_id,
+			   g_object_unref);
+	}
+      }
+    }else{
+      gint nth_sound_scope;
+    
+      for(nth_sound_scope = 0; nth_sound_scope < AGS_SOUND_SCOPE_LAST; nth_sound_scope++){
+	if(nth_sound_scope == AGS_SOUND_SCOPE_PLAYBACK ||
+	   ags_playback_get_recall_id(playback, nth_sound_scope) == NULL){
+	  continue;
+	}
+
+	if((recall_id = ags_channel_check_scope(channel, nth_sound_scope)) != NULL){
+	  guint *staging_program;
+	
+	  guint staging_program_count;
+	  guint nth;
+
+	  staging_program = ags_channel_thread_get_staging_program(channel_thread,
+								   &staging_program_count);
+	
+	  for(nth = 0; nth < staging_program_count; nth++){
+	    ags_channel_recursive_run_stage(channel,
+					    nth_sound_scope, staging_program[nth]);
+	  }
+
+	  g_free(staging_program);
+	  
+	  g_list_free_full(recall_id,
+			   g_object_unref);
+	}
       }
     }
-  }
 
-  /* sync */
-  pthread_mutex_lock(channel_thread->done_mutex);
+    /* sync */
+    g_mutex_lock(&(channel_thread->done_mutex));
   
-  g_atomic_int_and(&(channel_thread->flags),
-		   (~AGS_CHANNEL_THREAD_WAIT_SYNC));  
+    ags_channel_thread_unset_status_flags(channel_thread, AGS_CHANNEL_THREAD_STATUS_WAIT_SYNC);
   
-  if((AGS_CHANNEL_THREAD_DONE_SYNC & (g_atomic_int_get(&(channel_thread->flags)))) == 0){
-    pthread_cond_signal(channel_thread->done_cond);
+    if(!ags_channel_thread_test_status_flags(channel_thread, AGS_CHANNEL_THREAD_STATUS_DONE_SYNC)){
+      g_cond_signal(&(channel_thread->done_cond));
+    }
+  
+    g_mutex_unlock(&(channel_thread->done_mutex));
+
+    /* unref */
+    if(channel != NULL){
+      g_object_unref(channel);
+    }
+
+    if(playback != NULL){
+      g_object_unref(playback);
+    }
   }
   
-  pthread_mutex_unlock(channel_thread->done_mutex);
+  if(task_launcher != NULL){
+    g_object_unref(task_launcher);
+  }
 }
 
 void
@@ -602,29 +697,171 @@ ags_channel_thread_stop(AgsThread *thread)
 {
   AgsChannelThread *channel_thread;
 
-  if((AGS_THREAD_RUNNING & (g_atomic_int_get(&(thread->flags)))) == 0){
+  if(!ags_thread_test_status_flags(thread, AGS_THREAD_STATUS_RUNNING)){
     return;
   }
 
   /*  */
   channel_thread = AGS_CHANNEL_THREAD(thread);
 
+#ifdef AGS_DEBUG
   g_message("channel thread stop");
+#endif
   
   /* call parent */
   AGS_THREAD_CLASS(ags_channel_thread_parent_class)->stop(thread);
 
   /* ensure synced */
-  pthread_mutex_lock(channel_thread->done_mutex);
-  
-  g_atomic_int_and(&(channel_thread->flags),
-		   (~AGS_CHANNEL_THREAD_WAIT_SYNC));
+  g_mutex_lock(&(channel_thread->done_mutex));
 
-  if((AGS_CHANNEL_THREAD_DONE_SYNC & (g_atomic_int_get(&(channel_thread->flags)))) == 0){
-    pthread_cond_signal(channel_thread->done_cond);
+  ags_channel_thread_unset_status_flags(channel_thread, AGS_CHANNEL_THREAD_STATUS_WAIT_SYNC);
+
+  if(!ags_channel_thread_test_status_flags(channel_thread, AGS_CHANNEL_THREAD_STATUS_DONE_SYNC)){
+    g_cond_signal(&(channel_thread->done_cond));
   }
 
-  pthread_mutex_unlock(channel_thread->done_mutex);
+  g_mutex_unlock(&(channel_thread->done_mutex));
+}
+
+/**
+ * ags_channel_thread_test_status_flags:
+ * @channel_thread: the #AgsChannelThread
+ * @status_flags: status flags
+ * 
+ * Test @status_flags of @channel_thread.
+ * 
+ * Returns: %TRUE if status flags set, otherwise %FALSE
+ * 
+ * Since: 3.0.0
+ */
+gboolean
+ags_channel_thread_test_status_flags(AgsChannelThread *channel_thread, guint status_flags)
+{
+  gboolean retval;
+  
+  if(!AGS_IS_CHANNEL_THREAD(channel_thread)){
+    return(FALSE);
+  }
+
+  retval = ((status_flags & (g_atomic_int_get(&(channel_thread->status_flags)))) != 0) ? TRUE: FALSE;
+
+  return(retval);
+}
+
+/**
+ * ags_channel_thread_set_status_flags:
+ * @channel_thread: the #AgsChannelThread
+ * @status_flags: status flags
+ * 
+ * Set status flags.
+ * 
+ * Since: 3.0.0
+ */
+void
+ags_channel_thread_set_status_flags(AgsChannelThread *channel_thread, guint status_flags)
+{
+  if(!AGS_IS_CHANNEL_THREAD(channel_thread)){
+    return;
+  }
+
+  g_atomic_int_or(&(channel_thread->status_flags),
+		  status_flags);
+}
+
+/**
+ * ags_channel_thread_unset_status_flags:
+ * @channel_thread: the #AgsChannelThread
+ * @status_flags: status flags
+ * 
+ * Unset status flags.
+ * 
+ * Since: 3.0.0
+ */
+void
+ags_channel_thread_unset_status_flags(AgsChannelThread *channel_thread, guint status_flags)
+{
+  if(!AGS_IS_CHANNEL_THREAD(channel_thread)){
+    return;
+  }
+
+  g_atomic_int_and(&(channel_thread->status_flags),
+		   (~status_flags));
+}
+
+/**
+ * ags_channel_thread_get_processing:
+ * @channel_thread: the #AgsChannelThread
+ * 
+ * Get processing.
+ * 
+ * Returns: %TRUE if do processing, otherwise %FALSE
+ * 
+ * Since: 3.11.0
+ */
+gboolean
+ags_channel_thread_get_processing(AgsChannelThread *channel_thread)
+{
+  gboolean processing;
+  
+  if(!AGS_IS_CHANNEL_THREAD(channel_thread)){
+    return(FALSE);
+  }
+
+  g_object_get(channel_thread,
+	       "processing", &processing,
+	       NULL);
+
+  return(processing);
+}
+
+/**
+ * ags_channel_thread_set_processing:
+ * @channel_thread: the #AgsChannelThread
+ * @processing: %TRUE enables and %FALSE disables processing
+ * 
+ * Set processing.
+ * 
+ * Since: 3.11.0
+ */
+void
+ags_channel_thread_set_processing(AgsChannelThread *channel_thread,
+				gboolean processing)
+{
+  if(!AGS_IS_CHANNEL_THREAD(channel_thread)){
+    return;
+  }
+
+  g_object_set(channel_thread,
+	       "processing", processing,
+	       NULL);
+}
+
+/**
+ * ags_channel_thread_get_task_launcher:
+ * @channel_thread: the #AgsChannelThread
+ * 
+ * Get task launcher.
+ * 
+ * Returns: (transfer full): the #AgsTaskLauncher
+ * 
+ * Since: 3.11.0
+ */
+AgsTaskLauncher*
+ags_channel_thread_get_task_launcher(AgsChannelThread *channel_thread)
+{
+  AgsTaskLauncher *task_launcher;
+
+  if(!AGS_IS_CHANNEL_THREAD(channel_thread)){
+    return(NULL);
+  }
+  
+  task_launcher = NULL;
+  
+  g_object_get(channel_thread,
+	       "task-launcher", &task_launcher,
+	       NULL);
+
+  return(task_launcher);
 }
 
 /**
@@ -634,30 +871,177 @@ ags_channel_thread_stop(AgsThread *thread)
  * 
  * Set sound scope.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_channel_thread_set_sound_scope(AgsChannelThread *channel_thread,
 				   gint sound_scope)
 {
-  pthread_mutex_t *thread_mutex;
+  GRecMutex *thread_mutex;
   
   if(!AGS_IS_CHANNEL_THREAD(channel_thread)){
     return;
   }
 
-  pthread_mutex_lock(ags_thread_get_class_mutex());
-  
-  thread_mutex = AGS_THREAD(channel_thread)->obj_mutex;
-
-  pthread_mutex_unlock(ags_thread_get_class_mutex());
+  thread_mutex = AGS_THREAD_GET_OBJ_MUTEX(channel_thread);
 
   /* set scope */
-  pthread_mutex_lock(thread_mutex);
+  g_rec_mutex_lock(thread_mutex);
 
   channel_thread->sound_scope = sound_scope;
   
-  pthread_mutex_unlock(thread_mutex);
+  g_rec_mutex_unlock(thread_mutex);
+}
+
+/**
+ * ags_channel_thread_get_do_fx_staging:
+ * @channel_thread: the #AgsChannelThread
+ * 
+ * Get do fx staging.
+ * 
+ * Returns: %TRUE if set, otherwise %FALSE
+ * 
+ * Since: 3.3.0
+ */
+gboolean
+ags_channel_thread_get_do_fx_staging(AgsChannelThread *channel_thread)
+{
+  gboolean do_fx_staging;
+
+  GRecMutex *thread_mutex;
+
+  if(!AGS_IS_CHANNEL_THREAD(channel_thread)){
+    return(FALSE);
+  }
+  
+  thread_mutex = AGS_THREAD_GET_OBJ_MUTEX(channel_thread);
+
+  /* get do fx staging */
+  g_rec_mutex_lock(thread_mutex);
+
+  do_fx_staging = channel_thread->do_fx_staging;
+
+  g_rec_mutex_unlock(thread_mutex);
+
+  return(do_fx_staging);
+}
+
+/**
+ * ags_channel_thread_set_do_fx_staging:
+ * @channel_thread: the #AgsChannelThread
+ * @do_fx_staging: %TRUE if do fx staging, else %FALSe
+ * 
+ * Set do fx staging.
+ * 
+ * Since: 3.3.0
+ */
+void
+ags_channel_thread_set_do_fx_staging(AgsChannelThread *channel_thread, gboolean do_fx_staging)
+{
+  GRecMutex *thread_mutex;
+
+  if(!AGS_IS_CHANNEL_THREAD(channel_thread)){
+    return;
+  }
+
+  thread_mutex = AGS_THREAD_GET_OBJ_MUTEX(channel_thread);
+
+  /* get do fx staging */
+  g_rec_mutex_lock(thread_mutex);
+
+  channel_thread->do_fx_staging = do_fx_staging;
+
+  g_rec_mutex_unlock(thread_mutex);
+}
+
+/**
+ * ags_channel_thread_get_staging_program:
+ * @channel_thread: the #AgsChannelThread
+ * @staging_program_count: (out): the staging program count
+ * 
+ * Get staging program.
+ * 
+ * Returns: (transfer full): the staging program
+ * 
+ * Since: 3.3.0
+ */
+guint*
+ags_channel_thread_get_staging_program(AgsChannelThread *channel_thread,
+				       guint *staging_program_count)
+{
+  guint *staging_program;
+
+  GRecMutex *thread_mutex;
+
+  if(!AGS_IS_CHANNEL_THREAD(channel_thread)){
+    if(staging_program_count != NULL){
+      staging_program_count[0] = 0;
+    }
+    
+    return(NULL);
+  }
+
+  thread_mutex = AGS_THREAD_GET_OBJ_MUTEX(channel_thread);
+
+  /* get staging program */
+  staging_program = NULL;
+
+  g_rec_mutex_lock(thread_mutex);
+
+  if(channel_thread->staging_program_count > 0){
+    staging_program = (guint *) g_malloc(channel_thread->staging_program_count * sizeof(guint));
+
+    memcpy(staging_program, channel_thread->staging_program, channel_thread->staging_program_count * sizeof(guint));
+  }
+
+  if(staging_program_count != NULL){
+    staging_program_count[0] = channel_thread->staging_program_count;
+  }
+
+  g_rec_mutex_unlock(thread_mutex);
+
+  return(staging_program);
+}
+
+/**
+ * ags_channel_thread_set_staging_program:
+ * @channel_thread: the #AgsChannelThread
+ * @staging_program: (transfer none): the staging program
+ * @staging_program_count: the staging program count
+ * 
+ * Set staging program.
+ * 
+ * Since: 3.3.0
+ */
+void
+ags_channel_thread_set_staging_program(AgsChannelThread *channel_thread,
+				       guint *staging_program,
+				       guint staging_program_count)
+{
+  GRecMutex *thread_mutex;
+
+  if(!AGS_IS_CHANNEL_THREAD(channel_thread)){
+    return;
+  }
+
+  thread_mutex = AGS_THREAD_GET_OBJ_MUTEX(channel_thread);
+
+  /* set staging program */
+  g_rec_mutex_lock(thread_mutex);
+
+  g_free(channel_thread->staging_program);
+  
+  if(staging_program_count > 0){
+    channel_thread->staging_program = (guint *) g_malloc(staging_program_count * sizeof(guint));
+
+    memcpy(channel_thread->staging_program, staging_program, staging_program_count * sizeof(guint));
+  }else{
+    channel_thread->staging_program = NULL;
+  }
+
+  channel_thread->staging_program_count = staging_program_count;
+  
+  g_rec_mutex_unlock(thread_mutex);
 }
 
 /**
@@ -669,7 +1053,7 @@ ags_channel_thread_set_sound_scope(AgsChannelThread *channel_thread,
  *
  * Returns: the new #AgsChannelThread
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 AgsChannelThread*
 ags_channel_thread_new(GObject *default_output_soundcard,

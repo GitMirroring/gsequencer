@@ -27,6 +27,8 @@
 
 #include <ags/audio/file/ags_audio_file.h>
 
+G_BEGIN_DECLS
+
 #define AGS_TYPE_EXPORT_THREAD                (ags_export_thread_get_type())
 #define AGS_EXPORT_THREAD(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_EXPORT_THREAD, AgsExportThread))
 #define AGS_EXPORT_THREAD_CLASS(class)        (G_TYPE_CHECK_CLASS_CAST(class, AGS_TYPE_EXPORT_THREAD, AgsExportThreadClass))
@@ -48,6 +50,7 @@ typedef struct _AgsExportThreadClass AgsExportThreadClass;
  */
 typedef enum{
   AGS_EXPORT_THREAD_LIVE_PERFORMANCE       = 1,
+  AGS_EXPORT_THREAD_IS_EXPORTING           = 1 <<  1,
 }AgsExportThreadFlags;
 
 struct _AgsExportThread
@@ -70,9 +73,16 @@ struct _AgsExportThreadClass
 
 GType ags_export_thread_get_type();
 
+/* flags */
+gboolean ags_export_thread_test_flags(AgsExportThread *export_thread, guint flags);
+void ags_export_thread_set_flags(AgsExportThread *export_thread, guint flags);
+void ags_export_thread_unset_flags(AgsExportThread *export_thread, guint flags);
+
 AgsExportThread* ags_export_thread_find_soundcard(AgsExportThread *export_thread,
 						  GObject *soundcard);
 
 AgsExportThread* ags_export_thread_new(GObject *soundcard, AgsAudioFile *audio_file);
+
+G_END_DECLS
 
 #endif /*__AGS_EXPORT_THREAD_H__*/

@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2018 Joël Krähemann
+ * Copyright (C) 2005-2019 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -19,8 +19,6 @@
 
 #include <ags/audio/file/ags_audio_file_link.h>
 
-#include <ags/libags.h>
-
 #include <ags/audio/ags_audio.h>
 #include <ags/audio/ags_channel.h>
 #include <ags/audio/ags_audio_signal.h>
@@ -33,7 +31,6 @@
 #include <ags/i18n.h>
 
 void ags_audio_file_link_class_init(AgsAudioFileLinkClass *audio_file_link);
-void ags_audio_file_link_plugin_interface_init(AgsPluginInterface *plugin);
 void ags_audio_file_link_init(AgsAudioFileLink *audio_file_link);
 void ags_audio_file_link_set_property(GObject *gobject,
 				      guint prop_id,
@@ -43,17 +40,7 @@ void ags_audio_file_link_get_property(GObject *gobject,
 				      guint prop_id,
 				      GValue *value,
 				      GParamSpec *param_spec);
-void ags_audio_file_link_read(AgsFile *file,
-			      xmlNode *node,
-			      AgsPlugin *plugin);
-xmlNode* ags_audio_file_link_write(AgsFile *file,
-				   xmlNode *parent,
-				   AgsPlugin *plugin);
 void ags_audio_file_link_finalize(GObject *gobject);
-
-void
-ags_audio_file_link_read_launch(AgsFileLaunch *file_launch,
-				AgsAudioFileLink *audio_file_link);
 
 /**
  * SECTION:ags_audio_file_link
@@ -75,9 +62,6 @@ enum{
 };
 
 static gpointer ags_audio_file_link_parent_class = NULL;
-static AgsPluginInterface *ags_audio_file_link_parent_plugin_interface;
-
-static const gchar *ags_audio_file_link_plugin_name = "ags-audio-file-link";
 
 GType
 ags_audio_file_link_get_type()
@@ -99,20 +83,10 @@ ags_audio_file_link_get_type()
       (GInstanceInitFunc) ags_audio_file_link_init,
     };
 
-    static const GInterfaceInfo ags_plugin_interface_info = {
-      (GInterfaceInitFunc) ags_audio_file_link_plugin_interface_init,
-      NULL, /* interface_finalize */
-      NULL, /* interface_data */
-    };
-
     ags_type_audio_file_link = g_type_register_static(AGS_TYPE_FILE_LINK,
 						      "AgsAudioFileLink",
 						      &ags_audio_file_link_info,
 						      0);
-
-    g_type_add_interface_static(ags_type_audio_file_link,
-				AGS_TYPE_PLUGIN,
-				&ags_plugin_interface_info);
 
     g_once_init_leave(&g_define_type_id__volatile, ags_type_audio_file_link);
   }
@@ -142,7 +116,7 @@ ags_audio_file_link_class_init(AgsAudioFileLinkClass *audio_file_link)
    *
    * The assigned preset.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_string("preset",
 				   i18n_pspec("the preset"),
@@ -158,7 +132,7 @@ ags_audio_file_link_class_init(AgsAudioFileLinkClass *audio_file_link)
    *
    * The assigned instrument.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_string("instrument",
 				   i18n_pspec("the instrument"),
@@ -174,7 +148,7 @@ ags_audio_file_link_class_init(AgsAudioFileLinkClass *audio_file_link)
    *
    * The assigned sample.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_string("sample",
 				   i18n_pspec("the sample"),
@@ -190,7 +164,7 @@ ags_audio_file_link_class_init(AgsAudioFileLinkClass *audio_file_link)
    *
    * The assigned audio channel.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("audio-channel",
 				 i18n_pspec("audio channel to read"),
@@ -207,7 +181,7 @@ ags_audio_file_link_class_init(AgsAudioFileLinkClass *audio_file_link)
    *
    * The assigned timestamp.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_object("timestamp",
 				   i18n_pspec("timestamp"),
@@ -217,15 +191,6 @@ ags_audio_file_link_class_init(AgsAudioFileLinkClass *audio_file_link)
   g_object_class_install_property(gobject,
 				  PROP_TIMESTAMP,
 				  param_spec);
-}
-
-void
-ags_audio_file_link_plugin_interface_init(AgsPluginInterface *plugin)
-{
-  ags_audio_file_link_parent_plugin_interface = g_type_interface_peek_parent(plugin);
-
-  plugin->read = ags_audio_file_link_read;
-  plugin->write = ags_audio_file_link_write;
 }
 
 void
@@ -248,7 +213,7 @@ ags_audio_file_link_set_property(GObject *gobject,
 {
   AgsAudioFileLink *audio_file_link;
 
-  pthread_mutex_t *file_link_mutex;
+  GRecMutex *file_link_mutex;
 
   audio_file_link = AGS_AUDIO_FILE_LINK(gobject);
 
@@ -262,10 +227,10 @@ ags_audio_file_link_set_property(GObject *gobject,
 
       preset = (char *) g_value_get_string(value);
 
-      pthread_mutex_lock(file_link_mutex);
+      g_rec_mutex_lock(file_link_mutex);
 
       if(preset == audio_file_link->preset){
-	pthread_mutex_unlock(file_link_mutex);
+	g_rec_mutex_unlock(file_link_mutex);
 
 	return;
       }
@@ -276,7 +241,7 @@ ags_audio_file_link_set_property(GObject *gobject,
 	
       audio_file_link->preset = g_strdup(preset);
 
-      pthread_mutex_unlock(file_link_mutex);
+      g_rec_mutex_unlock(file_link_mutex);
     }
     break;
   case PROP_INSTRUMENT:
@@ -285,10 +250,10 @@ ags_audio_file_link_set_property(GObject *gobject,
 
       instrument = (char *) g_value_get_string(value);
 
-      pthread_mutex_lock(file_link_mutex);
+      g_rec_mutex_lock(file_link_mutex);
 
       if(instrument == audio_file_link->instrument){
-	pthread_mutex_unlock(file_link_mutex);
+	g_rec_mutex_unlock(file_link_mutex);
 
 	return;
       }
@@ -299,7 +264,7 @@ ags_audio_file_link_set_property(GObject *gobject,
 	
       audio_file_link->instrument = g_strdup(instrument);
 
-      pthread_mutex_unlock(file_link_mutex);
+      g_rec_mutex_unlock(file_link_mutex);
     }
     break;
   case PROP_SAMPLE:
@@ -308,10 +273,10 @@ ags_audio_file_link_set_property(GObject *gobject,
 
       sample = (char *) g_value_get_string(value);
 
-      pthread_mutex_lock(file_link_mutex);
+      g_rec_mutex_lock(file_link_mutex);
 
       if(sample == audio_file_link->sample){
-	pthread_mutex_unlock(file_link_mutex);
+	g_rec_mutex_unlock(file_link_mutex);
 
 	return;
       }
@@ -322,16 +287,16 @@ ags_audio_file_link_set_property(GObject *gobject,
 	
       audio_file_link->sample = g_strdup(sample);
 
-      pthread_mutex_unlock(file_link_mutex);
+      g_rec_mutex_unlock(file_link_mutex);
     }
     break;
   case PROP_AUDIO_CHANNEL:
     {
-      pthread_mutex_lock(file_link_mutex);
+      g_rec_mutex_lock(file_link_mutex);
 
       audio_file_link->audio_channel = g_value_get_uint(value);
 
-      pthread_mutex_unlock(file_link_mutex);
+      g_rec_mutex_unlock(file_link_mutex);
     }
     break;
   case PROP_TIMESTAMP:
@@ -340,10 +305,10 @@ ags_audio_file_link_set_property(GObject *gobject,
 
       timestamp = (GObject *) g_value_get_object(value);
 
-      pthread_mutex_lock(file_link_mutex);
+      g_rec_mutex_lock(file_link_mutex);
 
       if((AgsTimestamp *) timestamp == audio_file_link->timestamp){
-	pthread_mutex_unlock(file_link_mutex);
+	g_rec_mutex_unlock(file_link_mutex);
 
 	return;
       }
@@ -358,7 +323,7 @@ ags_audio_file_link_set_property(GObject *gobject,
 
       audio_file_link->timestamp = (AgsTimestamp *) timestamp;
 
-      pthread_mutex_unlock(file_link_mutex);
+      g_rec_mutex_unlock(file_link_mutex);
     }
     break;
   default:
@@ -375,7 +340,7 @@ ags_audio_file_link_get_property(GObject *gobject,
 {
   AgsAudioFileLink *audio_file_link;
 
-  pthread_mutex_t *file_link_mutex;
+  GRecMutex *file_link_mutex;
 
   audio_file_link = AGS_AUDIO_FILE_LINK(gobject);
 
@@ -385,135 +350,53 @@ ags_audio_file_link_get_property(GObject *gobject,
   switch(prop_id){
   case PROP_PRESET:
     {
-      pthread_mutex_lock(file_link_mutex);
+      g_rec_mutex_lock(file_link_mutex);
 
       g_value_set_string(value, audio_file_link->preset);
 
-      pthread_mutex_unlock(file_link_mutex);
+      g_rec_mutex_unlock(file_link_mutex);
     }
     break;
   case PROP_INSTRUMENT:
     {
-      pthread_mutex_lock(file_link_mutex);
+      g_rec_mutex_lock(file_link_mutex);
 
       g_value_set_string(value, audio_file_link->instrument);
 
-      pthread_mutex_unlock(file_link_mutex);
+      g_rec_mutex_unlock(file_link_mutex);
     }
     break;
   case PROP_SAMPLE:
     {
-      pthread_mutex_lock(file_link_mutex);
+      g_rec_mutex_lock(file_link_mutex);
 
       g_value_set_string(value, audio_file_link->sample);
 
-      pthread_mutex_unlock(file_link_mutex);
+      g_rec_mutex_unlock(file_link_mutex);
     }
     break;
   case PROP_AUDIO_CHANNEL:
     {
-      pthread_mutex_lock(file_link_mutex);
+      g_rec_mutex_lock(file_link_mutex);
 
       g_value_set_uint(value, audio_file_link->audio_channel);
 
-      pthread_mutex_unlock(file_link_mutex);
+      g_rec_mutex_unlock(file_link_mutex);
     }
     break;
   case PROP_TIMESTAMP:
     {
-      pthread_mutex_lock(file_link_mutex);
+      g_rec_mutex_lock(file_link_mutex);
 
       g_value_set_object(value, audio_file_link->timestamp);
 
-      pthread_mutex_unlock(file_link_mutex);
+      g_rec_mutex_unlock(file_link_mutex);
     }
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(gobject, prop_id, param_spec);
     break;
   }
-}
-
-void
-ags_audio_file_link_read(AgsFile *file,
-			 xmlNode *node,
-			 AgsPlugin *plugin)
-{
-  AgsAudioFileLink *gobject;
-  AgsFileLaunch *file_launch;
-
-  xmlChar *str;
-
-  gobject = AGS_AUDIO_FILE_LINK(plugin);
-  
-  /* read audio channel */
-  str = xmlGetProp(node,
-		   "audio-channel");
-
-  if(str != NULL){
-    gobject->audio_channel = g_ascii_strtoull(str,
-						      NULL, 10);
-  }else{
-    gobject->audio_channel = 0;
-  }
-
-  //TODO:JK: add missing
-  
-  file_launch = (AgsFileLaunch *) g_object_new(AGS_TYPE_FILE_LAUNCH,
-					       "file", file,
-					       "node", node,
-					       NULL);
-  g_signal_connect(G_OBJECT(file_launch), "start",
-		   G_CALLBACK(ags_audio_file_link_read_launch), gobject);
-  ags_file_add_launch(file,
-		      (GObject *) file_launch);
-}
-
-xmlNode*
-ags_audio_file_link_write(AgsFile *file,
-			  xmlNode *parent,
-			  AgsPlugin *plugin)
-{
-  AgsAudioFileLink *audio_file_link;
-  xmlNode *node;
-  gchar *id;
-
-  audio_file_link = AGS_AUDIO_FILE_LINK(plugin);
-
-  /* allocate new node with uuid */
-  id = ags_id_generator_create_uuid();
-
-  node = xmlNewNode(NULL,
-		    "ags-audio-file-link");
-  xmlNewProp(node,
-	     AGS_FILE_ID_PROP,
-	     id);
-
-  /* add reference and node to file object */
-  ags_file_add_id_ref(file,
-		      g_object_new(AGS_TYPE_FILE_ID_REF,
-				   "application-context", file->application_context,
-				   "file", file,
-				   "node", node,
-				   "xpath", g_strdup_printf("xpath=//*[@id='%s']", id),
-				   "reference", audio_file_link,
-				   NULL));
-
-  /* write audio channel */
-  xmlNewProp(node,
-	     "audio-channel",
-	     g_strdup_printf("%d", audio_file_link->audio_channel));
-
-  //TODO:JK: add missing
-  
-  /* write timestamp */
-  if(audio_file_link->timestamp != NULL){
-    ags_file_write_timestamp(file,
-			     node,
-			     audio_file_link->timestamp);
-  }
-
-  return(node);
 }
 
 void
@@ -528,170 +411,6 @@ ags_audio_file_link_finalize(GObject *gobject)
   }
 }
 
-void
-ags_audio_file_link_read_launch(AgsFileLaunch *file_launch,
-				AgsAudioFileLink *audio_file_link)
-{
-  AgsChannel *input;
-
-  AgsAudioFile *audio_file;
-
-  AgsFileIdRef *id_ref;
-
-  GObject *soundcard;
-
-  GList *audio_signal;
-
-  xmlNode *node, *child;
-
-  xmlChar *type;
-  xmlChar *filename;
-  xmlChar *encoding, *demuxer;
-
-  guint audio_channel;
-  
-  node = file_launch->node;
-
-  soundcard = NULL;
-  
-  audio_channel = audio_file_link->audio_channel;
-  filename = NULL;
-  
-  /* retrieve input */
-  input = NULL;
-  id_ref = (AgsFileIdRef *) ags_file_find_id_ref_by_node((AgsFile *) file_launch->file,
-							 node->parent->parent->parent);
-
-  if(id_ref != NULL){
-    input = (AgsChannel *) id_ref->ref;
-    soundcard = input->output_soundcard;
-  }
-  
-  /* read file link using URL or embedded */
-  type = xmlGetProp(node->parent,
-		    "type");
-
-  if(!xmlStrncmp(type,
-		 "url",
-		 4)){
-    //TODO:JK: add missing
-    
-    /* instantiat audio file */
-    filename = AGS_FILE_LINK(audio_file_link)->filename;
-    audio_file = ags_audio_file_new((gchar *) filename,
-				    soundcard,
-				    audio_channel);
-
-    /* open file and read audio signal */
-    ags_audio_file_open(audio_file);
-    ags_audio_file_read_audio_signal(audio_file);
-
-    /* retrieve audio signal */
-    if(audio_file->audio_signal == NULL){
-      return;
-    }
-
-    audio_signal = audio_file->audio_signal;
-    
-    /* set template flag */
-    AGS_AUDIO_SIGNAL(audio_signal->data)->flags |= AGS_AUDIO_SIGNAL_TEMPLATE;
-
-    /* unlink if needed */
-    if(input != NULL &&
-       input->link != NULL){
-      GError *error;
-
-      error = NULL;
-
-      ags_channel_set_link(input, NULL,
-			   &error);
-
-      if(error != NULL){
-	g_warning("%s", error->message);
-
-	g_error_free(error);
-      }
-    }
-
-    /* set file link */
-    g_object_set(G_OBJECT(input),
-		 "file-link", g_object_new(AGS_TYPE_FILE_LINK,
-					   "filename", filename,
-					   NULL),
-		 NULL);
-
-    if(input == NULL ||
-       audio_signal == NULL){
-      return;
-    }
-
-    /* add audio signal */
-    ags_recycling_add_audio_signal(input->first_recycling,
-				   AGS_AUDIO_SIGNAL(audio_signal->data));
-  }else if(!xmlStrncmp(type,
-		       "embedded",
-		       9)){
-    xmlXPathContext *xpath_context;
-    xmlXPathObject *xpath_object;
-
-    /*  */
-    xpath_context = xmlXPathNewContext(AGS_FILE(file_launch->file)->doc);
-    //    xmlXPathSetContextNode(node,
-    //			   xpath_context);
-    xpath_context->node = node;  
-
-    xpath_object = xmlXPathEval("./ags-embedded-audio",
-				xpath_context);
-
-    child = NULL;
-    
-    if(xpath_object->nodesetval != NULL && xpath_object->nodesetval->nodeTab != NULL){
-      guint i;
-
-      for(i = 0; i < xpath_object->nodesetval->nodeNr; i++){
-	if(xpath_object->nodesetval->nodeTab[i]->type == XML_ELEMENT_NODE){
-	  child = xpath_object->nodesetval->nodeTab[i];
-	  break;
-	}
-      }
-    }
-
-    if(child != NULL){    
-      /**/
-      encoding = xmlGetProp(child, "encoding");
-      demuxer = xmlGetProp(child, "demuxer");
-
-      if(!xmlStrncmp(encoding,
-		     "base64",
-		     7)){
-	if(!xmlStrncmp(demuxer,
-		       "raw",
-		       4)){
-	  gchar *data;
-
-	  audio_file = ags_audio_file_new(NULL,
-					  soundcard,
-					  audio_channel);
-	  data = child->content;
-
-	  ags_audio_file_open_from_data(audio_file, data);
-	  ags_audio_file_read_audio_signal(audio_file);
-
-	  audio_signal = audio_file->audio_signal;
-
-	  if(input == NULL ||
-	     audio_signal == NULL){
-	    return;
-	  }
-    
-	  ags_recycling_add_audio_signal(input->first_recycling,
-					 AGS_AUDIO_SIGNAL(audio_signal->data));
-	}
-      }
-    }
-  }
-}
-
 /**
  * ags_audio_file_link_new:
  *
@@ -699,7 +418,7 @@ ags_audio_file_link_read_launch(AgsFileLaunch *file_launch,
  *
  * Returns: the new #AgsAudioFileLink
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 AgsAudioFileLink*
 ags_audio_file_link_new()

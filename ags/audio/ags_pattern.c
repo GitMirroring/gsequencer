@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -19,8 +19,7 @@
 
 #include <ags/audio/ags_pattern.h>
 
-#include <ags/libags.h>
-
+#include <ags/audio/ags_channel.h>
 #include <ags/audio/ags_port.h>
 
 #include <stdarg.h>
@@ -50,7 +49,7 @@ void ags_pattern_remove_from_registry(AgsConnectable *connectable);
 xmlNode* ags_pattern_list_resource(AgsConnectable *connectable);
 xmlNode* ags_pattern_xml_compose(AgsConnectable *connectable);
 void ags_pattern_xml_parse(AgsConnectable *connectable,
-			  xmlNode *node);
+			   xmlNode *node);
 gboolean ags_pattern_is_connected(AgsConnectable *connectable);
 void ags_pattern_connect(AgsConnectable *connectable);
 void ags_pattern_disconnect(AgsConnectable *connectable);
@@ -64,11 +63,17 @@ void ags_pattern_change_bpm(AgsTactable *tactable, gdouble new_bpm, gdouble old_
  * @section_id:
  * @include: ags/audio/ags_pattern.h
  *
- * #AgsPattern represents an audio pattern of tones.
+ * #AgsPattern represents an audio pattern of tones. The bitmask pattern is stored in
+ * has 2 level of banks.
+ *
+ * You can check if a bit is set by calling ags_pattern_get_bit().
+ *
+ * To enable/disable a bit call ags_pattern_toggle_bit().
  */
 
 enum{
   PROP_0,
+  PROP_CHANNEL,
   PROP_PORT,
   PROP_FIRST_INDEX,
   PROP_SECOND_INDEX,
@@ -78,8 +83,6 @@ enum{
 };
 
 static gpointer ags_pattern_parent_class = NULL;
-
-static pthread_mutex_t ags_pattern_class_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 GType
 ags_pattern_get_type (void)
@@ -150,11 +153,27 @@ ags_pattern_class_init(AgsPatternClass *pattern)
 
   /* properties */
   /**
+   * AgsPattern:channel:
+   *
+   * The pattern's channel.
+   * 
+   * Since: 3.3.0
+   */
+  param_spec = g_param_spec_object("channel",
+				   "channel of pattern",
+				   "The channel of pattern",
+				   AGS_TYPE_CHANNEL,
+				   G_PARAM_READABLE | G_PARAM_WRITABLE);
+  g_object_class_install_property(gobject,
+				  PROP_CHANNEL,
+				  param_spec);
+
+  /**
    * AgsPattern:port:
    *
    * The pattern's port.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_object("port",
 				   "port of pattern",
@@ -170,7 +189,7 @@ ags_pattern_class_init(AgsPatternClass *pattern)
    *
    * Selected bank 0.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("first-index",
 				 "the first index",
@@ -187,7 +206,7 @@ ags_pattern_class_init(AgsPatternClass *pattern)
    *
    * Selected bank 1.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("second-index",
 				 "the second index",
@@ -204,7 +223,7 @@ ags_pattern_class_init(AgsPatternClass *pattern)
    *
    * Position of pattern.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("offset",
 				 "the offset",
@@ -221,7 +240,7 @@ ags_pattern_class_init(AgsPatternClass *pattern)
    *
    * Offset of current position.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_boolean("current-bit",
 				    "current bit for offset",
@@ -237,7 +256,7 @@ ags_pattern_class_init(AgsPatternClass *pattern)
    *
    * The pattern's timestamp.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_object("timestamp",
 				   "timestamp of pattern",
@@ -280,28 +299,15 @@ ags_pattern_tactable_interface_init(AgsTactableInterface *tactable)
 void
 ags_pattern_init(AgsPattern *pattern)
 {
-  pthread_mutex_t *mutex;
-  pthread_mutexattr_t *attr;
-
   /* base initialization */
   pattern->flags = 0;
+  pattern->connectable_flags = 0;
 
-  /* add pattern mutex */
-  pattern->obj_mutexattr = 
-    attr = (pthread_mutexattr_t *) malloc(sizeof(pthread_mutexattr_t));
-  pthread_mutexattr_init(attr);
-  pthread_mutexattr_settype(attr,
-			    PTHREAD_MUTEX_RECURSIVE);
+  /* pattern mutex */
+  g_rec_mutex_init(&(pattern->obj_mutex));
 
-#ifdef __linux__
-  pthread_mutexattr_setprotocol(attr,
-				PTHREAD_PRIO_INHERIT);
-#endif
-
-  pattern->obj_mutex = 
-    mutex = (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t));
-  pthread_mutex_init(mutex,
-		     attr);
+  /* channel */
+  pattern->channel = NULL;
 
   /* timestamp */
   pattern->timestamp = NULL;
@@ -320,6 +326,9 @@ ags_pattern_init(AgsPattern *pattern)
   pattern->i = 0;
   pattern->j = 0;
   pattern->bit = 0;
+
+  /* note */
+  pattern->note = NULL;
 }
 
 void
@@ -330,7 +339,7 @@ ags_pattern_set_property(GObject *gobject,
 {
   AgsPattern *pattern;
 
-  pthread_mutex_t *pattern_mutex;
+  GRecMutex *pattern_mutex;
 
   pattern = AGS_PATTERN(gobject);
 
@@ -338,72 +347,99 @@ ags_pattern_set_property(GObject *gobject,
   pattern_mutex = AGS_PATTERN_GET_OBJ_MUTEX(pattern);
 
   switch(prop_id){
+  case PROP_CHANNEL:
+  {
+    AgsChannel *channel;
+
+    channel = (AgsChannel *) g_value_get_object(value);
+
+    g_rec_mutex_lock(pattern_mutex);
+
+    if(channel == pattern->channel){
+      g_rec_mutex_unlock(pattern_mutex);
+
+      return;
+    }
+
+    if(pattern->channel != NULL){
+      g_object_unref(G_OBJECT(pattern->channel));
+    }
+
+    if(channel != NULL){
+      g_object_ref(G_OBJECT(channel));
+    }
+
+    pattern->channel = channel;
+
+    g_rec_mutex_unlock(pattern_mutex);
+  }
+  break;
   case PROP_FIRST_INDEX:
-    {
-      guint i;
+  {
+    guint i;
 
-      i = g_value_get_uint(value);
+    i = g_value_get_uint(value);
 
-      pthread_mutex_lock(pattern_mutex);
+    g_rec_mutex_lock(pattern_mutex);
 
-      pattern->i = i;
+    pattern->i = i;
 
-      pthread_mutex_unlock(pattern_mutex);
-    }
-    break;
+    g_rec_mutex_unlock(pattern_mutex);
+  }
+  break;
   case PROP_SECOND_INDEX:
-    {
-      guint j;
+  {
+    guint j;
 
-      j = g_value_get_uint(value);
+    j = g_value_get_uint(value);
 
-      pthread_mutex_lock(pattern_mutex);
+    g_rec_mutex_lock(pattern_mutex);
 
-      pattern->j = j;
+    pattern->j = j;
 
-      pthread_mutex_unlock(pattern_mutex);
-    }
-    break;
+    g_rec_mutex_unlock(pattern_mutex);
+  }
+  break;
   case PROP_OFFSET:
-    {
-      guint bit;
+  {
+    guint bit;
 
-      bit = g_value_get_uint(value);
+    bit = g_value_get_uint(value);
 
-      pthread_mutex_lock(pattern_mutex);
+    g_rec_mutex_lock(pattern_mutex);
 
-      pattern->bit = bit;
+    pattern->bit = bit;
 
-      pthread_mutex_unlock(pattern_mutex);
-    }
-    break;
+    g_rec_mutex_unlock(pattern_mutex);
+  }
+  break;
   case PROP_TIMESTAMP:
-    {
-      AgsTimestamp *timestamp;
+  {
+    AgsTimestamp *timestamp;
 
-      timestamp = (AgsTimestamp *) g_value_get_object(value);
+    timestamp = (AgsTimestamp *) g_value_get_object(value);
 
-      pthread_mutex_lock(pattern_mutex);
+    g_rec_mutex_lock(pattern_mutex);
 
-      if(timestamp == pattern->timestamp){
-	pthread_mutex_unlock(pattern_mutex);
+    if(timestamp == pattern->timestamp){
+      g_rec_mutex_unlock(pattern_mutex);
 
-	return;
-      }
-
-      if(pattern->timestamp != NULL){
-	g_object_unref(G_OBJECT(pattern->timestamp));
-      }
-
-      if(timestamp != NULL){
-	g_object_ref(G_OBJECT(timestamp));
-      }
-
-      pattern->timestamp = timestamp;
-
-      pthread_mutex_unlock(pattern_mutex);
+      return;
     }
-    break;
+
+    if(pattern->timestamp != NULL){
+      g_object_unref(G_OBJECT(pattern->timestamp));
+    }
+
+    if(timestamp != NULL){
+      g_object_ref(G_OBJECT(timestamp));
+    }
+
+    pattern->timestamp = timestamp;
+
+    g_rec_mutex_unlock(pattern_mutex);
+  }
+  break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(gobject, prop_id, param_spec);
     break;
@@ -418,7 +454,7 @@ ags_pattern_get_property(GObject *gobject,
 {
   AgsPattern *pattern;
 
-  pthread_mutex_t *pattern_mutex;
+  GRecMutex *pattern_mutex;
 
   pattern = AGS_PATTERN(gobject);
 
@@ -426,71 +462,81 @@ ags_pattern_get_property(GObject *gobject,
   pattern_mutex = AGS_PATTERN_GET_OBJ_MUTEX(pattern);
 
   switch(prop_id){
+  case PROP_CHANNEL:
+  {
+    g_rec_mutex_lock(pattern_mutex);
+
+    g_value_set_object(value,
+		       pattern->channel);
+
+    g_rec_mutex_unlock(pattern_mutex);
+  }
+  break;
   case PROP_PORT:
-    {
-      pthread_mutex_lock(pattern_mutex);
+  {
+    g_rec_mutex_lock(pattern_mutex);
 
-      g_value_set_object(value, pattern->port);
+    g_value_set_object(value, pattern->port);
 
-      pthread_mutex_unlock(pattern_mutex);
-    }
-    break;
+    g_rec_mutex_unlock(pattern_mutex);
+  }
+  break;
   case PROP_FIRST_INDEX:
-    {
-      pthread_mutex_lock(pattern_mutex);
+  {
+    g_rec_mutex_lock(pattern_mutex);
 
-      g_value_set_uint(value, pattern->i);
+    g_value_set_uint(value, pattern->i);
 
-      pthread_mutex_unlock(pattern_mutex);
-    }
-    break;
+    g_rec_mutex_unlock(pattern_mutex);
+  }
+  break;
   case PROP_SECOND_INDEX:
-    {
-      pthread_mutex_lock(pattern_mutex);
+  {
+    g_rec_mutex_lock(pattern_mutex);
 
-      g_value_set_uint(value, pattern->j);
+    g_value_set_uint(value, pattern->j);
 
-      pthread_mutex_unlock(pattern_mutex);
-    }
-    break;
+    g_rec_mutex_unlock(pattern_mutex);
+  }
+  break;
   case PROP_OFFSET:
-    {
-      pthread_mutex_lock(pattern_mutex);
+  {
+    g_rec_mutex_lock(pattern_mutex);
 
-      g_value_set_uint(value, pattern->bit);
+    g_value_set_uint(value, pattern->bit);
 
-      pthread_mutex_unlock(pattern_mutex);
-    }
-    break;
+    g_rec_mutex_unlock(pattern_mutex);
+  }
+  break;
   case PROP_CURRENT_BIT:
-    {
-      guint i, j;
-      guint bit;
+  {
+    guint i, j;
+    guint bit;
 
-      pthread_mutex_lock(pattern_mutex);
+    g_rec_mutex_lock(pattern_mutex);
 
-      i = pattern->i;
-      j = pattern->j;
-      bit = pattern->bit;
+    i = pattern->i;
+    j = pattern->j;
+    bit = pattern->bit;
 
-      pthread_mutex_unlock(pattern_mutex);
+    g_rec_mutex_unlock(pattern_mutex);
 
-      g_value_set_boolean(value, ags_pattern_get_bit(pattern,
-						     i,
-						     j,
-						     bit));
-    }
-    break;
+    g_value_set_boolean(value, ags_pattern_get_bit(pattern,
+						   i,
+						   j,
+						   bit));
+  }
+  break;
   case PROP_TIMESTAMP:
-    {
-      pthread_mutex_lock(pattern_mutex);
+  {
+    g_rec_mutex_lock(pattern_mutex);
 
-      g_value_set_object(value,
-			 pattern->timestamp);
+    g_value_set_object(value,
+		       pattern->timestamp);
 
-      pthread_mutex_unlock(pattern_mutex);
-    }
-    break;
+    g_rec_mutex_unlock(pattern_mutex);
+  }
+  break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(gobject, prop_id, param_spec);
     break;
@@ -504,11 +550,20 @@ ags_pattern_dispose(GObject *gobject)
 
   pattern = AGS_PATTERN(gobject);
 
+  /* channel */
+  if(pattern->channel != NULL){
+    g_object_unref(G_OBJECT(pattern->channel));
+
+    pattern->channel = NULL;
+  }
+
   /* timestamp */
   if(pattern->timestamp != NULL){
     g_object_run_dispose(G_OBJECT(pattern->timestamp));
     
     g_object_unref(G_OBJECT(pattern->timestamp));
+
+    pattern->timestamp = NULL;
   }
 
   /* port */
@@ -531,6 +586,11 @@ ags_pattern_finalize(GObject *gobject)
 
   pattern = AGS_PATTERN(gobject);
 
+  /* channel */
+  if(pattern->channel != NULL){
+    g_object_unref(G_OBJECT(pattern->channel));
+  }
+
   /* timestamp */
   if(pattern->timestamp != NULL){
     g_object_unref(G_OBJECT(pattern->timestamp));
@@ -542,27 +602,21 @@ ags_pattern_finalize(GObject *gobject)
       if(pattern->pattern[i] != NULL){
 	for(j = 0; j < pattern->dim[1]; j++){
 	  if(pattern->pattern[i][j] != NULL){
-	    free(pattern->pattern[i][j]);
+	    g_free(pattern->pattern[i][j]);
 	  }
 	}
 
-	free(pattern->pattern[i]);
+	g_free(pattern->pattern[i]);
       }
     }
 
-    free(pattern->pattern);
+    g_free(pattern->pattern);
   }
  
   /* port */
   if(pattern->port != NULL){
     g_object_unref(G_OBJECT(pattern->port));
   }
-
-  pthread_mutex_destroy(pattern->obj_mutex);
-  free(pattern->obj_mutex);
-
-  pthread_mutexattr_destroy(pattern->obj_mutexattr);
-  free(pattern->obj_mutexattr);
   
   /* call parent */
   G_OBJECT_CLASS(ags_pattern_parent_class)->finalize(gobject);
@@ -575,7 +629,7 @@ ags_pattern_get_uuid(AgsConnectable *connectable)
   
   AgsUUID *ptr;
 
-  pthread_mutex_t *pattern_mutex;
+  GRecMutex *pattern_mutex;
 
   pattern = AGS_PATTERN(connectable);
 
@@ -583,11 +637,11 @@ ags_pattern_get_uuid(AgsConnectable *connectable)
   pattern_mutex = AGS_PATTERN_GET_OBJ_MUTEX(pattern);
 
   /* get UUID */
-  pthread_mutex_lock(pattern_mutex);
+  g_rec_mutex_lock(pattern_mutex);
 
   ptr = pattern->uuid;
 
-  pthread_mutex_unlock(pattern_mutex);
+  g_rec_mutex_unlock(pattern_mutex);
   
   return(ptr);
 }
@@ -605,19 +659,19 @@ ags_pattern_is_ready(AgsConnectable *connectable)
   
   gboolean is_ready;
 
-  pthread_mutex_t *pattern_mutex;
+  GRecMutex *pattern_mutex;
 
   pattern = AGS_PATTERN(connectable);
 
   /* get pattern mutex */
   pattern_mutex = AGS_PATTERN_GET_OBJ_MUTEX(pattern);
 
-  /* check is added */
-  pthread_mutex_lock(pattern_mutex);
+  /* check is ready */
+  g_rec_mutex_lock(pattern_mutex);
 
-  is_ready = (((AGS_PATTERN_ADDED_TO_REGISTRY & (pattern->flags)) != 0) ? TRUE: FALSE);
+  is_ready = ((AGS_CONNECTABLE_ADDED_TO_REGISTRY & (pattern->connectable_flags)) != 0) ? TRUE: FALSE;
 
-  pthread_mutex_unlock(pattern_mutex);
+  g_rec_mutex_unlock(pattern_mutex);
   
   return(is_ready);
 }
@@ -633,6 +687,8 @@ ags_pattern_add_to_registry(AgsConnectable *connectable)
   AgsApplicationContext *application_context;
 
   GList *list;
+  
+  GRecMutex *pattern_mutex;
 
   if(ags_connectable_is_ready(connectable)){
     return;
@@ -640,7 +696,14 @@ ags_pattern_add_to_registry(AgsConnectable *connectable)
   
   pattern = AGS_PATTERN(connectable);
 
-  ags_pattern_set_flags(pattern, AGS_PATTERN_ADDED_TO_REGISTRY);
+  /* get pattern mutex */
+  pattern_mutex = AGS_PATTERN_GET_OBJ_MUTEX(pattern);
+
+  g_rec_mutex_lock(pattern_mutex);
+
+  pattern->connectable_flags |= AGS_CONNECTABLE_ADDED_TO_REGISTRY;
+  
+  g_rec_mutex_unlock(pattern_mutex);
 
   application_context = ags_application_context_get_instance();
 
@@ -660,9 +723,24 @@ ags_pattern_add_to_registry(AgsConnectable *connectable)
 void
 ags_pattern_remove_from_registry(AgsConnectable *connectable)
 {
+  AgsPattern *pattern;
+  
+  GRecMutex *pattern_mutex;
+
   if(!ags_connectable_is_ready(connectable)){
     return;
   }
+
+  pattern = AGS_PATTERN(connectable);
+
+  /* get pattern mutex */
+  pattern_mutex = AGS_PATTERN_GET_OBJ_MUTEX(pattern);
+
+  g_rec_mutex_lock(pattern_mutex);
+
+  pattern->connectable_flags &= (~AGS_CONNECTABLE_ADDED_TO_REGISTRY);
+  
+  g_rec_mutex_unlock(pattern_mutex);
 
   //TODO:JK: implement me
 }
@@ -693,7 +771,7 @@ ags_pattern_xml_compose(AgsConnectable *connectable)
 
 void
 ags_pattern_xml_parse(AgsConnectable *connectable,
-		     xmlNode *node)
+		      xmlNode *node)
 {
   //TODO:JK: implement me
 }
@@ -705,7 +783,7 @@ ags_pattern_is_connected(AgsConnectable *connectable)
   
   gboolean is_connected;
 
-  pthread_mutex_t *pattern_mutex;
+  GRecMutex *pattern_mutex;
 
   pattern = AGS_PATTERN(connectable);
 
@@ -713,11 +791,11 @@ ags_pattern_is_connected(AgsConnectable *connectable)
   pattern_mutex = AGS_PATTERN_GET_OBJ_MUTEX(pattern);
 
   /* check is connected */
-  pthread_mutex_lock(pattern_mutex);
+  g_rec_mutex_lock(pattern_mutex);
 
-  is_connected = (((AGS_PATTERN_CONNECTED & (pattern->flags)) != 0) ? TRUE: FALSE);
-  
-  pthread_mutex_unlock(pattern_mutex);
+  is_connected = ((AGS_CONNECTABLE_CONNECTED & (pattern->connectable_flags)) != 0) ? TRUE: FALSE;
+
+  g_rec_mutex_unlock(pattern_mutex);
   
   return(is_connected);
 }
@@ -729,7 +807,7 @@ ags_pattern_connect(AgsConnectable *connectable)
 
   GList *list_start, *list;
 
-  pthread_mutex_t *pattern_mutex;
+  GRecMutex *pattern_mutex;
 
   if(ags_connectable_is_connected(connectable)){
     return;
@@ -737,7 +815,14 @@ ags_pattern_connect(AgsConnectable *connectable)
 
   pattern = AGS_PATTERN(connectable);
 
-  ags_pattern_set_flags(pattern, AGS_PATTERN_CONNECTED);  
+  /* get pattern mutex */
+  pattern_mutex = AGS_PATTERN_GET_OBJ_MUTEX(pattern);
+
+  g_rec_mutex_lock(pattern_mutex);
+
+  pattern->connectable_flags |= AGS_CONNECTABLE_CONNECTED;
+  
+  g_rec_mutex_unlock(pattern_mutex);
 }
 
 void
@@ -747,7 +832,7 @@ ags_pattern_disconnect(AgsConnectable *connectable)
 
   GList *list_start, *list;
 
-  pthread_mutex_t *pattern_mutex;
+  GRecMutex *pattern_mutex;
 
   if(!ags_connectable_is_connected(connectable)){
     return;
@@ -755,22 +840,34 @@ ags_pattern_disconnect(AgsConnectable *connectable)
 
   pattern = AGS_PATTERN(connectable);
 
-  ags_pattern_unset_flags(pattern, AGS_PATTERN_CONNECTED);    
+  /* get pattern mutex */
+  pattern_mutex = AGS_PATTERN_GET_OBJ_MUTEX(pattern);
+
+  g_rec_mutex_lock(pattern_mutex);
+
+  pattern->connectable_flags &= (~AGS_CONNECTABLE_CONNECTED);
+  
+  g_rec_mutex_unlock(pattern_mutex);
 }
 
 /**
- * ags_pattern_get_class_mutex:
+ * ags_pattern_get_obj_mutex:
+ * @pattern: the #AgsPattern
  * 
- * Use this function's returned mutex to access mutex fields.
- *
- * Returns: the class mutex
+ * Get object mutex.
  * 
- * Since: 2.0.0
+ * Returns: the #GRecMutex to lock @pattern
+ * 
+ * Since: 3.1.0
  */
-pthread_mutex_t*
-ags_pattern_get_class_mutex()
+GRecMutex*
+ags_pattern_get_obj_mutex(AgsPattern *pattern)
 {
-  return(&ags_pattern_class_mutex);
+  if(!AGS_IS_PATTERN(pattern)){
+    return(NULL);
+  }
+
+  return(AGS_PATTERN_GET_OBJ_MUTEX(pattern));
 }
 
 /**
@@ -782,14 +879,14 @@ ags_pattern_get_class_mutex()
  * 
  * Returns: %TRUE if flags are set, else %FALSE
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gboolean
 ags_pattern_test_flags(AgsPattern *pattern, guint flags)
 {
   gboolean retval;  
   
-  pthread_mutex_t *pattern_mutex;
+  GRecMutex *pattern_mutex;
 
   if(!AGS_IS_PATTERN(pattern)){
     return(FALSE);
@@ -799,11 +896,11 @@ ags_pattern_test_flags(AgsPattern *pattern, guint flags)
   pattern_mutex = AGS_PATTERN_GET_OBJ_MUTEX(pattern);
 
   /* test */
-  pthread_mutex_lock(pattern_mutex);
+  g_rec_mutex_lock(pattern_mutex);
 
   retval = (flags & (pattern->flags)) ? TRUE: FALSE;
   
-  pthread_mutex_unlock(pattern_mutex);
+  g_rec_mutex_unlock(pattern_mutex);
 
   return(retval);
 }
@@ -815,12 +912,12 @@ ags_pattern_test_flags(AgsPattern *pattern, guint flags)
  *
  * Set flags.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_pattern_set_flags(AgsPattern *pattern, guint flags)
 {
-  pthread_mutex_t *pattern_mutex;
+  GRecMutex *pattern_mutex;
 
   if(!AGS_IS_PATTERN(pattern)){
     return;
@@ -830,11 +927,11 @@ ags_pattern_set_flags(AgsPattern *pattern, guint flags)
   pattern_mutex = AGS_PATTERN_GET_OBJ_MUTEX(pattern);
 
   /* set flags */
-  pthread_mutex_lock(pattern_mutex);
+  g_rec_mutex_lock(pattern_mutex);
 
   pattern->flags |= flags;
 
-  pthread_mutex_unlock(pattern_mutex);
+  g_rec_mutex_unlock(pattern_mutex);
 }
 
 /**
@@ -844,12 +941,12 @@ ags_pattern_set_flags(AgsPattern *pattern, guint flags)
  *
  * Unset flags.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_pattern_unset_flags(AgsPattern *pattern, guint flags)
 {
-  pthread_mutex_t *pattern_mutex;
+  GRecMutex *pattern_mutex;
 
   if(!AGS_IS_PATTERN(pattern)){
     return;
@@ -859,11 +956,11 @@ ags_pattern_unset_flags(AgsPattern *pattern, guint flags)
   pattern_mutex = AGS_PATTERN_GET_OBJ_MUTEX(pattern);
 
   /* set flags */
-  pthread_mutex_lock(pattern_mutex);
+  g_rec_mutex_lock(pattern_mutex);
 
   pattern->flags &= (~flags);
 
-  pthread_mutex_unlock(pattern_mutex);
+  g_rec_mutex_unlock(pattern_mutex);
 }
 
 void
@@ -874,14 +971,14 @@ ags_pattern_change_bpm(AgsTactable *tactable, gdouble new_bpm, gdouble old_bpm)
 
 /**
  * ags_pattern_find_near_timestamp:
- * @pattern: a #GList containing #AgsPattern
+ * @pattern: (element-type AgsAudio.Pattern) (transfer none): the #GList-struct containing #AgsPattern
  * @timestamp: the matching #AgsTimestamp
  *
  * Retrieve appropriate pattern for timestamp.
  *
- * Returns: Next match.
+ * Returns: (element-type AgsAudio.Pattern) (transfer none): Next match.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 GList*
 ags_pattern_find_near_timestamp(GList *pattern, AgsTimestamp *timestamp)
@@ -1088,24 +1185,114 @@ ags_pattern_find_near_timestamp(GList *pattern, AgsTimestamp *timestamp)
 }
 
 /**
- * ags_pattern_set_dim:
+ * ags_pattern_get_channel:
+ * @pattern: the #AgsPattern
+ * 
+ * Get channel.
+ * 
+ * Returns: (transfer full): the #AgsChannel
+ * 
+ * Since: 3.1.0
+ */
+GObject*
+ags_pattern_get_channel(AgsPattern *pattern)
+{
+  GObject *channel;
+
+  if(!AGS_IS_PATTERN(pattern)){
+    return(NULL);
+  }
+
+  g_object_get(pattern,
+	       "channel", &channel,
+	       NULL);
+
+  return(channel);
+}
+
+/**
+ * ags_pattern_set_channel:
+ * @pattern: the #AgsPattern
+ * @channel: the #AgsChannel
+ * 
+ * Set channel.
+ * 
+ * Since: 3.1.0
+ */
+void
+ags_pattern_set_channel(AgsPattern *pattern, GObject *channel)
+{
+  if(!AGS_IS_PATTERN(pattern)){
+    return;
+  }
+
+  g_object_set(pattern,
+	       "channel", channel,
+	       NULL);
+}
+
+/**
+ * ags_pattern_get_timestamp:
+ * @pattern: the #AgsPattern
+ * 
+ * Get timestamp.
+ * 
+ * Returns: (transfer full): the #AgsTimestamp
+ * 
+ * Since: 3.1.0
+ */
+AgsTimestamp*
+ags_pattern_get_timestamp(AgsPattern *pattern)
+{
+  AgsTimestamp *timestamp;
+
+  if(!AGS_IS_PATTERN(pattern)){
+    return(NULL);
+  }
+
+  g_object_get(pattern,
+	       "timestamp", &timestamp,
+	       NULL);
+
+  return(timestamp);
+}
+
+/**
+ * ags_pattern_set_timestamp:
+ * @pattern: the #AgsPattern
+ * @timestamp: the #AgsTimestamp
+ * 
+ * Set timestamp.
+ * 
+ * Since: 3.1.0
+ */
+void
+ags_pattern_set_timestamp(AgsPattern *pattern, AgsTimestamp *timestamp)
+{
+  if(!AGS_IS_PATTERN(pattern)){
+    return;
+  }
+
+  g_object_set(pattern,
+	       "timestamp", timestamp,
+	       NULL);
+}
+
+/**
+ * ags_pattern_get_dim:
  * @pattern: an #AgsPattern
- * @dim0: bank 0 size
- * @dim1: bank 1 size
- * @length: amount of beats
+ * @dim0: (out): bank 0 size
+ * @dim1: (out): bank 1 size
+ * @length: (out): amount of beats
  *
- * Reallocates the pattern's dimensions.
+ * Get the pattern's dimensions.
  *
- * Since: 2.0.0
+ * Since: 3.1.0
  */
 void 
-ags_pattern_set_dim(AgsPattern *pattern, guint dim0, guint dim1, guint length)
+ags_pattern_get_dim(AgsPattern *pattern, guint *dim0, guint *dim1, guint *length)
 {
-  guint ***index0, **index1, *bitmap;
-  guint i, j, k, j_set, k_set;
-  guint bitmap_size;
-
-  pthread_mutex_t *pattern_mutex;
+  GRecMutex *pattern_mutex;
 
   if(!AGS_IS_PATTERN(pattern)){
     return;
@@ -1114,11 +1301,64 @@ ags_pattern_set_dim(AgsPattern *pattern, guint dim0, guint dim1, guint length)
   /* get pattern mutex */
   pattern_mutex = AGS_PATTERN_GET_OBJ_MUTEX(pattern);
 
-  /* set dim*/
-  pthread_mutex_lock(pattern_mutex);
+  /* get dim */
+  g_rec_mutex_lock(pattern_mutex);
+
+  if(dim0 != NULL){
+    dim0[0] = pattern->dim[0];
+  }
+
+  if(dim1 != NULL){
+    dim1[0] = pattern->dim[1];
+  }
+
+  if(length != NULL){
+    length[0] = pattern->dim[2];
+  }
+  
+  g_rec_mutex_unlock(pattern_mutex);
+}
+
+/**
+ * ags_pattern_set_dim:
+ * @pattern: an #AgsPattern
+ * @dim0: bank 0 size
+ * @dim1: bank 1 size
+ * @length: amount of beats
+ *
+ * Reallocates the pattern's dimensions.
+ *
+ * Since: 3.0.0
+ */
+void 
+ags_pattern_set_dim(AgsPattern *pattern, guint dim0, guint dim1, guint length)
+{
+  AgsChannel *channel;
+  
+  guint ***index0, **index1, *bitmap;
+
+  guint pad;
+  guint i, j, k, j_set, k_set;
+  guint bitmap_size;
+
+  GRecMutex *pattern_mutex;
+
+  if(!AGS_IS_PATTERN(pattern)){
+    return;
+  }
+
+  channel = NULL;
+
+  pad = 0;
+  
+  /* get pattern mutex */
+  pattern_mutex = AGS_PATTERN_GET_OBJ_MUTEX(pattern);
+
+  /* set dim */
+  g_rec_mutex_lock(pattern_mutex);
 
   if(dim0 == 0 && pattern->pattern == NULL){
-    pthread_mutex_unlock(pattern_mutex);
+    g_rec_mutex_unlock(pattern_mutex);
     
     return;
   }
@@ -1127,26 +1367,26 @@ ags_pattern_set_dim(AgsPattern *pattern, guint dim0, guint dim1, guint length)
   if(pattern->dim[0] > dim0){
     for(i = dim0; i < pattern->dim[0]; i++){
       for(j = 0; j < pattern->dim[1]; j++){
-	free(pattern->pattern[i][j]);
+	g_free(pattern->pattern[i][j]);
       }
 
-      free(pattern->pattern[i]);
+      g_free(pattern->pattern[i]);
 
       pattern->pattern[i] = NULL;
     }
 
     if(dim0 == 0){
-      free(pattern->pattern);
+      g_free(pattern->pattern);
       
       pattern->pattern = NULL;
       pattern->dim[0] = 0;
 
-      pthread_mutex_unlock(pattern_mutex);
+      g_rec_mutex_unlock(pattern_mutex);
     
       return;
     }else{
-      pattern->pattern = (guint ***) realloc(pattern->pattern,
-					     (int) dim0 * sizeof(guint **));
+      pattern->pattern = (guint ***) g_realloc(pattern->pattern,
+					       (int) dim0 * sizeof(guint **));
 
       pattern->dim[0] = dim0;
     }
@@ -1156,7 +1396,7 @@ ags_pattern_set_dim(AgsPattern *pattern, guint dim0, guint dim1, guint length)
     if(dim1 == 0){
       for(i = 0; i < pattern->dim[0]; i++){
 	for(j = dim1; j < pattern->dim[1]; j++){
-	  free(pattern->pattern[i][j]);
+	  g_free(pattern->pattern[i][j]);
 	}
 
 	pattern->pattern[i] = NULL;
@@ -1164,19 +1404,19 @@ ags_pattern_set_dim(AgsPattern *pattern, guint dim0, guint dim1, guint length)
 
       pattern->dim[1] = 0;
       
-      pthread_mutex_unlock(pattern_mutex);
+      g_rec_mutex_unlock(pattern_mutex);
     
       return;
     }else{
       for(i = 0; i < pattern->dim[0]; i++){
 	for(j = dim1; j < pattern->dim[1]; j++){
-	  free(pattern->pattern[i][j]);
+	  g_free(pattern->pattern[i][j]);
 	}
       }
 
       for(i = 0; pattern->dim[0]; i++){
-	pattern->pattern[i] = (guint **) realloc(pattern->pattern[i],
-						 dim1 * sizeof(guint *));
+	pattern->pattern[i] = (guint **) g_realloc(pattern->pattern[i],
+						   dim1 * sizeof(guint *));
       }
 
       pattern->dim[1] = dim1;
@@ -1187,20 +1427,35 @@ ags_pattern_set_dim(AgsPattern *pattern, guint dim0, guint dim1, guint length)
     if(length == 0){
       for(i = 0; i < pattern->dim[0]; i++){
 	for(j = 0; j < pattern->dim[1]; j++){
-      	  free(pattern->pattern[i][j]);
+      	  g_free(pattern->pattern[i][j]);
 	  
 	  pattern->pattern[i][j] = NULL;
 	}
       }
 
+      for(k = 0; k < pattern->dim[2]; k++){
+	g_object_unref(pattern->note[k]);
+      }
+      
+      g_free(pattern->note);
+      
+      pattern->note = NULL;
+      
       pattern->dim[2] = 0;
     }else{
       for(i = 0; i < pattern->dim[0]; i++){
 	for(j = 0; j < pattern->dim[1]; j++){
-	  pattern->pattern[i][j] = (guint *) realloc(pattern->pattern[i][j],
-						     (guint) ceil((double) length / (double) (sizeof(guint) * 8)) * sizeof(guint));
+	  pattern->pattern[i][j] = (guint *) g_realloc(pattern->pattern[i][j],
+						       (guint) ceil((double) length / (double) (sizeof(guint) * 8)) * sizeof(guint));
 	}
       }
+
+      for(k = length; k < pattern->dim[2]; k++){
+	g_object_unref(pattern->note[k]);
+      }
+      
+      pattern->note = g_realloc(pattern->note,
+				length * sizeof(AgsNote *));
 
       pattern->dim[2] = length;
     }
@@ -1211,20 +1466,20 @@ ags_pattern_set_dim(AgsPattern *pattern, guint dim0, guint dim1, guint length)
     
   if(pattern->dim[0] < dim0){
     if(pattern->pattern == NULL){
-      pattern->pattern = (guint ***) malloc(dim0 * sizeof(guint **));
+      pattern->pattern = (guint ***) g_malloc(dim0 * sizeof(guint **));
     }else{
-      pattern->pattern = (guint ***) realloc(pattern->pattern,
-					     dim0 * sizeof(guint **));
+      pattern->pattern = (guint ***) g_realloc(pattern->pattern,
+					       dim0 * sizeof(guint **));
     }
 
     for(i = pattern->dim[0]; i < dim0; i++){
-      pattern->pattern[i] = (guint **) malloc(pattern->dim[1] * sizeof(guint *));
+      pattern->pattern[i] = (guint **) g_malloc(pattern->dim[1] * sizeof(guint *));
 
       for(j = 0; j < pattern->dim[1]; j++){
 	if(bitmap_size == 0){
 	  pattern->pattern[i][j] = NULL;
 	}else{
-	  pattern->pattern[i][j] = (guint *) malloc(bitmap_size);
+	  pattern->pattern[i][j] = (guint *) g_malloc(bitmap_size);
 	  memset(pattern->pattern[i][j], 0, bitmap_size);
 	}
       }
@@ -1236,17 +1491,17 @@ ags_pattern_set_dim(AgsPattern *pattern, guint dim0, guint dim1, guint length)
   if(pattern->dim[1] < dim1){  
     for(i = 0; i < pattern->dim[0]; i++){
       if(pattern->pattern[i] == NULL){
-	pattern->pattern[i] = (guint **) malloc(dim1 * sizeof(guint *));
+	pattern->pattern[i] = (guint **) g_malloc(dim1 * sizeof(guint *));
       }else{
-	pattern->pattern[i] = (guint **) realloc(pattern->pattern[i],
-						 dim1 * sizeof(guint *));
+	pattern->pattern[i] = (guint **) g_realloc(pattern->pattern[i],
+						   dim1 * sizeof(guint *));
       }
 
       for(j = pattern->dim[1]; j < dim1; j++){
 	if(bitmap_size == 0){
 	  pattern->pattern[i][j] = NULL;
 	}else{
-	  pattern->pattern[i][j] = (guint *) malloc(bitmap_size);
+	  pattern->pattern[i][j] = (guint *) g_malloc(bitmap_size);
 	  memset(pattern->pattern[i][j], 0, bitmap_size);
 	}
       }
@@ -1263,20 +1518,51 @@ ags_pattern_set_dim(AgsPattern *pattern, guint dim0, guint dim1, guint length)
     for(i = 0; i < pattern->dim[0]; i++){
       for(j = 0; j < pattern->dim[1]; j++){
 	if(pattern->pattern[i][j] == NULL){
-	  pattern->pattern[i][j] = (guint *) malloc(new_bitmap_size);
+	  pattern->pattern[i][j] = (guint *) g_malloc(new_bitmap_size);
 	  memset(pattern->pattern[i][j], 0, new_bitmap_size);
 	}else{
-	  pattern->pattern[i][j] =(guint *) realloc(pattern->pattern[i][j],
-						    new_bitmap_size);
+	  pattern->pattern[i][j] =(guint *) g_realloc(pattern->pattern[i][j],
+						      new_bitmap_size);
 	  memset(pattern->pattern[i][j] + bitmap_size, 0, new_bitmap_size - bitmap_size);
 	}
       }
     }
 
+    if(pattern->note == NULL){
+      pattern->note = (AgsNote **) g_malloc(length * sizeof(AgsNote *));
+    }else{
+      pattern->note = (AgsNote **) g_realloc(pattern->note,
+					     length * sizeof(AgsNote *));
+    }
+
+    channel = NULL;
+    pad = 0;
+    
+    g_object_get(pattern,
+		 "channel", &channel,
+		 NULL);
+
+    if(channel != NULL){
+      g_object_get(channel,
+		   "pad", &pad,
+		   NULL);
+    }
+    
+    for(k = pattern->dim[2]; k < length; k++){
+      pattern->note[k] = ags_note_new();
+
+      g_object_set(pattern->note[k],
+		   "x0", k,
+		   "x1", k + 1,
+		   "y", pad,
+		   NULL);
+    }
+      
+
     pattern->dim[2] = length;
   }
 
-  pthread_mutex_unlock(pattern_mutex);  
+  g_rec_mutex_unlock(pattern_mutex);  
 }
 
 gboolean
@@ -1285,7 +1571,7 @@ ags_pattern_is_empty(AgsPattern *pattern, guint i, guint j)
   guint bitmap_length;
   guint n;
 
-  pthread_mutex_t *pattern_mutex;
+  GRecMutex *pattern_mutex;
 
   if(!AGS_IS_PATTERN(pattern)){
     return(TRUE);
@@ -1294,20 +1580,27 @@ ags_pattern_is_empty(AgsPattern *pattern, guint i, guint j)
   /* get pattern mutex */
   pattern_mutex = AGS_PATTERN_GET_OBJ_MUTEX(pattern);
 
+  if(!(i < pattern->dim[0] ||
+       j < pattern->dim[1])){
+    g_rec_mutex_unlock(pattern_mutex);
+
+    return(FALSE);
+  }
+
   /* check */
-  pthread_mutex_lock(pattern_mutex);
+  g_rec_mutex_lock(pattern_mutex);
 
   bitmap_length = (guint) ceil((double) pattern->dim[2] / (double) (sizeof(guint) * 8));
 
   for(n = 0; n < bitmap_length; n++){
     if(pattern->pattern[i][j][n] != 0){
-      pthread_mutex_unlock(pattern_mutex);
+      g_rec_mutex_unlock(pattern_mutex);
       
       return(FALSE);
     }
   }
 
-  pthread_mutex_unlock(pattern_mutex);
+  g_rec_mutex_unlock(pattern_mutex);
 
   return(TRUE);
 }
@@ -1323,14 +1616,14 @@ ags_pattern_is_empty(AgsPattern *pattern, guint i, guint j)
  *
  * Returns: %TRUE if tone is enabled.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gboolean
 ags_pattern_get_bit(AgsPattern *pattern, guint i, guint j, guint bit)
 {
   guint k, value;
 
-  pthread_mutex_t *pattern_mutex;
+  GRecMutex *pattern_mutex;
 
   if(!AGS_IS_PATTERN(pattern)){
     return(FALSE);
@@ -1340,7 +1633,15 @@ ags_pattern_get_bit(AgsPattern *pattern, guint i, guint j, guint bit)
   pattern_mutex = AGS_PATTERN_GET_OBJ_MUTEX(pattern);
 
   /* get bit */
-  pthread_mutex_lock(pattern_mutex);
+  g_rec_mutex_lock(pattern_mutex);
+
+  if(!(i < pattern->dim[0] ||
+       j < pattern->dim[1] ||
+       bit < pattern->dim[2])){
+    g_rec_mutex_unlock(pattern_mutex);
+
+    return(FALSE);
+  }
 
   k = (guint) floor((double) bit / (double) (sizeof(guint) * 8));
   value = 1 << (bit % (sizeof(guint) * 8));
@@ -1352,11 +1653,11 @@ ags_pattern_get_bit(AgsPattern *pattern, guint i, guint j, guint bit)
   
   //((1 << (bit % (sizeof(guint) *8))) & (pattern->pattern[i][j][(guint) floor((double) bit / (double) (sizeof(guint) * 8))])) != 0
   if((value & (pattern->pattern[i][j][k])) != 0){
-    pthread_mutex_unlock(pattern_mutex);
+    g_rec_mutex_unlock(pattern_mutex);
     
     return(TRUE);
   }else{
-    pthread_mutex_unlock(pattern_mutex);
+    g_rec_mutex_unlock(pattern_mutex);
     
     return(FALSE);
   }
@@ -1371,14 +1672,14 @@ ags_pattern_get_bit(AgsPattern *pattern, guint i, guint j, guint bit)
  *
  * Toggle tone.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_pattern_toggle_bit(AgsPattern *pattern, guint i, guint j, guint bit)
 {
   guint k, value;
 
-  pthread_mutex_t *pattern_mutex;
+  GRecMutex *pattern_mutex;
 
   if(!AGS_IS_PATTERN(pattern)){
     return;
@@ -1388,8 +1689,16 @@ ags_pattern_toggle_bit(AgsPattern *pattern, guint i, guint j, guint bit)
   pattern_mutex = AGS_PATTERN_GET_OBJ_MUTEX(pattern);
 
   /* toggle */
-  pthread_mutex_lock(pattern_mutex);
+  g_rec_mutex_lock(pattern_mutex);
 
+  if(!(i < pattern->dim[0] ||
+       j < pattern->dim[1] ||
+       bit < pattern->dim[2])){
+    g_rec_mutex_unlock(pattern_mutex);
+
+    return;
+  }
+  
   k = (guint) floor((double) bit / (double) (sizeof(guint) * 8));
   value = 1 << (bit % (sizeof(guint) * 8));
 
@@ -1399,7 +1708,47 @@ ags_pattern_toggle_bit(AgsPattern *pattern, guint i, guint j, guint bit)
     pattern->pattern[i][j][k] |= value;
   }
 
-  pthread_mutex_unlock(pattern_mutex);
+  g_rec_mutex_unlock(pattern_mutex);
+}
+
+/**
+ * ags_pattern_get_note:
+ * @pattern: an #AgsPattern
+ * @bit: the tic
+ *
+ * Get note of @pattern.
+ *
+ * Returns: (transfer full): the #AgsNote at given position or %NULL
+ *
+ * Since: 3.3.0
+ */
+AgsNote*
+ags_pattern_get_note(AgsPattern *pattern, guint bit)
+{
+  AgsNote *note;
+  
+  GRecMutex *pattern_mutex;
+
+  if(!AGS_IS_PATTERN(pattern)){
+    return(NULL);
+  }
+
+  note = NULL;
+
+  /* get pattern mutex */
+  pattern_mutex = AGS_PATTERN_GET_OBJ_MUTEX(pattern);
+
+  g_rec_mutex_lock(pattern_mutex);
+
+  if(bit < pattern->dim[2]){
+    note = pattern->note[bit];
+    
+    g_object_ref(note);
+  }
+  
+  g_rec_mutex_unlock(pattern_mutex);
+
+  return(note);
 }
 
 /**
@@ -1409,7 +1758,7 @@ ags_pattern_toggle_bit(AgsPattern *pattern, guint i, guint j, guint bit)
  *
  * Returns: the new #AgsPattern
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 AgsPattern*
 ags_pattern_new()

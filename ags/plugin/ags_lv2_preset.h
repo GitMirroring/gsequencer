@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2017 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -23,10 +23,12 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include <ags/lib/ags_turtle.h>
+#include <ags/libags.h>
 
 #include <lv2.h>
 #include <lv2/lv2plug.in/ns/ext/presets/presets.h>
+
+G_BEGIN_DECLS
 
 #define AGS_TYPE_LV2_PRESET                (ags_lv2_preset_get_type())
 #define AGS_LV2_PRESET(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_LV2_PRESET, AgsLv2Preset))
@@ -35,7 +37,7 @@
 #define AGS_IS_LV2_PRESET_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE ((class), AGS_TYPE_LV2_PRESET))
 #define AGS_LV2_PRESET_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS ((obj), AGS_TYPE_LV2_PRESET, AgsLv2PresetClass))
 
-#define AGS_LV2_PRESET_GET_OBJ_MUTEX(obj) (((AgsLv2Preset *) obj)->obj_mutex)
+#define AGS_LV2_PRESET_GET_OBJ_MUTEX(obj) (&(((AgsLv2Preset *) obj)->obj_mutex))
 
 #define AGS_LV2_PORT_PRESET(ptr) ((AgsLv2PortPreset*)(ptr))
 
@@ -43,25 +45,13 @@ typedef struct _AgsLv2Preset AgsLv2Preset;
 typedef struct _AgsLv2PresetClass AgsLv2PresetClass;
 typedef struct _AgsLv2PortPreset AgsLv2PortPreset;
 
-/**
- * AgsLv2PresetFlags:
- * @AGS_LV2_PRESET_CONNECTED: indicates the port was connected by calling #AgsConnectable::connect()
- * 
- * Enum values to control the behavior or indicate internal state of #AgsLv2Preset by
- * enable/disable as flags.
- */
-typedef enum{
-  AGS_LV2_PRESET_CONNECTED    = 1,
-}AgsLv2PresetFlags;
-
 struct _AgsLv2Preset
 {
   GObject gobject;
 
   guint flags;
   
-  pthread_mutex_t *obj_mutex;
-  pthread_mutexattr_t *obj_mutexattr;
+  GRecMutex obj_mutex;
 
   GObject *lv2_plugin;
 
@@ -92,8 +82,6 @@ struct _AgsLv2PortPreset
 
 GType ags_lv2_preset_get_type(void);
 
-pthread_mutex_t* ags_lv2_preset_get_class_mutex();
-
 AgsLv2PortPreset* ags_lv2_port_preset_alloc(gchar *port_symbol,
 					    GType port_type);
 void ags_lv2_port_preset_free(AgsLv2PortPreset *lv2_port_preset);
@@ -108,5 +96,7 @@ GList* ags_lv2_preset_find_preset_label(GList *lv2_preset,
 AgsLv2Preset* ags_lv2_preset_new(GObject *lv2_plugin,
 				 AgsTurtle *turtle,
 				 gchar *uri);
+
+G_END_DECLS
 
 #endif /*__AGS_LV2_PRESET_H__*/

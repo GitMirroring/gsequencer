@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2017 Joël Krähemann
+ * Copyright (C) 2005-2021 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -19,6 +19,9 @@
 
 #include <ags/util/ags_list_util.h>
 
+gpointer ags_list_util_copy(gpointer ptr);
+void ags_list_util_free(gpointer ptr);
+
 /**
  * SECTION:ags_list_util
  * @short_description: list util
@@ -29,16 +32,51 @@
  * List utility.
  */
 
+GType
+ags_list_util_get_type(void)
+{
+  static volatile gsize g_define_type_id__volatile = 0;
+
+  if(g_once_init_enter (&g_define_type_id__volatile)){
+    GType ags_type_list_util = 0;
+
+    ags_type_list_util =
+      g_boxed_type_register_static("AgsListUtil",
+				   (GBoxedCopyFunc) ags_list_util_copy,
+				   (GBoxedFreeFunc) ags_list_util_free);
+
+    g_once_init_leave(&g_define_type_id__volatile, ags_type_list_util);
+  }
+
+  return g_define_type_id__volatile;
+}
+
+gpointer
+ags_list_util_copy(gpointer ptr)
+{
+  gpointer retval;
+
+  retval = g_memdup(ptr, sizeof(AgsListUtil));
+ 
+  return(retval);
+}
+
+void
+ags_list_util_free(gpointer ptr)
+{
+  g_free(ptr);
+}
+
 /**
  * ags_list_util_find_type:
- * @list: the #GList-struct
- * @gtype: the GType to find
+ * @list: (transfer none) (element-type GObject): the #GList-struct
+ * @gtype: the #GType to find
  * 
  * Find @gtype within @list.
  * 
- * Returns: the next matching #GList-struct
+ * Returns: (transfer none) (element-type GObject): the next matching #GList-struct
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 GList*
 ags_list_util_find_type(GList *list,
@@ -59,31 +97,3 @@ ags_list_util_find_type(GList *list,
   
   return(NULL);
 }
-
-/**
- * ags_list_util_copy_and_ref:
- * @list: the #GList-struct
- * 
- * Copy @list and increase ref count on entries.
- * 
- * Returns: the start of the copied #GList-struct
- * 
- * Since: 2.0.0
- */
-GList*
-ags_list_util_copy_and_ref(GList *list)
-{
-  GList *list_start;
-
-  list = 
-    list_start = g_list_copy(list);
-  
-  while(list != NULL){
-    g_object_ref(G_OBJECT(list->data));
-    
-    list = list->next;
-  }
-
-  return(list_start);
-}
-

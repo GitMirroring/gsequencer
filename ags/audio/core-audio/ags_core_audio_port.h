@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2018 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -23,7 +23,7 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include <ags/config.h>
+#include <ags/ags_api_config.h>
 
 #ifdef AGS_WITH_CORE_AUDIO
 #include <AudioToolbox/AudioToolbox.h>
@@ -37,6 +37,8 @@
 
 #include <ags/libags.h>
 
+G_BEGIN_DECLS
+
 #define AGS_TYPE_CORE_AUDIO_PORT                (ags_core_audio_port_get_type())
 #define AGS_CORE_AUDIO_PORT(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_CORE_AUDIO_PORT, AgsCoreAudioPort))
 #define AGS_CORE_AUDIO_PORT_CLASS(class)        (G_TYPE_CHECK_CLASS_CAST(class, AGS_TYPE_CORE_AUDIO_PORT, AgsCoreAudioPort))
@@ -44,7 +46,7 @@
 #define AGS_IS_CORE_AUDIO_PORT_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE ((class), AGS_TYPE_CORE_AUDIO_PORT))
 #define AGS_CORE_AUDIO_PORT_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS(obj, AGS_TYPE_CORE_AUDIO_PORT, AgsCoreAudioPortClass))
 
-#define AGS_CORE_AUDIO_PORT_GET_OBJ_MUTEX(obj) (((AgsCoreAudioPort *) obj)->obj_mutex)
+#define AGS_CORE_AUDIO_PORT_GET_OBJ_MUTEX(obj) (&(((AgsCoreAudioPort *) obj)->obj_mutex))
 
 #define AGS_CORE_AUDIO_PORT_DEFAULT_CACHE_BUFFER_SIZE (4096)
 
@@ -53,8 +55,6 @@ typedef struct _AgsCoreAudioPortClass AgsCoreAudioPortClass;
 
 /**
  * AgsCoreAudioPortFlags:
- * @AGS_CORE_AUDIO_PORT_ADDED_TO_REGISTRY: the CoreAudio port was added to registry, see #AgsConnectable::add_to_registry()
- * @AGS_CORE_AUDIO_PORT_CONNECTED: indicates the port was connected by calling #AgsConnectable::connect()
  * @AGS_CORE_AUDIO_PORT_REGISTERED: the port was registered
  * @AGS_CORE_AUDIO_PORT_IS_AUDIO: the port provides audio data
  * @AGS_CORE_AUDIO_PORT_IS_MIDI: the port provides midi data
@@ -65,13 +65,11 @@ typedef struct _AgsCoreAudioPortClass AgsCoreAudioPortClass;
  * enable/disable as flags.
  */
 typedef enum{
-  AGS_CORE_AUDIO_PORT_ADDED_TO_REGISTRY  = 1,
-  AGS_CORE_AUDIO_PORT_CONNECTED          = 1 <<  1,
-  AGS_CORE_AUDIO_PORT_REGISTERED         = 1 <<  2,
-  AGS_CORE_AUDIO_PORT_IS_AUDIO           = 1 <<  3,
-  AGS_CORE_AUDIO_PORT_IS_MIDI            = 1 <<  4,
-  AGS_CORE_AUDIO_PORT_IS_OUTPUT          = 1 <<  5,
-  AGS_CORE_AUDIO_PORT_IS_INPUT           = 1 <<  6,
+  AGS_CORE_AUDIO_PORT_REGISTERED         = 1,
+  AGS_CORE_AUDIO_PORT_IS_AUDIO           = 1 <<  1,
+  AGS_CORE_AUDIO_PORT_IS_MIDI            = 1 <<  2,
+  AGS_CORE_AUDIO_PORT_IS_OUTPUT          = 1 <<  3,
+  AGS_CORE_AUDIO_PORT_IS_INPUT           = 1 <<  4,
 }AgsCoreAudioPortFlags;
 
 struct _AgsCoreAudioPort
@@ -79,9 +77,9 @@ struct _AgsCoreAudioPort
   GObject gobject;
 
   guint flags;
-
-  pthread_mutex_t *obj_mutex;
-  pthread_mutexattr_t *obj_mutexattr;
+  guint connectable_flags;
+  
+  GRecMutex obj_mutex;
 
   GObject *core_audio_client;
 
@@ -134,6 +132,36 @@ struct _AgsCoreAudioPort
   volatile gboolean input_running;
   volatile gboolean is_empty;
   volatile guint queued;
+
+#ifdef AGS_WITH_CORE_AUDIO
+  AudioObjectPropertyAddress *output_samplerate_property_address;
+  AudioObjectPropertyAddress *output_buffer_size_property_address;
+  
+  AudioObjectPropertyAddress *output_property_address;
+  AudioObjectID output_device;
+  AudioDeviceIOProcID output_proc_id;
+  
+  AudioObjectPropertyAddress *input_samplerate_property_address;
+  AudioObjectPropertyAddress *input_buffer_size_property_address;
+
+  AudioObjectPropertyAddress *input_property_address;
+  AudioObjectID input_device; 
+  AudioDeviceIOProcID input_proc_id;
+#else
+  gpointer output_samplerate_property_address;
+  gpointer output_buffer_size_property_address;
+  
+  gpointer output_property_address;
+  gint64 output_device;
+  gint64 output_proc_id;
+
+  gpointer input_samplerate_property_address;
+  gpointer input_buffer_size_property_address;
+  
+  gpointer input_property_address;
+  gint64 input_device;
+  gint64 input_proc_id;
+#endif
 };
 
 struct _AgsCoreAudioPortClass
@@ -142,8 +170,7 @@ struct _AgsCoreAudioPortClass
 };
 
 GType ags_core_audio_port_get_type();
-
-pthread_mutex_t* ags_core_audio_port_get_class_mutex();
+GType ags_core_audio_port_flags_get_type();
 
 gboolean ags_core_audio_port_test_flags(AgsCoreAudioPort *core_audio_port, guint flags);
 void ags_core_audio_port_set_flags(AgsCoreAudioPort *core_audio_port, guint flags);
@@ -173,5 +200,7 @@ void ags_core_audio_port_set_cache_buffer_size(AgsCoreAudioPort *core_audio_port
 guint ags_core_audio_port_get_latency(AgsCoreAudioPort *core_audio_port);
 
 AgsCoreAudioPort* ags_core_audio_port_new(GObject *core_audio_client);
+
+G_END_DECLS
 
 #endif /*__AGS_CORE_AUDIO_PORT_H__*/

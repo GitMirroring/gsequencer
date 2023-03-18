@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2018 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -23,15 +23,17 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include <ags/config.h>
-
 #include <ags/libags.h>
+
+#include <ags/ags_api_config.h>
 
 #ifdef AGS_WITH_LIBINSTPATCH
 #include <libinstpatch/libinstpatch.h>
 #endif
 
 #include <ags/audio/file/ags_ipatch.h>
+
+G_BEGIN_DECLS
 
 #define AGS_TYPE_IPATCH_DLS2_READER                (ags_ipatch_dls2_reader_get_type())
 #define AGS_IPATCH_DLS2_READER(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_IPATCH_DLS2_READER, AgsIpatchDLS2Reader))
@@ -40,21 +42,10 @@
 #define AGS_IS_IPATCH_DLS2_READER_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE ((class), AGS_TYPE_IPATCH_DLS2_READER))
 #define AGS_IPATCH_DLS2_READER_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS ((obj), AGS_TYPE_IPATCH_DLS2_READER, AgsIpatchDLS2ReaderClass))
 
+#define AGS_IPATCH_DLS2_READER_GET_OBJ_MUTEX(obj) (&(((AgsIpatchDLS2Reader *) obj)->obj_mutex))
+
 typedef struct _AgsIpatchDLS2Reader AgsIpatchDLS2Reader;
 typedef struct _AgsIpatchDLS2ReaderClass AgsIpatchDLS2ReaderClass;
-
-/**
- * AgsIpatchDLS2ReaderFlags:
- * @AGS_IPATCH_DLS2_READER_ADDED_TO_REGISTRY: the ipatch sample was added to registry, see #AgsConnectable::add_to_registry()
- * @AGS_IPATCH_DLS2_READER_CONNECTED: indicates the ipatch sample was connected by calling #AgsConnectable::connect()
- * 
- * Enum values to control the behavior or indicate internal state of #AgsIpatchDLS2Reader by
- * enable/disable as flags.
- */
-typedef enum{
-  AGS_IPATCH_DLS2_READER_ADDED_TO_REGISTRY    = 1,
-  AGS_IPATCH_DLS2_READER_CONNECTED            = 1 <<  1,
-}AgsIpatchDLS2ReaderFlags;
 
 /**
  * AgsDLS2Level:
@@ -75,9 +66,9 @@ struct _AgsIpatchDLS2Reader
   GObject gobject;
 
   guint flags;
+  guint connectable_flags;
 
-  pthread_mutex_t *obj_mutex;
-  pthread_mutexattr_t *obj_mutexattr;
+  GRecMutex obj_mutex;
 
   AgsUUID *uuid;
 
@@ -116,8 +107,6 @@ struct _AgsIpatchDLS2ReaderClass
 
 GType ags_ipatch_dls2_reader_get_type();
 
-pthread_mutex_t* ags_ipatch_dls2_reader_get_class_mutex();
-
 gboolean ags_ipatch_dls2_reader_test_flags(AgsIpatchDLS2Reader *ipatch_dls2_reader, guint flags);
 void ags_ipatch_dls2_reader_set_flags(AgsIpatchDLS2Reader *ipatch_dls2_reader, guint flags);
 void ags_ipatch_dls2_reader_unset_flags(AgsIpatchDLS2Reader *ipatch_dls2_reader, guint flags);
@@ -142,5 +131,7 @@ gchar** ags_ipatch_dls2_reader_get_sample_by_instrument_index(AgsIpatchDLS2Reade
 
 /* instantiate */
 AgsIpatchDLS2Reader* ags_ipatch_dls2_reader_new(AgsIpatch *ipatch);
+
+G_END_DECLS
 
 #endif /*__AGS_IPATCH_DLS2_READER_H__*/

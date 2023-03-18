@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2018 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -22,6 +22,12 @@
 
 #include <glib.h>
 #include <glib-object.h>
+
+#include <ags/libags.h>
+
+G_BEGIN_DECLS
+
+#define AGS_TYPE_OSC_UTIL         (ags_osc_util_get_type())
 
 #define AGS_OSC_UTIL_TYPE_TAG_STRING_INT32 'i'
 #define AGS_OSC_UTIL_TYPE_TAG_STRING_FLOAT 'f'
@@ -53,20 +59,31 @@
 #define AGS_OSC_UTIL_SLIP_ESC_END (220)
 #define AGS_OSC_UTIL_SLIP_ESC_ESC (221)
 
-guint ags_osc_util_type_tag_string_count_type(gchar *type_tag_string);
+typedef struct _AgsOscUtil AgsOscUtil;
 
-unsigned char* ags_osc_util_meta_data(gchar *uri,
-				      guint *meta_data_length);
-unsigned char* ags_osc_util_mime_header(gchar *uri,
-					guint *mime_header_length);
+struct _AgsOscUtil
+{
+  //empty
+};
 
-unsigned char* ags_osc_util_slip_encode(unsigned char *osc_buffer,
-					guint buffer_length,
-					guint *returned_buffer_length);
-unsigned char* ags_osc_util_slip_decode(unsigned char *slip_buffer,
-					guint slip_buffer_length,
-					guint *returned_buffer_length);
+GType ags_osc_util_get_type(void);
+
+guint ags_osc_util_type_tag_string_count_type(gchar *type_tag);
+
+guchar* ags_osc_util_meta_data(gchar *uri,
+			       guint *meta_data_length);
+guchar* ags_osc_util_mime_header(gchar *uri,
+				 guint *mime_header_length);
+
+guchar* ags_osc_util_slip_encode(guchar *osc_buffer,
+				 guint buffer_length,
+				 guint *returned_buffer_length);
+guchar* ags_osc_util_slip_decode(guchar *slip_buffer,
+				 guint slip_buffer_length,
+				 guint *returned_buffer_length);
 
 void ags_osc_util_timetag_now(gint32 *tv_sec, gint32 *tv_fraction);
+
+G_END_DECLS
 
 #endif /*__AGS_OSC_UTIL_H__*/

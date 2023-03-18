@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2021 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -29,6 +29,19 @@
 #include <AudioToolbox/AudioToolbox.h>
 #endif
 
+G_BEGIN_DECLS
+
+#define AGS_TYPE_AUDIO_BUFFER_UTIL         (ags_audio_buffer_util_get_type())
+
+typedef struct _AgsAudioBufferUtil AgsAudioBufferUtil;
+
+struct _AgsAudioBufferUtil
+{
+  //empty
+};
+
+GType ags_audio_buffer_util_get_type(void);
+
 #define AGS_AUDIO_BUFFER_S8(ptr) ((gint8 *)(ptr))
 #define AGS_AUDIO_BUFFER_S16(ptr) ((gint16 *)(ptr))
 #define AGS_AUDIO_BUFFER_S24(ptr) ((gint32 *)(ptr))
@@ -37,6 +50,50 @@
 #define AGS_AUDIO_BUFFER_FLOAT(ptr) ((gfloat *)(ptr))
 #define AGS_AUDIO_BUFFER_DOUBLE(ptr) ((gdouble *)(ptr))
 #define AGS_AUDIO_BUFFER_COMPLEX(ptr) ((AgsComplex *)(ptr))
+
+#define AGS_AUDIO_BUFFER_UTIL_S8_TO_COMPLEX(x_val, x_retval) { double complex l_z; \
+    l_z = ((double) x_val / (double) G_MAXINT8) + I * 0;					\
+    ags_complex_set(x_retval[0], l_z); }
+#define AGS_AUDIO_BUFFER_UTIL_S16_TO_COMPLEX(x_val, x_retval) { double complex l_z; \
+    l_z = ((double) x_val / (double) G_MAXINT16) + I * 0;			\
+    ags_complex_set(x_retval[0], l_z); }
+#define AGS_AUDIO_BUFFER_UTIL_S24_TO_COMPLEX(x_val, x_retval) { double complex l_z; \
+    l_z = ((double) x_val / (double) (0xffffff - 1)) + I * 0;				\
+    ags_complex_set(x_retval[0], l_z); }
+#define AGS_AUDIO_BUFFER_UTIL_S32_TO_COMPLEX(x_val, x_retval) { double complex l_z; \
+    l_z = ((double) x_val / (double) G_MAXINT32) + I * 0;				\
+    ags_complex_set(x_retval[0], l_z); }
+#define AGS_AUDIO_BUFFER_UTIL_S64_TO_COMPLEX(x_val, x_retval) { double complex l_z; \
+    l_z = ((double) x_val / (double) G_MAXINT64) + I * 0;				\
+    ags_complex_set(x_retval[0], l_z); }
+#define AGS_AUDIO_BUFFER_UTIL_FLOAT_TO_COMPLEX(x_val, x_retval) { double complex l_z; \
+    l_z = (x_val) + I * 0;						\
+    ags_complex_set(x_retval[0], l_z); }
+#define AGS_AUDIO_BUFFER_UTIL_DOUBLE_TO_COMPLEX(x_val, x_retval) { double complex l_z; \
+    l_z = (x_val) + I * 0;						\
+    ags_complex_set(x_retval[0], l_z); }
+
+#define AGS_AUDIO_BUFFER_UTIL_COMPLEX_TO_S8(x_val, x_retval) { double complex l_z; \
+    l_z = ags_complex_get(x_val);					\
+    x_retval[0] = (gint8) ((double) G_MAXINT8 * creal(l_z)); }
+#define AGS_AUDIO_BUFFER_UTIL_COMPLEX_TO_S16(x_val, x_retval) { double complex l_z; \
+    l_z = ags_complex_get(x_val);					\
+    x_retval[0] = (gint16) ((double) G_MAXINT16 * creal(l_z)); }
+#define AGS_AUDIO_BUFFER_UTIL_COMPLEX_TO_S24(x_val, x_retval) { double complex l_z; \
+    l_z = ags_complex_get(x_val);					\
+    x_retval[0] = (gint32) ((double) (0xffffff - 1) * creal(l_z)); }
+#define AGS_AUDIO_BUFFER_UTIL_COMPLEX_TO_S32(x_val, x_retval) { double complex l_z; \
+    l_z = ags_complex_get(x_val);					\
+    x_retval[0] = (gint32) ((double) G_MAXINT32 * creal(l_z)); }
+#define AGS_AUDIO_BUFFER_UTIL_COMPLEX_TO_S64(x_val, x_retval) { double complex l_z; \
+    l_z = ags_complex_get(x_val);					\
+    x_retval[0] = (gint64) ((double) G_MAXINT64 * creal(l_z)); }
+#define AGS_AUDIO_BUFFER_UTIL_COMPLEX_TO_FLOAT(x_val, x_retval) { double complex l_z; \
+    l_z = ags_complex_get(x_val);					\
+    x_retval[0] = creal(l_z); }
+#define AGS_AUDIO_BUFFER_UTIL_COMPLEX_TO_DOUBLE(x_val, x_retval) { double complex l_z; \
+    l_z = ags_complex_get(x_val);					\
+    x_retval[0] = creal(l_z); }
 
 /**
  * AgsAudioBufferUtilFormat:
@@ -161,9 +218,10 @@ typedef enum{
  * @AGS_AUDIO_BUFFER_UTIL_COPY_S24_TO_COMPLEX: copy AGS_AUDIO_BUFFER_UTIL_S24 to AGS_AUDIO_BUFFER_UTIL_COMPLEX
  * @AGS_AUDIO_BUFFER_UTIL_COPY_S32_TO_COMPLEX: copy AGS_AUDIO_BUFFER_UTIL_S32 to AGS_AUDIO_BUFFER_UTIL_COMPLEX
  * @AGS_AUDIO_BUFFER_UTIL_COPY_S64_TO_COMPLEX: copy AGS_AUDIO_BUFFER_UTIL_S64 to AGS_AUDIO_BUFFER_UTIL_COMPLEX
- * @AGS_AUDIO_BUFFER_UTIL_COPY_FLOAT_TO_COMPLEX: copy AGS_AUDIO_BUFFER_UTIL_ to AGS_AUDIO_BUFFER_UTIL_COMPLEX
- * @AGS_AUDIO_BUFFER_UTIL_COPY_DOUBLE_TO_COMPLEX: copy AGS_AUDIO_BUFFER_UTIL_ to AGS_AUDIO_BUFFER_UTIL_COMPLEX
- * @AGS_AUDIO_BUFFER_UTIL_COPY_COMPLEX_TO_COMPLEX: copy AGS_AUDIO_BUFFER_UTIL_ to AGS_AUDIO_BUFFER_UTIL_COMPLEX
+ * @AGS_AUDIO_BUFFER_UTIL_COPY_FLOAT_TO_COMPLEX: copy AGS_AUDIO_BUFFER_UTIL_FLOAT to AGS_AUDIO_BUFFER_UTIL_COMPLEX
+ * @AGS_AUDIO_BUFFER_UTIL_COPY_DOUBLE_TO_COMPLEX: copy AGS_AUDIO_BUFFER_UTIL_DOUBLE to AGS_AUDIO_BUFFER_UTIL_COMPLEX
+ * @AGS_AUDIO_BUFFER_UTIL_COPY_FLOAT32_TO_COMPLEX: copy AGS_AUDIO_BUFFER_UTIL_FLOAT32 to AGS_AUDIO_BUFFER_UTIL_COMPLEX
+ * @AGS_AUDIO_BUFFER_UTIL_COPY_COMPLEX_TO_COMPLEX: copy AGS_AUDIO_BUFFER_UTIL_COMPLEX to AGS_AUDIO_BUFFER_UTIL_COMPLEX
  * @AGS_AUDIO_BUFFER_UTIL_COPY_COMPLEX_TO_S8: copy AGS_AUDIO_BUFFER_UTIL_COMPLEX to AGS_AUDIO_BUFFER_UTIL_S8
  * @AGS_AUDIO_BUFFER_UTIL_COPY_COMPLEX_TO_S16: copy AGS_AUDIO_BUFFER_UTIL_COMPLEX to AGS_AUDIO_BUFFER_UTIL_S16
  * @AGS_AUDIO_BUFFER_UTIL_COPY_COMPLEX_TO_S24: copy AGS_AUDIO_BUFFER_UTIL_COMPLEX to AGS_AUDIO_BUFFER_UTIL_S24
@@ -171,6 +229,7 @@ typedef enum{
  * @AGS_AUDIO_BUFFER_UTIL_COPY_COMPLEX_TO_S64: copy AGS_AUDIO_BUFFER_UTIL_COMPLEX to AGS_AUDIO_BUFFER_UTIL_S64
  * @AGS_AUDIO_BUFFER_UTIL_COPY_COMPLEX_TO_FLOAT: copy AGS_AUDIO_BUFFER_UTIL_COMPLEX to AGS_AUDIO_BUFFER_UTIL_FLOAT
  * @AGS_AUDIO_BUFFER_UTIL_COPY_COMPLEX_TO_DOUBLE: copy AGS_AUDIO_BUFFER_UTIL_COMPLEX to AGS_AUDIO_BUFFER_UTIL_DOUBLE
+ * @AGS_AUDIO_BUFFER_UTIL_COPY_COMPLEX_TO_FLOAT32: copy AGS_AUDIO_BUFFER_UTIL_COMPLEX to AGS_AUDIO_BUFFER_UTIL_FLOAT32
  * 
  * Copy modes.
  */
@@ -276,13 +335,12 @@ typedef enum{
 
 }AgsAudioBufferUtilCopyMode;
 
-typedef gint8 v8s8 __attribute__ ((vector_size(8 * sizeof(gint8))));
-typedef gint16 v8s16 __attribute__ ((vector_size(8 * sizeof(gint16))));
-typedef gint32 v8s32 __attribute__ ((vector_size(8 * sizeof(gint32))));
-typedef gint64 v8s64 __attribute__ ((vector_size(8 * sizeof(gint64))));
-typedef gfloat v8float __attribute__ ((vector_size(8 * sizeof(gfloat))));
-typedef gdouble v8double __attribute__ ((vector_size(8 * sizeof(gdouble))));
-typedef AgsComplex v8complex __attribute__ ((vector_size(8 * sizeof(AgsComplex))));
+typedef gint8 ags_v8s8 __attribute__ ((vector_size(8 * sizeof(gint8))));
+typedef gint16 ags_v8s16 __attribute__ ((vector_size(8 * sizeof(gint16))));
+typedef gint32 ags_v8s32 __attribute__ ((vector_size(8 * sizeof(gint32))));
+typedef gint64 ags_v8s64 __attribute__ ((vector_size(8 * sizeof(gint64))));
+typedef gfloat ags_v8float __attribute__ ((vector_size(8 * sizeof(gfloat))));
+typedef gdouble ags_v8double __attribute__ ((vector_size(8 * sizeof(gdouble))));
 
 guint ags_audio_buffer_util_format_from_soundcard(guint soundcard_format);
 guint ags_audio_buffer_util_get_copy_mode(guint destination_format,
@@ -304,221 +362,35 @@ void ags_audio_buffer_util_clear_complex(AgsComplex *buffer, guint channels,
 void ags_audio_buffer_util_clear_buffer(void *buffer, guint channels,
 					guint count, guint format);
 
-/* envelope */
-gdouble ags_audio_buffer_util_envelope_s8(gint8 *buffer, guint channels,
-					  guint buffer_length,
-					  gdouble current_volume,
-					  gdouble ratio);
-gdouble ags_audio_buffer_util_envelope_s16(gint16 *buffer, guint channels,
-					   guint buffer_length,
-					   gdouble current_volume,
-					   gdouble ratio);
-gdouble ags_audio_buffer_util_envelope_s24(gint32 *buffer, guint channels,
-					   guint buffer_length,
-					   gdouble current_volume,
-					   gdouble ratio);
-gdouble ags_audio_buffer_util_envelope_s32(gint32 *buffer, guint channels,
-					   guint buffer_length,
-					   gdouble current_volume,
-					   gdouble ratio);
-gdouble ags_audio_buffer_util_envelope_s64(gint64 *buffer, guint channels,
-					   guint buffer_length,
-					   gdouble current_volume,
-					   gdouble ratio);
-gdouble ags_audio_buffer_util_envelope_float(gfloat *buffer, guint channels,
-					     guint buffer_length,
-					     gdouble current_volume,
-					     gdouble ratio);
-gdouble ags_audio_buffer_util_envelope_double(gdouble *buffer, guint channels,
-					      guint buffer_length,
-					      gdouble current_volume,
-					      gdouble ratio);
-gdouble ags_audio_buffer_util_envelope_complex(AgsComplex *buffer, guint channels,
-					       guint buffer_length,
-					       gdouble current_volume,
-					       gdouble ratio);
+/* pong */
+void ags_audio_buffer_util_pong_s8(gint8 *destination, guint dchannels,
+				   gint8 *source, guint schannels,
+				   guint count);
+void ags_audio_buffer_util_pong_s16(gint16 *destination, guint dchannels,
+				    gint16 *source, guint schannels,
+				    guint count);
+void ags_audio_buffer_util_pong_s24(gint32 *destination, guint dchannels,
+				    gint32 *source, guint schannels,
+				    guint count);
+void ags_audio_buffer_util_pong_s32(gint32 *destination, guint dchannels,
+				    gint32 *source, guint schannels,
+				    guint count);
+void ags_audio_buffer_util_pong_s64(gint64 *destination, guint dchannels,
+				    gint64 *source, guint schannels,
+				    guint count);
+void ags_audio_buffer_util_pong_float(gfloat *destination, guint dchannels,
+				      gfloat *source, guint schannels,
+				      guint count);
+void ags_audio_buffer_util_pong_double(gdouble *destination, guint dchannels,
+				       gdouble *source, guint schannels,
+				       guint count);
+void ags_audio_buffer_util_pong_complex(AgsComplex *destination, guint dchannels,
+					AgsComplex *source, guint schannels,
+					guint count);
 
-gdouble ags_audio_buffer_util_envelope(void *buffer, guint channels,
-				       guint format,
-				       guint buffer_length,
-				       gdouble current_volume,
-				       gdouble ratio);
-
-/* volume */
-void ags_audio_buffer_util_volume_s8(gint8 *buffer, guint channels,
-				     guint buffer_length,
-				     gdouble volume);
-void ags_audio_buffer_util_volume_s16(gint16 *buffer, guint channels,
-				      guint buffer_length,
-				      gdouble volume);
-void ags_audio_buffer_util_volume_s24(gint32 *buffer, guint channels,
-				      guint buffer_length,
-				      gdouble volume);
-void ags_audio_buffer_util_volume_s32(gint32 *buffer, guint channels,
-				      guint buffer_length,
-				      gdouble volume);
-void ags_audio_buffer_util_volume_s64(gint64 *buffer, guint channels,
-				      guint buffer_length,
-				      gdouble volume);
-void ags_audio_buffer_util_volume_float(gfloat *buffer, guint channels,
-					guint buffer_length,
-					gdouble volume);
-void ags_audio_buffer_util_volume_double(gdouble *buffer, guint channels,
-					 guint buffer_length,
-					 gdouble volume);
-void ags_audio_buffer_util_volume_complex(AgsComplex *buffer, guint channels,
-					  guint buffer_length,
-					  gdouble volume);
-
-void ags_audio_buffer_util_volume(void *buffer, guint channels,
-				  guint format,
-				  guint buffer_length,
-				  gdouble volume);
-
-/* peak */
-gdouble ags_audio_buffer_util_peak_s8(gint8 *buffer, guint channels,
-				      guint buffer_length,
-				      gdouble harmonic_rate,
-				      gdouble max_rate,
-				      gdouble pressure_factor);
-gdouble ags_audio_buffer_util_peak_s16(gint16 *buffer, guint channels,
-				       guint buffer_length,
-				       gdouble harmonic_rate,
-				       gdouble max_rate,
-				       gdouble pressure_factor);
-gdouble ags_audio_buffer_util_peak_s24(gint32 *buffer, guint channels,
-				       guint buffer_length,
-				       gdouble harmonic_rate,
-				       gdouble max_rate,
-				       gdouble pressure_factor);
-gdouble ags_audio_buffer_util_peak_s32(gint32 *buffer, guint channels,
-				       guint buffer_length,
-				       gdouble harmonic_rate,
-				       gdouble max_rate,
-				       gdouble pressure_factor);
-gdouble ags_audio_buffer_util_peak_s64(gint64 *buffer, guint channels,
-				       guint buffer_length,
-				       gdouble harmonic_rate,
-				       gdouble max_rate,
-				       gdouble pressure_factor);
-gdouble ags_audio_buffer_util_peak_float(gfloat *buffer, guint channels,
-					 guint buffer_length,
-					 gdouble harmonic_rate,
-					 gdouble max_rate,
-					 gdouble pressure_factor);
-gdouble ags_audio_buffer_util_peak_double(gdouble *buffer, guint channels,
-					  guint buffer_length,
-					  gdouble harmonic_rate,
-					  gdouble max_rate,
-					  gdouble pressure_factor);
-gdouble ags_audio_buffer_util_peak_complex(AgsComplex *buffer, guint channels,
-					   guint buffer_length,
-					   gdouble harmonic_rate,
-					   gdouble max_rate,
-					   gdouble pressure_factor);
-
-gdouble ags_audio_buffer_util_peak(void *buffer, guint channels,
-				   guint format,
-				   guint buffer_length,
-				   gdouble harmonic_rate,
-				   gdouble max_rate,
-				   gdouble pressure_factor);
-
-/* resample */
-gint8* ags_audio_buffer_util_resample_s8(gint8 *buffer, guint channels,
-					 guint samplerate,
-					 guint buffer_length,
-					 guint target_samplerate);
-gint16* ags_audio_buffer_util_resample_s16(gint16 *buffer, guint channels,
-					   guint samplerate,
-					   guint buffer_length,
-					   guint target_samplerate);
-gint32* ags_audio_buffer_util_resample_s24(gint32 *buffer, guint channels,
-					   guint samplerate,
-					   guint buffer_length,
-					   guint target_samplerate);
-gint32* ags_audio_buffer_util_resample_s32(gint32 *buffer, guint channels,
-					   guint samplerate,
-					   guint buffer_length,
-					   guint target_samplerate);
-gint64* ags_audio_buffer_util_resample_s64(gint64 *buffer, guint channels,
-					   guint samplerate,
-					   guint buffer_length,
-					   guint target_samplerate);
-gfloat* ags_audio_buffer_util_resample_float(gfloat *buffer, guint channels,
-					     guint samplerate,
-					     guint buffer_length,
-					     guint target_samplerate);
-gdouble* ags_audio_buffer_util_resample_double(gdouble *buffer, guint channels,
-					       guint samplerate,
-					       guint buffer_length,
-					       guint target_samplerate);
-AgsComplex* ags_audio_buffer_util_resample_complex(AgsComplex *buffer, guint channels,
-						   guint samplerate,
-						   guint buffer_length,
-						   guint target_samplerate);
-
-void* ags_audio_buffer_util_resample(void *buffer, guint channels,
-				     guint format,  guint samplerate,
-				     guint buffer_length,
-				     guint target_samplerate);
-
-/* resample with buffer */
-void ags_audio_buffer_util_resample_s8_with_buffer(gint8 *buffer, guint channels,
-						   guint samplerate,
-						   guint buffer_length,
-						   guint target_samplerate,
-						   guint target_buffer_length,
-						   gint8 *target_buffer);
-void ags_audio_buffer_util_resample_s16_with_buffer(gint16 *buffer, guint channels,
-						    guint samplerate,
-						    guint buffer_length,
-						    guint target_samplerate,
-						    guint target_buffer_length,
-						    gint16 *target_buffer);
-void ags_audio_buffer_util_resample_s24_with_buffer(gint32 *buffer, guint channels,
-						    guint samplerate,
-						    guint buffer_length,
-						    guint target_samplerate,
-						    guint target_buffer_length,
-						    gint32 *target_buffer);
-void ags_audio_buffer_util_resample_s32_with_buffer(gint32 *buffer, guint channels,
-						    guint samplerate,
-						    guint buffer_length,
-						    guint target_samplerate,
-						    guint target_buffer_length,
-						    gint32 *target_buffer);
-void ags_audio_buffer_util_resample_s64_with_buffer(gint64 *buffer, guint channels,
-						    guint samplerate,
-						    guint buffer_length,
-						    guint target_samplerate,
-						    guint target_buffer_length,
-						    gint64 *target_buffer);
-void ags_audio_buffer_util_resample_float_with_buffer(gfloat *buffer, guint channels,
-						      guint samplerate,
-						      guint buffer_length,
-						      guint target_samplerate,
-						      guint target_buffer_length,
-						      gfloat *target_buffer);
-void ags_audio_buffer_util_resample_double_with_buffer(gdouble *buffer, guint channels,
-						       guint samplerate,
-						       guint buffer_length,
-						       guint target_samplerate,
-						       guint target_buffer_length,
-						       gdouble *target_buffer);
-void ags_audio_buffer_util_resample_complex_with_buffer(AgsComplex *buffer, guint channels,
-							guint samplerate,
-							guint buffer_length,
-							guint target_samplerate,
-							guint target_buffer_length,
-							AgsComplex *target_buffer);
-
-void ags_audio_buffer_util_resample_with_buffer(void *buffer, guint channels,
-						guint format,  guint samplerate,
-						guint buffer_length,
-						guint target_samplerate,
-						guint target_buffer_length,
-						void *target_buffer);
+void ags_audio_buffer_util_pong(void *destination, guint dchannels,
+				void *source, guint schannels,
+				guint count, guint format);
 
 /* copy 8 bit */
 void ags_audio_buffer_util_copy_s8_to_s8(gint8 *destination, guint dchannels,
@@ -760,7 +632,7 @@ void ags_audio_buffer_util_copy_s64_to_complex(AgsComplex *destination, guint dc
 					       guint count);
 
 void ags_audio_buffer_util_copy_float_to_complex(AgsComplex *destination, guint dchannels,
-						 gdouble *source, guint schannels,
+						 gfloat *source, guint schannels,
 						 guint count);
 
 void ags_audio_buffer_util_copy_double_to_complex(AgsComplex *destination, guint dchannels,
@@ -808,5 +680,7 @@ void ags_audio_buffer_util_copy_complex_to_float32(Float32 *destination, guint d
 void ags_audio_buffer_util_copy_buffer_to_buffer(void *destination, guint dchannels, guint doffset,
 						 void *source, guint schannels, guint soffset,
 						 guint count, guint mode);
+
+G_END_DECLS
 
 #endif /*__AGS_AUDIO_BUFFER_UTIL_H__*/

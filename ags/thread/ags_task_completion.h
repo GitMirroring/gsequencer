@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -25,24 +25,23 @@
 
 #include <ags/lib/ags_uuid.h>
 
-#include <pthread.h>
+G_BEGIN_DECLS
 
 #define AGS_TYPE_TASK_COMPLETION                (ags_task_completion_get_type())
+#define AGS_TYPE_TASK_COMPLETION_FLAGS          (ags_task_completion_flags_get_type())
 #define AGS_TASK_COMPLETION(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_TASK_COMPLETION, AgsTaskCompletion))
 #define AGS_TASK_COMPLETION_CLASS(class)        (G_TYPE_CHECK_CLASS_CAST(class, AGS_TYPE_TASK_COMPLETION, AgsTaskCompletionClass))
 #define AGS_IS_TASK_COMPLETION(obj)             (G_TYPE_CHECK_INSTANCE_TYPE ((obj), AGS_TYPE_TASK_COMPLETION))
 #define AGS_IS_TASK_COMPLETION_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE ((class), AGS_TYPE_TASK_COMPLETION))
 #define AGS_TASK_COMPLETION_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS(obj, AGS_TYPE_TASK_COMPLETION, AgsTaskCompletionClass))
 
-#define AGS_TASK_COMPLETION_GET_OBJ_MUTEX(obj) (((AgsTaskCompletion *) obj)->obj_mutex)
+#define AGS_TASK_COMPLETION_GET_OBJ_MUTEX(obj) (&(((AgsTaskCompletion *) obj)->obj_mutex))
 
 typedef struct _AgsTaskCompletion AgsTaskCompletion;
 typedef struct _AgsTaskCompletionClass AgsTaskCompletionClass;
 
 /**
  * AgsTaskCompletionFlags:
- * @AGS_TASK_COMPLETION_ADDED_TO_REGISTRY: indicates the task completion was added to #AgsRegistry
- * @AGS_TASK_COMPLETION_CONNECTED: indicates the task completion was connected by calling #AgsConnectable::connect()
  * @AGS_TASK_COMPLETION_QUEUED: the assigned task has been queued
  * @AGS_TASK_COMPLETION_BUSY: the assigned task is busy
  * @AGS_TASK_COMPLETION_READY: the assigned task is ready
@@ -52,12 +51,10 @@ typedef struct _AgsTaskCompletionClass AgsTaskCompletionClass;
  * enable/disable as flags.
  */
 typedef enum{
-  AGS_TASK_COMPLETION_ADDED_TO_REGISTRY  = 1,
-  AGS_TASK_COMPLETION_CONNECTED          = 1 <<  1,
-  AGS_TASK_COMPLETION_QUEUED             = 1 <<  2,
-  AGS_TASK_COMPLETION_BUSY               = 1 <<  3,
-  AGS_TASK_COMPLETION_READY              = 1 <<  4,
-  AGS_TASK_COMPLETION_COMPLETED          = 1 <<  5,
+  AGS_TASK_COMPLETION_QUEUED             = 1,
+  AGS_TASK_COMPLETION_BUSY               = 1 <<  1,
+  AGS_TASK_COMPLETION_READY              = 1 <<  2,
+  AGS_TASK_COMPLETION_COMPLETED          = 1 <<  3,
 }AgsTaskCompletionFlags;
 
 struct _AgsTaskCompletion
@@ -65,9 +62,9 @@ struct _AgsTaskCompletion
   GObject gobject;
 
   guint flags;
+  guint connectable_flags;
 
-  pthread_mutex_t *obj_mutex;
-  pthread_mutexattr_t *obj_mutexattr;
+  GRecMutex obj_mutex;
 
   AgsUUID *uuid;
   
@@ -83,8 +80,7 @@ struct _AgsTaskCompletionClass
 };
 
 GType ags_task_completion_get_type();
-
-pthread_mutex_t* ags_task_completion_get_class_mutex();
+GType ags_task_completion_flags_get_type();
 
 gboolean ags_task_completion_test_flags(AgsTaskCompletion *task_completion, guint flags);
 void ags_task_completion_set_flags(AgsTaskCompletion *task_completion, guint flags);
@@ -94,6 +90,8 @@ void ags_task_completion_complete(AgsTaskCompletion *task_completion);
 
 AgsTaskCompletion* ags_task_completion_new(GObject *task,
 					   gpointer data);
+
+G_END_DECLS
 
 #endif /*__AGS_TASK_COMPLETION_H__*/
 

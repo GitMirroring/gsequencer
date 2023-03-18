@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -23,13 +23,13 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include <pthread.h>
-
 #include <libxml/tree.h>
 
 #include <ags/libags.h>
 
 #include <ags/audio/ags_acceleration.h>
+
+G_BEGIN_DECLS
 
 #define AGS_TYPE_AUTOMATION                (ags_automation_get_type())
 #define AGS_AUTOMATION(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_AUTOMATION, AgsAutomation))
@@ -38,7 +38,7 @@
 #define AGS_IS_AUTOMATION_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE ((class), AGS_TYPE_AUTOMATION))
 #define AGS_AUTOMATION_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS (obj, AGS_TYPE_AUTOMATION, AgsAutomationClass))
 
-#define AGS_AUTOMATION_GET_OBJ_MUTEX(obj) (((AgsAutomation *) obj)->obj_mutex)
+#define AGS_AUTOMATION_GET_OBJ_MUTEX(obj) (&(((AgsAutomation *) obj)->obj_mutex))
 
 #define AGS_AUTOMATION_DEFAULT_BPM (120.0)
 
@@ -46,9 +46,9 @@
 #define AGS_AUTOMATION_MINIMUM_ACCELERATION_LENGTH (1.0 / 16.0 / 64.0)
 #define AGS_AUTOMATION_MAXIMUM_ACCELERATION_LENGTH (16.0)
 
-#define AGS_AUTOMATION_DEFAULT_LENGTH (64 * 16 * 1200 / AGS_AUTOMATION_TICS_PER_BEAT)
+#define AGS_AUTOMATION_DEFAULT_LENGTH (64 * 16 * 16 * 1200 / AGS_AUTOMATION_TICS_PER_BEAT)
 #define AGS_AUTOMATION_DEFAULT_JIFFIE (60.0 / AGS_AUTOMATION_DEFAULT_BPM / AGS_AUTOMATION_TICS_PER_BEAT)
-#define AGS_AUTOMATION_DEFAULT_DURATION (AGS_AUTOMATION_DEFAULT_LENGTH * AGS_AUTOMATION_DEFAULT_JIFFIE * USEC_PER_SEC)
+#define AGS_AUTOMATION_DEFAULT_DURATION (AGS_AUTOMATION_DEFAULT_LENGTH * AGS_AUTOMATION_DEFAULT_JIFFIE * AGS_USEC_PER_SEC)
 #define AGS_AUTOMATION_DEFAULT_OFFSET (64 * (1 / AGS_AUTOMATION_MINIMUM_ACCELERATION_LENGTH))
 
 #define AGS_AUTOMATION_DEFAULT_PRECISION (8)
@@ -79,8 +79,7 @@ struct _AgsAutomation
 
   guint flags;
 
-  pthread_mutex_t *obj_mutex;
-  pthread_mutexattr_t *obj_mutexattr;
+  GRecMutex obj_mutex;
 
   GObject *audio;
   GType channel_type;
@@ -109,8 +108,9 @@ struct _AgsAutomationClass
 };
 
 GType ags_automation_get_type(void);
+GType ags_automation_flags_get_type(void);
 
-pthread_mutex_t* ags_automation_get_class_mutex();
+GRecMutex* ags_automation_get_obj_mutex(AgsAutomation *automation);
 
 gboolean ags_automation_test_flags(AgsAutomation *automation, guint flags);
 void ags_automation_set_flags(AgsAutomation *automation, guint flags);
@@ -125,8 +125,55 @@ GList* ags_automation_find_near_timestamp_extended(GList *automation, guint line
 						   GType channel_type, gchar *control_name,
 						   AgsTimestamp *timestamp);
 
+gint ags_automation_sort_func(gconstpointer a,
+			      gconstpointer b);
+
 GList* ags_automation_add(GList *automation,
 			  AgsAutomation *new_automation);
+
+GObject* ags_automation_get_audio(AgsAutomation *automation);
+void ags_automation_set_audio(AgsAutomation *automation,
+			      GObject *audio);
+
+GType ags_automation_get_channel_type(AgsAutomation *automation);
+void ags_automation_set_channel_type(AgsAutomation *automation,
+				     GType channel_type);
+
+guint ags_automation_get_line(AgsAutomation *automation);
+void ags_automation_set_line(AgsAutomation *automation,
+			     guint line);
+
+AgsTimestamp* ags_automation_get_timestamp(AgsAutomation *automation);
+void ags_automation_set_timestamp(AgsAutomation *automation,
+				  AgsTimestamp *timestamp);
+
+gchar* ags_automation_get_control_name(AgsAutomation *automation);
+void ags_automation_set_control_name(AgsAutomation *automation,
+				     gchar *control_name);
+
+guint ags_automation_get_steps(AgsAutomation *automation);
+void ags_automation_set_steps(AgsAutomation *automation,
+			      guint steps);
+
+gdouble ags_automation_get_upper(AgsAutomation *automation);
+void ags_automation_set_upper(AgsAutomation *automation,
+			      gdouble upper);
+
+gdouble ags_automation_get_lower(AgsAutomation *automation);
+void ags_automation_set_lower(AgsAutomation *automation,
+			      gdouble lower);
+
+gdouble ags_automation_get_default_value(AgsAutomation *automation);
+void ags_automation_set_default_value(AgsAutomation *automation,
+				      gdouble default_value);
+
+GObject* ags_automation_get_port(AgsAutomation *automation);
+void ags_automation_set_port(AgsAutomation *automation,
+			     GObject *port);
+
+GList* ags_automation_get_acceleration(AgsAutomation *automation);
+void ags_automation_set_acceleration(AgsAutomation *automation,
+				     GList *acceleration);
 
 void ags_automation_add_acceleration(AgsAutomation *automation,
 				     AgsAcceleration *acceleration,
@@ -151,6 +198,7 @@ GList* ags_automation_find_region(AgsAutomation *automation,
 				  gboolean use_selection_list);
 
 void ags_automation_free_selection(AgsAutomation *automation);
+void ags_automation_free_all_selection(GList *automation);
 
 void ags_automation_add_point_to_selection(AgsAutomation *automation,
 					   guint x, gdouble y,
@@ -203,5 +251,7 @@ AgsAutomation* ags_automation_new(GObject *audio,
 				  guint line,
 				  GType channel_type,
 				  gchar *control_name);
+
+G_END_DECLS
 
 #endif /*__AGS_AUTOMATION_H__*/

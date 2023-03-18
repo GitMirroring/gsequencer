@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2018 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -25,9 +25,9 @@
 
 #include <sys/types.h>
 
-#include <pthread.h>
-
 #include <ags/libags.h>
+
+G_BEGIN_DECLS
 
 #define AGS_TYPE_FIFOOUT                (ags_fifoout_get_type())
 #define AGS_FIFOOUT(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_FIFOOUT, AgsFifoout))
@@ -36,8 +36,11 @@
 #define AGS_IS_FIFOOUT_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE ((class), AGS_TYPE_FIFOOUT))
 #define AGS_FIFOOUT_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS(obj, AGS_TYPE_FIFOOUT, AgsFifooutClass))
 
+#define AGS_FIFOOUT_GET_OBJ_MUTEX(obj) (&(((AgsFifoout *) obj)->obj_mutex))
+
 #define AGS_FIFOOUT_DEFAULT_DEVICE "/dev/null"
 
+#define AGS_FIFOOUT_DEFAULT_APP_BUFFER_SIZE (4)
 #define AGS_FIFOOUT_DEFAULT_RING_BUFFER_SIZE (8)
 
 typedef struct _AgsFifoout AgsFifoout;
@@ -45,42 +48,45 @@ typedef struct _AgsFifooutClass AgsFifooutClass;
 
 /**
  * AgsFifooutFlags:
- * @AGS_FIFOOUT_ADDED_TO_REGISTRY: the fifoout was added to registry, see #AgsConnectable::add_to_registry()
- * @AGS_FIFOOUT_CONNECTED: indicates the fifoout was connected by calling #AgsConnectable::connect()
- * @AGS_FIFOOUT_BUFFER0: ring-buffer 0
- * @AGS_FIFOOUT_BUFFER1: ring-buffer 1
- * @AGS_FIFOOUT_BUFFER2: ring-buffer 2
- * @AGS_FIFOOUT_BUFFER3: ring-buffer 3
- * @AGS_FIFOOUT_ATTACK_FIRST: use first attack, instead of second one
+ * @AGS_FIFOOUT_INITIALIZED: the soundcard was initialized
+ * @AGS_FIFOOUT_START_PLAY: playback starting
  * @AGS_FIFOOUT_PLAY: use first attack, instead of second one
  * @AGS_FIFOOUT_SHUTDOWN: stop playback
- * @AGS_FIFOOUT_START_PLAY: playback starting
  * @AGS_FIFOOUT_NONBLOCKING: do non-blocking calls
- * @AGS_FIFOOUT_INITIALIZED: the soundcard was initialized
+ * @AGS_FIFOOUT_ATTACK_FIRST: use first attack, instead of second one
  * 
  * Enum values to control the behavior or indicate internal state of #AgsFifoout by
  * enable/disable as flags.
  */
 typedef enum
 {
-  AGS_FIFOOUT_ADDED_TO_REGISTRY  = 1,
-  AGS_FIFOOUT_CONNECTED          = 1 <<  1,
+  AGS_FIFOOUT_INITIALIZED        = 1,
 
-  AGS_FIFOOUT_BUFFER0            = 1 <<  2,
-  AGS_FIFOOUT_BUFFER1            = 1 <<  3,
-  AGS_FIFOOUT_BUFFER2            = 1 <<  4,
-  AGS_FIFOOUT_BUFFER3            = 1 <<  5,
+  AGS_FIFOOUT_START_PLAY         = 1 <<  1,
+  AGS_FIFOOUT_PLAY               = 1 <<  2,
+  AGS_FIFOOUT_SHUTDOWN           = 1 <<  3,
 
-  AGS_FIFOOUT_ATTACK_FIRST       = 1 <<  6,
-
-  AGS_FIFOOUT_PLAY               = 1 <<  7,
-
-  AGS_FIFOOUT_SHUTDOWN           = 1 <<  8,
-  AGS_FIFOOUT_START_PLAY         = 1 <<  9,
-
-  AGS_FIFOOUT_NONBLOCKING        = 1 << 10,
-  AGS_FIFOOUT_INITIALIZED        = 1 << 11,
+  AGS_FIFOOUT_NONBLOCKING        = 1 <<  4,
+  
+  AGS_FIFOOUT_ATTACK_FIRST       = 1 <<  5,
 }AgsFifooutFlags;
+
+/**
+ * AgsFifooutAppBufferMode:
+ * @AGS_FIFOOUT_APP_BUFFER_0: ring-buffer 0
+ * @AGS_FIFOOUT_APP_BUFFER_1: ring-buffer 1
+ * @AGS_FIFOOUT_APP_BUFFER_2: ring-buffer 2
+ * @AGS_FIFOOUT_APP_BUFFER_3: ring-buffer 3
+ * 
+ * Enum values to indicate internal state of #AgsFifoout application buffer by
+ * setting mode.
+ */
+typedef enum{
+  AGS_FIFOOUT_APP_BUFFER_0,
+  AGS_FIFOOUT_APP_BUFFER_1,
+  AGS_FIFOOUT_APP_BUFFER_2,
+  AGS_FIFOOUT_APP_BUFFER_3,
+}AgsFifooutAppBufferMode;
 
 #define AGS_FIFOOUT_ERROR (ags_fifoout_error_quark())
 
@@ -93,11 +99,9 @@ struct _AgsFifoout
   GObject gobject;
 
   guint flags;
+  guint connectable_flags;
 
-  pthread_mutex_t *obj_mutex;
-  pthread_mutexattr_t *obj_mutexattr;
-
-  AgsApplicationContext *application_context;
+  GRecMutex obj_mutex;
 
   AgsUUID *uuid;
 
@@ -105,9 +109,16 @@ struct _AgsFifoout
   guint pcm_channels;
   guint format;
   guint buffer_size;
-  guint samplerate; // sample_rate
+  guint samplerate;
 
-  void** buffer;
+  guint app_buffer_mode;
+  
+  GRecMutex **app_buffer_mutex;
+
+  guint sub_block_count;
+  GRecMutex **sub_block_mutex;
+
+  void **app_buffer;
 
   volatile gboolean available;
   
@@ -137,9 +148,6 @@ struct _AgsFifoout
 
   gchar *device;
   int fifo_fd;
-  
-  GList *poll_fd;
-  GObject *notify_soundcard;
 };
 
 struct _AgsFifooutClass
@@ -148,10 +156,9 @@ struct _AgsFifooutClass
 };
 
 GType ags_fifoout_get_type();
+GType ags_fifoout_flags_get_type();
 
 GQuark ags_fifoout_error_quark();
-
-pthread_mutex_t* ags_fifoout_get_class_mutex();
 
 gboolean ags_fifoout_test_flags(AgsFifoout *fifoout, guint flags);
 void ags_fifoout_set_flags(AgsFifoout *fifoout, guint flags);
@@ -162,6 +169,8 @@ void ags_fifoout_switch_buffer_flag(AgsFifoout *fifoout);
 void ags_fifoout_adjust_delay_and_attack(AgsFifoout *fifoout);
 void ags_fifoout_realloc_buffer(AgsFifoout *fifoout);
 
-AgsFifoout* ags_fifoout_new(GObject *application_context);
+AgsFifoout* ags_fifoout_new();
+
+G_END_DECLS
 
 #endif /*__AGS_FIFOOUT_H__*/

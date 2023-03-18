@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -25,6 +25,8 @@
 
 #include <ags/libags.h>
 
+G_BEGIN_DECLS
+
 #define AGS_TYPE_SFZ_GROUP                (ags_sfz_group_get_type())
 #define AGS_SFZ_GROUP(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_SFZ_GROUP, AgsSFZGroup))
 #define AGS_SFZ_GROUP_CLASS(class)        (G_TYPE_CHECK_CLASS_CAST((class), AGS_TYPE_SFZ_GROUP, AgsSFZGroupClass))
@@ -32,32 +34,19 @@
 #define AGS_IS_SFZ_GROUP_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE ((class), AGS_TYPE_SFZ_GROUP))
 #define AGS_SFZ_GROUP_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS ((obj), AGS_TYPE_SFZ_GROUP, AgsSFZGroupClass))
 
-#define AGS_SFZ_GROUP_GET_OBJ_MUTEX(obj) (((AgsSFZGroup *) obj)->obj_mutex)
+#define AGS_SFZ_GROUP_GET_OBJ_MUTEX(obj) (&(((AgsSFZGroup *) obj)->obj_mutex))
 
 typedef struct _AgsSFZGroup AgsSFZGroup;
 typedef struct _AgsSFZGroupClass AgsSFZGroupClass;
-
-/**
- * AgsSFZGroupFlags:
- * @AGS_SFZ_GROUP_ADDED_TO_REGISTRY: the sfz group was added to registry, see #AgsConnectable::add_to_registry()
- * @AGS_SFZ_GROUP_CONNECTED: indicates the sfz group was connected by calling #AgsConnectable::connect()
- * 
- * Enum values to control the behavior or indicate internal state of #AgsSFZGroup by
- * enable/disable as flags.
- */
-typedef enum{
-  AGS_SFZ_GROUP_ADDED_TO_REGISTRY    = 1,
-  AGS_SFZ_GROUP_CONNECTED            = 1 <<  1,
-}AgsSFZGroupFlags;
 
 struct _AgsSFZGroup
 {
   GObject gobject;
 
   guint flags;
+  guint connectable_flags;
 
-  pthread_mutex_t *obj_mutex;
-  pthread_mutexattr_t *obj_mutexattr;
+  GRecMutex obj_mutex;
 
   AgsUUID *uuid;
 
@@ -76,12 +65,19 @@ struct _AgsSFZGroupClass
 
 GType ags_sfz_group_get_type();
 
-pthread_mutex_t* ags_sfz_group_get_class_mutex();
-
 gboolean ags_sfz_group_test_flags(AgsSFZGroup *sfz_group, guint flags);
 void ags_sfz_group_set_flags(AgsSFZGroup *sfz_group, guint flags);
 void ags_sfz_group_unset_flags(AgsSFZGroup *sfz_group, guint flags);
 
+GList* ags_sfz_group_get_region(AgsSFZGroup *sfz_group);
+void ags_sfz_group_set_region(AgsSFZGroup *sfz_group,
+			     GList *region);
+
+GObject* ags_sfz_group_get_sample(AgsSFZGroup *sfz_group);
+void ags_sfz_group_set_sample(AgsSFZGroup *sfz_group,
+			      GObject *sample);
+
+GList* ags_sfz_group_get_control(AgsSFZGroup *sfz_group);
 void ags_sfz_group_insert_control(AgsSFZGroup *sfz_group,
 				  gchar *key,
 				  gchar *value);
@@ -90,5 +86,7 @@ gchar* ags_sfz_group_lookup_control(AgsSFZGroup *sfz_group,
 
 /* instantiate */
 AgsSFZGroup* ags_sfz_group_new();
+
+G_END_DECLS
 
 #endif /*__AGS_SFZ_GROUP_H__*/

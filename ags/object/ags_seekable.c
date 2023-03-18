@@ -61,6 +61,27 @@ ags_seekable_get_type()
   return g_define_type_id__volatile;
 }
 
+GType
+ags_seek_type_get_type()
+{
+  static volatile gsize g_enum_type_id__volatile;
+
+  if(g_once_init_enter (&g_enum_type_id__volatile)){
+    static const GEnumValue values[] = {
+      { AGS_SEEK_CUR, "AGS_SEEK_CUR", "seek-cur" },
+      { AGS_SEEK_SET, "AGS_SEEK_SET", "seek-set" },
+      { AGS_SEEK_END, "AGS_SEEK_END", "seek-end" },
+      { 0, NULL, NULL }
+    };
+
+    GType g_enum_type_id = g_enum_register_static(g_intern_static_string("AgsSeekType"), values);
+
+    g_once_init_leave (&g_enum_type_id__volatile, g_enum_type_id);
+  }
+  
+  return g_enum_type_id__volatile;
+}
+
 void
 ags_seekable_class_init(AgsSeekableInterface *ginterface)
 {
@@ -73,7 +94,7 @@ ags_seekable_class_init(AgsSeekableInterface *ginterface)
    * The ::seek signal notifies about changed position
    * of sequencer.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   seekable_signals[SEEK] =
     g_signal_new("seek",
@@ -101,7 +122,7 @@ ags_seekable_base_init(AgsSeekableInterface *ginterface)
  *
  * Seek.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_seekable_seek(AgsSeekable *seekable, gint64 offset, guint whence)

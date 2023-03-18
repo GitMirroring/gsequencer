@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2018 Joël Krähemann
+ * Copyright (C) 2005-2021 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -19,7 +19,54 @@
 
 #include <ags/audio/ags_char_buffer_util.h>
 
-#include <ags/libags.h>
+gpointer ags_char_buffer_util_copy(gpointer ptr);
+void ags_char_buffer_util_free(gpointer ptr);
+
+/**
+ * SECTION:ags_char_buffer_util
+ * @short_description: util functions to handle char buffer
+ * @title: AgsCharBufferUtil
+ * @section_id:
+ * @include: ags/audio/ags_char_buffer_util.h
+ *
+ * These utility functions allow you to store/restore PCM data from 
+ * char buffer.
+ */
+
+GType
+ags_char_buffer_util_get_type(void)
+{
+  static volatile gsize g_define_type_id__volatile = 0;
+
+  if(g_once_init_enter (&g_define_type_id__volatile)){
+    GType ags_type_char_buffer_util = 0;
+
+    ags_type_char_buffer_util =
+      g_boxed_type_register_static("AgsCharBufferUtil",
+				   (GBoxedCopyFunc) ags_char_buffer_util_copy,
+				   (GBoxedFreeFunc) ags_char_buffer_util_free);
+
+    g_once_init_leave(&g_define_type_id__volatile, ags_type_char_buffer_util);
+  }
+
+  return g_define_type_id__volatile;
+}
+
+gpointer
+ags_char_buffer_util_copy(gpointer ptr)
+{
+  gpointer retval;
+
+  retval = g_memdup(ptr, sizeof(AgsCharBufferUtil));
+ 
+  return(retval);
+}
+
+void
+ags_char_buffer_util_free(gpointer ptr)
+{
+  g_free(ptr);
+}
 
 /**
  * ags_char_buffer_util_copy_s8_to_cbuffer:
@@ -33,7 +80,7 @@
  * 
  * Copy gint8 to char buffer.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_char_buffer_util_copy_s8_to_cbuffer(guchar *destination, guint word_size, guint dchannels,
@@ -44,6 +91,11 @@ ags_char_buffer_util_copy_s8_to_cbuffer(guchar *destination, guint word_size, gu
   guint i;
   gboolean swap_bytes;
 
+  if(destination == NULL ||
+     source == NULL){
+    return;
+  }
+  
   scale_factor = (((guint64) 1 << (word_size * 8 - 1)) - 1) / G_MAXINT8;
   
   swap_bytes = FALSE;
@@ -173,7 +225,7 @@ ags_char_buffer_util_copy_s8_to_cbuffer(guchar *destination, guint word_size, gu
  * 
  * Copy gint16 to char buffer.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_char_buffer_util_copy_s16_to_cbuffer(guchar *destination, guint word_size, guint dchannels,
@@ -184,6 +236,11 @@ ags_char_buffer_util_copy_s16_to_cbuffer(guchar *destination, guint word_size, g
   guint i;
   gboolean swap_bytes;
 
+  if(destination == NULL ||
+     source == NULL){
+    return;
+  }
+  
   scale_factor = (((guint64) 1 << (word_size * 8 - 1)) - 1) / G_MAXINT16;
   
   swap_bytes = FALSE;
@@ -313,7 +370,7 @@ ags_char_buffer_util_copy_s16_to_cbuffer(guchar *destination, guint word_size, g
  * 
  * Copy gint32 to char buffer.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_char_buffer_util_copy_s24_to_cbuffer(guchar *destination, guint word_size, guint dchannels,
@@ -324,6 +381,11 @@ ags_char_buffer_util_copy_s24_to_cbuffer(guchar *destination, guint word_size, g
   guint i;
   gboolean swap_bytes;
 
+  if(destination == NULL ||
+     source == NULL){
+    return;
+  }
+  
   scale_factor = (((guint64) 1 << (word_size * 8 - 1)) - 1) / ((1 << 23) - 1);
   
   swap_bytes = FALSE;
@@ -453,7 +515,7 @@ ags_char_buffer_util_copy_s24_to_cbuffer(guchar *destination, guint word_size, g
  * 
  * Copy gint32 to char buffer.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_char_buffer_util_copy_s32_to_cbuffer(guchar *destination, guint word_size, guint dchannels,
@@ -464,6 +526,11 @@ ags_char_buffer_util_copy_s32_to_cbuffer(guchar *destination, guint word_size, g
   guint i;
   gboolean swap_bytes;
 
+  if(destination == NULL ||
+     source == NULL){
+    return;
+  }
+  
   scale_factor = (((guint64) 1 << (word_size * 8 - 1)) - 1) / G_MAXINT32;
   
   swap_bytes = FALSE;
@@ -593,7 +660,7 @@ ags_char_buffer_util_copy_s32_to_cbuffer(guchar *destination, guint word_size, g
  * 
  * Copy gint64 to char buffer.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_char_buffer_util_copy_s64_to_cbuffer(guchar *destination, guint word_size, guint dchannels,
@@ -604,6 +671,11 @@ ags_char_buffer_util_copy_s64_to_cbuffer(guchar *destination, guint word_size, g
   guint i;
   gboolean swap_bytes;
 
+  if(destination == NULL ||
+     source == NULL){
+    return;
+  }
+  
   scale_factor = (((guint64) 1 << (word_size * 8 - 1)) - 1) / G_MAXINT64;
   
   swap_bytes = FALSE;
@@ -733,17 +805,22 @@ ags_char_buffer_util_copy_s64_to_cbuffer(guchar *destination, guint word_size, g
  * 
  * Copy float to char buffer.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_char_buffer_util_copy_float_to_cbuffer(guchar *destination, guint word_size, guint dchannels,
-					   float *source, guint schannels,
+					   gfloat *source, guint schannels,
 					   guint frame_count, guint byte_order)
 {
   gdouble scale_factor;
   guint i;
   gboolean swap_bytes;
 
+  if(destination == NULL ||
+     source == NULL){
+    return;
+  }
+  
   scale_factor = (((guint64) 1 << (word_size * 8 - 1)) - 1);
   
   swap_bytes = FALSE;
@@ -877,17 +954,22 @@ ags_char_buffer_util_copy_float_to_cbuffer(guchar *destination, guint word_size,
  * 
  * Copy double to char buffer.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_char_buffer_util_copy_double_to_cbuffer(guchar *destination, guint word_size, guint dchannels,
-					    double *source, guint schannels,
+					    gdouble *source, guint schannels,
 					    guint frame_count, guint byte_order)
 {
   gdouble scale_factor;
   guint i;
   gboolean swap_bytes;
 
+  if(destination == NULL ||
+     source == NULL){
+    return;
+  }
+  
   scale_factor = (((guint64) 1 << (word_size * 8 - 1)) - 1);
   
   swap_bytes = FALSE;
@@ -1021,7 +1103,7 @@ ags_char_buffer_util_copy_double_to_cbuffer(guchar *destination, guint word_size
  * 
  * Copy char to gint8 buffer.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_char_buffer_util_copy_cbuffer_to_s8(gint8 *destination, guint dchannels,
@@ -1032,6 +1114,11 @@ ags_char_buffer_util_copy_cbuffer_to_s8(gint8 *destination, guint dchannels,
   guint i;
   gboolean swap_bytes;
 
+  if(destination == NULL ||
+     source == NULL){
+    return;
+  }
+  
   scale_factor = G_MAXINT8 / (((guint64) 1 << (word_size * 8 - 1)) - 1);
   
   swap_bytes = FALSE;
@@ -1155,7 +1242,7 @@ ags_char_buffer_util_copy_cbuffer_to_s8(gint8 *destination, guint dchannels,
  * 
  * Copy char to gint16 buffer.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_char_buffer_util_copy_cbuffer_to_s16(gint16 *destination, guint dchannels,
@@ -1166,6 +1253,11 @@ ags_char_buffer_util_copy_cbuffer_to_s16(gint16 *destination, guint dchannels,
   guint i;
   gboolean swap_bytes;
 
+  if(destination == NULL ||
+     source == NULL){
+    return;
+  }
+  
   scale_factor = G_MAXINT16 / (((guint64) 1 << (word_size * 8 - 1)) - 1);
   
   swap_bytes = FALSE;
@@ -1289,7 +1381,7 @@ ags_char_buffer_util_copy_cbuffer_to_s16(gint16 *destination, guint dchannels,
  * 
  * Copy char to gint32 buffer.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_char_buffer_util_copy_cbuffer_to_s24(gint32 *destination, guint dchannels,
@@ -1300,6 +1392,11 @@ ags_char_buffer_util_copy_cbuffer_to_s24(gint32 *destination, guint dchannels,
   guint i;
   gboolean swap_bytes;
 
+  if(destination == NULL ||
+     source == NULL){
+    return;
+  }
+  
   scale_factor = ((1 << 23) - 1) / (((guint64) 1 << (word_size * 8 - 1)) - 1);
   
   swap_bytes = FALSE;
@@ -1423,7 +1520,7 @@ ags_char_buffer_util_copy_cbuffer_to_s24(gint32 *destination, guint dchannels,
  * 
  * Copy char to gint32 buffer.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_char_buffer_util_copy_cbuffer_to_s32(gint32 *destination, guint dchannels,
@@ -1434,6 +1531,11 @@ ags_char_buffer_util_copy_cbuffer_to_s32(gint32 *destination, guint dchannels,
   guint i;
   gboolean swap_bytes;
 
+  if(destination == NULL ||
+     source == NULL){
+    return;
+  }
+  
   scale_factor = G_MAXINT32 / (((guint64) 1 << (word_size * 8 - 1)) - 1);
   
   swap_bytes = FALSE;
@@ -1557,7 +1659,7 @@ ags_char_buffer_util_copy_cbuffer_to_s32(gint32 *destination, guint dchannels,
  * 
  * Copy char to gint64 buffer.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_char_buffer_util_copy_cbuffer_to_s64(gint64 *destination, guint dchannels,
@@ -1568,6 +1670,11 @@ ags_char_buffer_util_copy_cbuffer_to_s64(gint64 *destination, guint dchannels,
   guint i;
   gboolean swap_bytes;
 
+  if(destination == NULL ||
+     source == NULL){
+    return;
+  }
+  
   scale_factor = G_MAXINT64 / (((guint64) 1 << (word_size * 8 - 1)) - 1);
   
   swap_bytes = FALSE;
@@ -1691,10 +1798,10 @@ ags_char_buffer_util_copy_cbuffer_to_s64(gint64 *destination, guint dchannels,
  * 
  * Copy char to float buffer.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
-ags_char_buffer_util_copy_cbuffer_to_float(float *destination, guint dchannels,
+ags_char_buffer_util_copy_cbuffer_to_float(gfloat *destination, guint dchannels,
 					   gint8 *source, guint word_size, guint schannels,
 					   guint frame_count, guint byte_order)
 {
@@ -1702,6 +1809,11 @@ ags_char_buffer_util_copy_cbuffer_to_float(float *destination, guint dchannels,
   guint i;
   gboolean swap_bytes;
 
+  if(destination == NULL ||
+     source == NULL){
+    return;
+  }
+  
   scale_factor = 1.0 / (((guint64) 1 << (word_size * 8 - 1)) - 1);
   
   swap_bytes = FALSE;
@@ -1825,10 +1937,10 @@ ags_char_buffer_util_copy_cbuffer_to_float(float *destination, guint dchannels,
  * 
  * Copy char to double buffer.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
-ags_char_buffer_util_copy_cbuffer_to_double(double *destination, guint dchannels,
+ags_char_buffer_util_copy_cbuffer_to_double(gdouble *destination, guint dchannels,
 					    guchar *source, guint word_size, guint schannels,
 					    guint frame_count, guint byte_order)
 {
@@ -1836,6 +1948,11 @@ ags_char_buffer_util_copy_cbuffer_to_double(double *destination, guint dchannels
   guint i;
   gboolean swap_bytes;
 
+  if(destination == NULL ||
+     source == NULL){
+    return;
+  }
+  
   scale_factor = 1.0 / (((guint64) 1 << (word_size * 8 - 1)) - 1);
   
   swap_bytes = FALSE;
@@ -1960,7 +2077,7 @@ ags_char_buffer_util_copy_cbuffer_to_double(double *destination, guint dchannels
  * 
  * Copy char buffer to buffer.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_char_buffer_util_copy_buffer_to_buffer(void *destination, guint dchannels, guint doffset,
@@ -1968,6 +2085,11 @@ ags_char_buffer_util_copy_buffer_to_buffer(void *destination, guint dchannels, g
 					   guint frame_count, guint byte_order,
 					   guint word_size, guint mode)
 {
+  if(destination == NULL ||
+     source == NULL){
+    return;
+  }
+  
   switch(mode){
   case AGS_CHAR_BUFFER_UTIL_COPY_S8_TO_CBUFFER:
     {
@@ -2007,14 +2129,14 @@ ags_char_buffer_util_copy_buffer_to_buffer(void *destination, guint dchannels, g
   case AGS_CHAR_BUFFER_UTIL_COPY_FLOAT_TO_CBUFFER:
     {
       ags_char_buffer_util_copy_float_to_cbuffer(((guchar *) destination) + (doffset * word_size), word_size, dchannels,
-						 ((float *) source) + soffset, schannels,
+						 ((gfloat *) source) + soffset, schannels,
 						 frame_count, byte_order);
     }
     break;
   case AGS_CHAR_BUFFER_UTIL_COPY_DOUBLE_TO_CBUFFER:
     {
       ags_char_buffer_util_copy_double_to_cbuffer(((guchar *) destination) + (doffset * word_size), word_size, dchannels,
-						  ((double *) source) + soffset, schannels,
+						  ((gdouble *) source) + soffset, schannels,
 						  frame_count, byte_order);
     }
     break;
@@ -2055,14 +2177,14 @@ ags_char_buffer_util_copy_buffer_to_buffer(void *destination, guint dchannels, g
     break;
   case AGS_CHAR_BUFFER_UTIL_COPY_CBUFFER_TO_FLOAT:
     {
-      ags_char_buffer_util_copy_cbuffer_to_float(((float *) destination) + doffset, dchannels,
+      ags_char_buffer_util_copy_cbuffer_to_float(((gfloat *) destination) + doffset, dchannels,
 						 ((guchar *) source) + (soffset * word_size), word_size, schannels,
 						 frame_count, byte_order);
     }
     break;
   case AGS_CHAR_BUFFER_UTIL_COPY_CBUFFER_TO_DOUBLE:
     {
-      ags_char_buffer_util_copy_cbuffer_to_double(((double *) destination) + doffset, dchannels,
+      ags_char_buffer_util_copy_cbuffer_to_double(((gdouble *) destination) + doffset, dchannels,
 						  ((guchar *) source) + (soffset * word_size), word_size, schannels,
 						  frame_count, byte_order);
     }

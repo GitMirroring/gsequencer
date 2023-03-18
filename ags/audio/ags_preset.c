@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -22,8 +22,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <pthread.h>
-
 #include <ags/i18n.h>
 
 void ags_preset_class_init(AgsPresetClass *preset);
@@ -40,7 +38,7 @@ void ags_preset_finalize(GObject *gobject);
 
 /**
  * SECTION:ags_preset
- * @short_description: presets
+ * @short_description: Presets
  * @title: AgsPreset
  * @section_id:
  * @include: ags/audio/ags_preset.h
@@ -49,8 +47,6 @@ void ags_preset_finalize(GObject *gobject);
  */
 
 static gpointer ags_preset_parent_class = NULL;
-
-static pthread_mutex_t ags_preset_class_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 enum{
   PROP_0,
@@ -118,7 +114,7 @@ ags_preset_class_init(AgsPresetClass *preset)
    *
    * The #AgsAudio belonging to.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_object("audio",
 				   i18n_pspec("audio"),
@@ -134,7 +130,7 @@ ags_preset_class_init(AgsPresetClass *preset)
    *
    * The preset's scope.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_string("scope",
 				   i18n_pspec("scope"),
@@ -150,7 +146,7 @@ ags_preset_class_init(AgsPresetClass *preset)
    *
    * The preset name.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_string("preset-name",
 				   i18n_pspec("preset-name"),
@@ -166,7 +162,7 @@ ags_preset_class_init(AgsPresetClass *preset)
    *
    * The start audio channel to apply.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("audio-channel-start",
 				 i18n_pspec("audio-channel-start"),
@@ -184,7 +180,7 @@ ags_preset_class_init(AgsPresetClass *preset)
    *
    * The end audio channel to apply.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("audio-channel-end",
 				 i18n_pspec("audio-channel-end"),
@@ -202,7 +198,7 @@ ags_preset_class_init(AgsPresetClass *preset)
    *
    * The start pad to apply.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("pad-start",
 				 i18n_pspec("pad-start"),
@@ -220,7 +216,7 @@ ags_preset_class_init(AgsPresetClass *preset)
    *
    * The end pad to apply.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("pad-end",
 				 i18n_pspec("pad-end"),
@@ -238,7 +234,7 @@ ags_preset_class_init(AgsPresetClass *preset)
    *
    * The start x to apply.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("x-start",
 				 i18n_pspec("x-start"),
@@ -256,7 +252,7 @@ ags_preset_class_init(AgsPresetClass *preset)
    *
    * The end x to apply.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("x-end",
 				 i18n_pspec("x-end"),
@@ -279,27 +275,11 @@ ags_preset_error_quark()
 void
 ags_preset_init(AgsPreset *preset)
 {
-  pthread_mutex_t *mutex;
-  pthread_mutexattr_t *attr;
-
   preset->flags = 0;
+  preset->connectable_flags = 0;
 
-  /* add preset mutex */
-  preset->obj_mutexattr = 
-    attr = (pthread_mutexattr_t *) malloc(sizeof(pthread_mutexattr_t));
-  pthread_mutexattr_init(attr);
-  pthread_mutexattr_settype(attr,
-			    PTHREAD_MUTEX_RECURSIVE);
-
-#ifdef __linux__
-  pthread_mutexattr_setprotocol(attr,
-				PTHREAD_PRIO_INHERIT);
-#endif
-
-  preset->obj_mutex = 
-    mutex = (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t));
-  pthread_mutex_init(mutex,
-		     attr);  
+  /* preset mutex */
+  g_rec_mutex_init(&(preset->obj_mutex));
 
   /* common fields */
   preset->audio = NULL;
@@ -334,7 +314,7 @@ ags_preset_set_property(GObject *gobject,
 {
   AgsPreset *preset;
 
-  pthread_mutex_t *preset_mutex;
+  GRecMutex *preset_mutex;
 
   preset = AGS_PRESET(gobject);
 
@@ -348,10 +328,10 @@ ags_preset_set_property(GObject *gobject,
 
       audio = (GObject *) g_value_get_object(value);
 
-      pthread_mutex_lock(preset_mutex);
+      g_rec_mutex_lock(preset_mutex);
 
       if(preset->audio == audio){
-	pthread_mutex_unlock(preset_mutex);
+	g_rec_mutex_unlock(preset_mutex);
 
 	return;
       }
@@ -366,7 +346,7 @@ ags_preset_set_property(GObject *gobject,
 
       preset->audio = audio;
 
-      pthread_mutex_unlock(preset_mutex);
+      g_rec_mutex_unlock(preset_mutex);
     }
     break;
   case PROP_SCOPE:
@@ -375,7 +355,7 @@ ags_preset_set_property(GObject *gobject,
       
       scope = g_value_get_string(value);
 
-      pthread_mutex_lock(preset_mutex);
+      g_rec_mutex_lock(preset_mutex);
 
       if(preset->scope != NULL){
 	g_free(preset->scope);
@@ -383,7 +363,7 @@ ags_preset_set_property(GObject *gobject,
       
       preset->scope = g_strdup(scope);
 
-      pthread_mutex_unlock(preset_mutex);
+      g_rec_mutex_unlock(preset_mutex);
     }
     break;
   case PROP_PRESET_NAME:
@@ -392,7 +372,7 @@ ags_preset_set_property(GObject *gobject,
       
       preset_name = g_value_get_string(value);
 
-      pthread_mutex_lock(preset_mutex);
+      g_rec_mutex_lock(preset_mutex);
 
       if(preset->preset_name != NULL){
 	g_free(preset->preset_name);
@@ -400,61 +380,61 @@ ags_preset_set_property(GObject *gobject,
       
       preset->preset_name = g_strdup(preset_name);
 
-      pthread_mutex_unlock(preset_mutex);
+      g_rec_mutex_unlock(preset_mutex);
     }
     break;
   case PROP_AUDIO_CHANNEL_START:
     {
-      pthread_mutex_lock(preset_mutex);
+      g_rec_mutex_lock(preset_mutex);
 
       preset->audio_channel_start = g_value_get_uint(value);
 
-      pthread_mutex_unlock(preset_mutex);
+      g_rec_mutex_unlock(preset_mutex);
     }
     break;
   case PROP_AUDIO_CHANNEL_END:
     {
-      pthread_mutex_lock(preset_mutex);
+      g_rec_mutex_lock(preset_mutex);
 
       preset->audio_channel_end = g_value_get_uint(value);
 
-      pthread_mutex_unlock(preset_mutex);
+      g_rec_mutex_unlock(preset_mutex);
     }
     break;
   case PROP_PAD_START:
     {
-      pthread_mutex_lock(preset_mutex);
+      g_rec_mutex_lock(preset_mutex);
 
       preset->pad_start = g_value_get_uint(value);
 
-      pthread_mutex_unlock(preset_mutex);
+      g_rec_mutex_unlock(preset_mutex);
     }
     break;
   case PROP_PAD_END:
     {
-      pthread_mutex_lock(preset_mutex);
+      g_rec_mutex_lock(preset_mutex);
 
       preset->pad_end = g_value_get_uint(value);
 
-      pthread_mutex_unlock(preset_mutex);
+      g_rec_mutex_unlock(preset_mutex);
     }
     break;
   case PROP_X_START:
     {
-      pthread_mutex_lock(preset_mutex);
+      g_rec_mutex_lock(preset_mutex);
 
       preset->x_start = g_value_get_uint(value);
 
-      pthread_mutex_unlock(preset_mutex);
+      g_rec_mutex_unlock(preset_mutex);
     }
     break;
   case PROP_X_END:
     {
-      pthread_mutex_lock(preset_mutex);
+      g_rec_mutex_lock(preset_mutex);
 
       preset->x_end = g_value_get_uint(value);
 
-      pthread_mutex_unlock(preset_mutex);
+      g_rec_mutex_unlock(preset_mutex);
     }
     break;
   default:
@@ -470,7 +450,7 @@ ags_preset_get_property(GObject *gobject,
 {
   AgsPreset *preset;
 
-  pthread_mutex_t *preset_mutex;
+  GRecMutex *preset_mutex;
 
   preset = AGS_PRESET(gobject);
 
@@ -480,91 +460,91 @@ ags_preset_get_property(GObject *gobject,
   switch(prop_id){
   case PROP_AUDIO:
     {
-      pthread_mutex_lock(preset_mutex);
+      g_rec_mutex_lock(preset_mutex);
 
       g_value_set_object(value, preset->audio);
 
-      pthread_mutex_unlock(preset_mutex);
+      g_rec_mutex_unlock(preset_mutex);
     }
     break;
   case PROP_SCOPE:
     {
-      pthread_mutex_lock(preset_mutex);
+      g_rec_mutex_lock(preset_mutex);
 
       g_value_set_string(value,
 			 preset->scope);
 
-      pthread_mutex_unlock(preset_mutex);
+      g_rec_mutex_unlock(preset_mutex);
     }
     break;
   case PROP_PRESET_NAME:
     {
-      pthread_mutex_lock(preset_mutex);
+      g_rec_mutex_lock(preset_mutex);
 
       g_value_set_string(value,
 			 preset->preset_name);
 
-      pthread_mutex_unlock(preset_mutex);
+      g_rec_mutex_unlock(preset_mutex);
     }
     break;
   case PROP_AUDIO_CHANNEL_START:
     {
-      pthread_mutex_lock(preset_mutex);
+      g_rec_mutex_lock(preset_mutex);
 
       g_value_set_uint(value,
 		       preset->audio_channel_start);
 
-      pthread_mutex_unlock(preset_mutex);
+      g_rec_mutex_unlock(preset_mutex);
     }
     break;
   case PROP_AUDIO_CHANNEL_END:
     {
-      pthread_mutex_lock(preset_mutex);
+      g_rec_mutex_lock(preset_mutex);
 
       g_value_set_uint(value,
 		       preset->audio_channel_end);
 
-      pthread_mutex_unlock(preset_mutex);
+      g_rec_mutex_unlock(preset_mutex);
     }
     break;
   case PROP_PAD_START:
     {
-      pthread_mutex_lock(preset_mutex);
+      g_rec_mutex_lock(preset_mutex);
 
       g_value_set_uint(value,
 		       preset->pad_start);
 
-      pthread_mutex_unlock(preset_mutex);
+      g_rec_mutex_unlock(preset_mutex);
     }
     break;
   case PROP_PAD_END:
     {
-      pthread_mutex_lock(preset_mutex);
+      g_rec_mutex_lock(preset_mutex);
 
       g_value_set_uint(value,
 		       preset->pad_end);
 
-      pthread_mutex_unlock(preset_mutex);
+      g_rec_mutex_unlock(preset_mutex);
     }
     break;
   case PROP_X_START:
     {
-      pthread_mutex_lock(preset_mutex);
+      g_rec_mutex_lock(preset_mutex);
 
       g_value_set_uint(value,
 		       preset->x_start);
 
-      pthread_mutex_unlock(preset_mutex);
+      g_rec_mutex_unlock(preset_mutex);
     }
     break;
   case PROP_X_END:
     {
-      pthread_mutex_lock(preset_mutex);
+      g_rec_mutex_lock(preset_mutex);
 
       g_value_set_uint(value,
 		       preset->x_end);
 
-      pthread_mutex_unlock(preset_mutex);
+      g_rec_mutex_unlock(preset_mutex);
     }
     break;
   default:
@@ -580,12 +560,6 @@ ags_preset_finalize(GObject *gobject)
   guint i;
   
   preset = AGS_PRESET(gobject);
-
-  pthread_mutex_destroy(preset->obj_mutex);
-  free(preset->obj_mutex);
-
-  pthread_mutexattr_destroy(preset->obj_mutexattr);
-  free(preset->obj_mutexattr);
 
   if(preset->audio != NULL){
     g_object_unref(preset->audio);
@@ -609,18 +583,23 @@ ags_preset_finalize(GObject *gobject)
 }
 
 /**
- * ags_preset_get_class_mutex:
+ * ags_preset_get_obj_mutex:
+ * @preset: the #AgsPreset
  * 
- * Use this function's returned mutex to access mutex fields.
- *
- * Returns: the class mutex
+ * Get object mutex.
  * 
- * Since: 2.0.0
+ * Returns: the #GRecMutex to lock @preset
+ * 
+ * Since: 3.1.0
  */
-pthread_mutex_t*
-ags_preset_get_class_mutex()
+GRecMutex*
+ags_preset_get_obj_mutex(AgsPreset *preset)
 {
-  return(&ags_preset_class_mutex);
+  if(!AGS_IS_PRESET(preset)){
+    return(NULL);
+  }
+
+  return(AGS_PRESET_GET_OBJ_MUTEX(preset));
 }
 
 /**
@@ -632,14 +611,14 @@ ags_preset_get_class_mutex()
  * 
  * Returns: %TRUE if flags are set, else %FALSE
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gboolean
 ags_preset_test_flags(AgsPreset *preset, guint flags)
 {
   gboolean retval;  
   
-  pthread_mutex_t *preset_mutex;
+  GRecMutex *preset_mutex;
 
   if(!AGS_IS_PRESET(preset)){
     return(FALSE);
@@ -649,11 +628,11 @@ ags_preset_test_flags(AgsPreset *preset, guint flags)
   preset_mutex = AGS_PRESET_GET_OBJ_MUTEX(preset);
 
   /* test */
-  pthread_mutex_lock(preset_mutex);
+  g_rec_mutex_lock(preset_mutex);
 
   retval = (flags & (preset->flags)) ? TRUE: FALSE;
   
-  pthread_mutex_unlock(preset_mutex);
+  g_rec_mutex_unlock(preset_mutex);
 
   return(retval);
 }
@@ -665,12 +644,12 @@ ags_preset_test_flags(AgsPreset *preset, guint flags)
  *
  * Set flags.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_preset_set_flags(AgsPreset *preset, guint flags)
 {
-  pthread_mutex_t *preset_mutex;
+  GRecMutex *preset_mutex;
 
   if(!AGS_IS_PRESET(preset)){
     return;
@@ -680,11 +659,11 @@ ags_preset_set_flags(AgsPreset *preset, guint flags)
   preset_mutex = AGS_PRESET_GET_OBJ_MUTEX(preset);
 
   /* set flags */
-  pthread_mutex_lock(preset_mutex);
+  g_rec_mutex_lock(preset_mutex);
 
   preset->flags |= flags;
 
-  pthread_mutex_unlock(preset_mutex);
+  g_rec_mutex_unlock(preset_mutex);
 }
 
 /**
@@ -694,12 +673,12 @@ ags_preset_set_flags(AgsPreset *preset, guint flags)
  *
  * Unset flags.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_preset_unset_flags(AgsPreset *preset, guint flags)
 {
-  pthread_mutex_t *preset_mutex;
+  GRecMutex *preset_mutex;
 
   if(!AGS_IS_PRESET(preset)){
     return;
@@ -709,45 +688,470 @@ ags_preset_unset_flags(AgsPreset *preset, guint flags)
   preset_mutex = AGS_PRESET_GET_OBJ_MUTEX(preset);
 
   /* set flags */
-  pthread_mutex_lock(preset_mutex);
+  g_rec_mutex_lock(preset_mutex);
 
   preset->flags &= (~flags);
 
-  pthread_mutex_unlock(preset_mutex);
+  g_rec_mutex_unlock(preset_mutex);
+}
+
+/**
+ * ags_preset_get_audio:
+ * @preset: the #AgsPreset
+ * 
+ * Get audio.
+ * 
+ * Returns: (transfer full): the #AgsAudio
+ * 
+ * Since: 3.1.0
+ */
+GObject*
+ags_preset_get_audio(AgsPreset *preset)
+{
+  GObject *audio;
+
+  if(!AGS_IS_PRESET(preset)){
+    return(NULL);
+  }
+
+  g_object_get(preset,
+	       "audio", &audio,
+	       NULL);
+
+  return(audio);
+}
+
+/**
+ * ags_preset_set_audio:
+ * @preset: the #AgsPreset
+ * @audio: the #AgsAudio
+ * 
+ * Set audio.
+ * 
+ * Since: 3.1.0
+ */
+void
+ags_preset_set_audio(AgsPreset *preset, GObject *audio)
+{
+  if(!AGS_IS_PRESET(preset)){
+    return;
+  }
+
+  g_object_set(preset,
+	       "audio", audio,
+	       NULL);
+}
+
+/**
+ * ags_preset_get_scope:
+ * @preset: the #AgsPreset
+ * 
+ * Get scope.
+ * 
+ * Returns: the scope
+ * 
+ * Since: 3.1.0
+ */
+gchar*
+ags_preset_get_scope(AgsPreset *preset)
+{
+  gchar *scope;
+
+  if(!AGS_IS_PRESET(preset)){
+    return(NULL);
+  }
+
+  g_object_get(preset,
+	       "scope", &scope,
+	       NULL);
+
+  return(scope);
+}
+
+/**
+ * ags_preset_set_scope:
+ * @preset: the #AgsPreset
+ * @scope: the scope
+ * 
+ * Set scope.
+ * 
+ * Since: 3.1.0
+ */
+void
+ags_preset_set_scope(AgsPreset *preset,
+		     gchar *scope)
+{
+  if(!AGS_IS_PRESET(preset)){
+    return;
+  }
+
+  g_object_set(preset,
+	       "scope", scope,
+	       NULL);
+}
+
+/**
+ * ags_preset_get_preset_name:
+ * @preset: the #AgsPreset
+ * 
+ * Get preset name.
+ * 
+ * Returns: the preset name
+ * 
+ * Since: 3.1.0
+ */
+gchar*
+ags_preset_get_preset_name(AgsPreset *preset)
+{
+  gchar *preset_name;
+
+  if(!AGS_IS_PRESET(preset)){
+    return(NULL);
+  }
+
+  g_object_get(preset,
+	       "preset-name", &preset_name,
+	       NULL);
+
+  return(preset_name);
+}
+
+/**
+ * ags_preset_set_preset_name:
+ * @preset: the #AgsPreset
+ * @preset_name: the preset name
+ * 
+ * Set preset name.
+ * 
+ * Since: 3.1.0
+ */
+void
+ags_preset_set_preset_name(AgsPreset *preset,
+			   gchar *preset_name)
+{
+  if(!AGS_IS_PRESET(preset)){
+    return;
+  }
+
+  g_object_set(preset,
+	       "preset-name", preset_name,
+	       NULL);
+}
+
+/**
+ * ags_preset_get_audio_channel_start:
+ * @preset: the #AgsPreset
+ *
+ * Gets audio channel start.
+ * 
+ * Returns: the audio channel start
+ * 
+ * Since: 3.1.0
+ */
+guint
+ags_preset_get_audio_channel_start(AgsPreset *preset)
+{
+  guint audio_channel_start;
+  
+  if(!AGS_IS_PRESET(preset)){
+    return(0);
+  }
+
+  g_object_get(preset,
+	       "audio-channel-start", &audio_channel_start,
+	       NULL);
+
+  return(audio_channel_start);
+}
+
+/**
+ * ags_preset_set_audio_channel_start:
+ * @preset: the #AgsPreset
+ * @audio_channel_start: the audio channel start
+ *
+ * Sets audio channel start.
+ * 
+ * Since: 3.1.0
+ */
+void
+ags_preset_set_audio_channel_start(AgsPreset *preset, guint audio_channel_start)
+{
+  if(!AGS_IS_PRESET(preset)){
+    return;
+  }
+
+  g_object_set(preset,
+	       "audio-channel-start", audio_channel_start,
+	       NULL);
+}
+
+/**
+ * ags_preset_get_audio_channel_end:
+ * @preset: the #AgsPreset
+ *
+ * Gets audio channel end.
+ * 
+ * Returns: the audio channel end
+ * 
+ * Since: 3.1.0
+ */
+guint
+ags_preset_get_audio_channel_end(AgsPreset *preset)
+{
+  guint audio_channel_end;
+  
+  if(!AGS_IS_PRESET(preset)){
+    return(0);
+  }
+
+  g_object_get(preset,
+	       "audio-channel-end", &audio_channel_end,
+	       NULL);
+
+  return(audio_channel_end);
+}
+
+/**
+ * ags_preset_set_audio_channel_end:
+ * @preset: the #AgsPreset
+ * @audio_channel_end: the audio channel end
+ *
+ * Sets audio channel end.
+ * 
+ * Since: 3.1.0
+ */
+void
+ags_preset_set_audio_channel_end(AgsPreset *preset, guint audio_channel_end)
+{
+  if(!AGS_IS_PRESET(preset)){
+    return;
+  }
+
+  g_object_set(preset,
+	       "audio-channel-end", audio_channel_end,
+	       NULL);
+}
+
+/**
+ * ags_preset_get_pad_start:
+ * @preset: the #AgsPreset
+ *
+ * Gets pad start.
+ * 
+ * Returns: the pad start
+ * 
+ * Since: 3.1.0
+ */
+guint
+ags_preset_get_pad_start(AgsPreset *preset)
+{
+  guint pad_start;
+  
+  if(!AGS_IS_PRESET(preset)){
+    return(0);
+  }
+
+  g_object_get(preset,
+	       "pad-start", &pad_start,
+	       NULL);
+
+  return(pad_start);
+}
+
+/**
+ * ags_preset_set_pad_start:
+ * @preset: the #AgsPreset
+ * @pad_start: the pad start
+ *
+ * Sets pad start.
+ * 
+ * Since: 3.1.0
+ */
+void
+ags_preset_set_pad_start(AgsPreset *preset, guint pad_start)
+{
+  if(!AGS_IS_PRESET(preset)){
+    return;
+  }
+
+  g_object_set(preset,
+	       "pad-start", pad_start,
+	       NULL);
+}
+
+/**
+ * ags_preset_get_pad_end:
+ * @preset: the #AgsPreset
+ *
+ * Gets pad end.
+ * 
+ * Returns: the pad end
+ * 
+ * Since: 3.1.0
+ */
+guint
+ags_preset_get_pad_end(AgsPreset *preset)
+{
+  guint pad_end;
+  
+  if(!AGS_IS_PRESET(preset)){
+    return(0);
+  }
+
+  g_object_get(preset,
+	       "pad-end", &pad_end,
+	       NULL);
+
+  return(pad_end);
+}
+
+/**
+ * ags_preset_set_pad_end:
+ * @preset: the #AgsPreset
+ * @pad_end: the pad end
+ *
+ * Sets pad end.
+ * 
+ * Since: 3.1.0
+ */
+void
+ags_preset_set_pad_end(AgsPreset *preset, guint pad_end)
+{
+  if(!AGS_IS_PRESET(preset)){
+    return;
+  }
+
+  g_object_set(preset,
+	       "pad-end", pad_end,
+	       NULL);
+}
+
+/**
+ * ags_preset_get_x_start:
+ * @preset: the #AgsPreset
+ *
+ * Gets x start.
+ * 
+ * Returns: the x start
+ * 
+ * Since: 3.1.0
+ */
+guint
+ags_preset_get_x_start(AgsPreset *preset)
+{
+  guint x_start;
+  
+  if(!AGS_IS_PRESET(preset)){
+    return(0);
+  }
+
+  g_object_get(preset,
+	       "x-start", &x_start,
+	       NULL);
+
+  return(x_start);
+}
+
+/**
+ * ags_preset_set_x_start:
+ * @preset: the #AgsPreset
+ * @x_start: the x start
+ *
+ * Sets x start.
+ * 
+ * Since: 3.1.0
+ */
+void
+ags_preset_set_x_start(AgsPreset *preset, guint x_start)
+{
+  if(!AGS_IS_PRESET(preset)){
+    return;
+  }
+
+  g_object_set(preset,
+	       "x-start", x_start,
+	       NULL);
+}
+
+/**
+ * ags_preset_get_x_end:
+ * @preset: the #AgsPreset
+ *
+ * Gets x end.
+ * 
+ * Returns: the x end
+ * 
+ * Since: 3.1.0
+ */
+guint
+ags_preset_get_x_end(AgsPreset *preset)
+{
+  guint x_end;
+  
+  if(!AGS_IS_PRESET(preset)){
+    return(0);
+  }
+
+  g_object_get(preset,
+	       "x-end", &x_end,
+	       NULL);
+
+  return(x_end);
+}
+
+/**
+ * ags_preset_set_x_end:
+ * @preset: the #AgsPreset
+ * @x_end: the x end
+ *
+ * Sets x end.
+ * 
+ * Since: 3.1.0
+ */
+void
+ags_preset_set_x_end(AgsPreset *preset, guint x_end)
+{
+  if(!AGS_IS_PRESET(preset)){
+    return;
+  }
+
+  g_object_set(preset,
+	       "x-end", x_end,
+	       NULL);
 }
 
 /**
  * ags_preset_find_scope:
- * @preset: the #GList-struct containing #AgsPreset
+ * @preset: (element-type AgsAudio.Preset) (transfer none): the #GList-struct containing #AgsPreset
  * @scope: the preset's scope
  * 
  * Find preset's scope in @preset.
  * 
- * Returns: the next matching #AgsPreset
+ * Returns: (element-type AgsAudio.Preset) (transfer none): the next matching #AgsPreset
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 GList*
 ags_preset_find_scope(GList *preset,
 		      gchar *scope)
 {
-  pthread_mutex_t *preset_mutex;
+  GRecMutex *preset_mutex;
 
   while(preset != NULL){
     /* get preset mutex */
     preset_mutex = AGS_PRESET_GET_OBJ_MUTEX(preset->data);
 
     /* compare scope */
-    pthread_mutex_lock(preset_mutex);
+    g_rec_mutex_lock(preset_mutex);
     
     if(!g_strcmp0(AGS_PRESET(preset->data)->scope,
 		  scope)){
-      pthread_mutex_unlock(preset_mutex);
+      g_rec_mutex_unlock(preset_mutex);
       
       return(preset);
     }
 
-    pthread_mutex_unlock(preset_mutex);
+    g_rec_mutex_unlock(preset_mutex);
 
     /* iterate */
     preset = preset->next;
@@ -758,36 +1162,36 @@ ags_preset_find_scope(GList *preset,
 
 /**
  * ags_preset_find_name:
- * @preset: the #GList-struct containing #AgsPreset
+ * @preset: (element-type AgsAudio.Preset) (transfer none): the #GList-struct containing #AgsPreset
  * @preset_name: the preset's name
  * 
  * Find preset name in @preset.
  * 
- * Returns: the next matching #AgsPreset
+ * Returns: (element-type AgsAudio.Preset) (transfer none): the next matching #AgsPreset
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 GList*
 ags_preset_find_name(GList *preset,
 		     gchar *preset_name)
 {
-  pthread_mutex_t *preset_mutex;
+  GRecMutex *preset_mutex;
 
   while(preset != NULL){
     /* get preset mutex */
     preset_mutex = AGS_PRESET_GET_OBJ_MUTEX(preset->data);
 
     /* compare scope */
-    pthread_mutex_lock(preset_mutex);
+    g_rec_mutex_lock(preset_mutex);
     
     if(!g_strcmp0(AGS_PRESET(preset->data)->preset_name,
 		  preset_name)){
-      pthread_mutex_unlock(preset_mutex);
+      g_rec_mutex_unlock(preset_mutex);
       
       return(preset);
     }
 
-    pthread_mutex_unlock(preset_mutex);
+    g_rec_mutex_unlock(preset_mutex);
 
     /* iterate */
     preset = preset->next;
@@ -804,7 +1208,7 @@ ags_preset_find_name(GList *preset,
  *
  * Add parameter to @preset.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gboolean
 ags_preset_add_parameter(AgsPreset *preset,
@@ -814,7 +1218,7 @@ ags_preset_add_parameter(AgsPreset *preset,
   guint i;
   gboolean found;
   
-  pthread_mutex_t *preset_mutex;
+  GRecMutex *preset_mutex;
 
   if(!AGS_IS_PRESET(preset)){
     return(FALSE);
@@ -824,7 +1228,7 @@ ags_preset_add_parameter(AgsPreset *preset,
   preset_mutex = AGS_PRESET_GET_OBJ_MUTEX(preset);
 
   /* match or allocate */
-  pthread_mutex_lock(preset_mutex);
+  g_rec_mutex_lock(preset_mutex);
 
   found = FALSE;
 
@@ -880,7 +1284,7 @@ ags_preset_add_parameter(AgsPreset *preset,
   g_value_copy(value,
 	       &(preset->value[nth]));
 
-  pthread_mutex_unlock(preset_mutex);
+  g_rec_mutex_unlock(preset_mutex);
 
   return(!found);
 }
@@ -892,7 +1296,7 @@ ags_preset_add_parameter(AgsPreset *preset,
  * 
  * Remove parameter of @preset.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_preset_remove_parameter(AgsPreset *preset,
@@ -904,7 +1308,7 @@ ags_preset_remove_parameter(AgsPreset *preset,
 
   guint i;
   
-  pthread_mutex_t *preset_mutex;
+  GRecMutex *preset_mutex;
 
   if(!AGS_IS_PRESET(preset)){
     return;
@@ -914,11 +1318,11 @@ ags_preset_remove_parameter(AgsPreset *preset,
   preset_mutex = AGS_PRESET_GET_OBJ_MUTEX(preset);
 
   /* check boundaries */
-  pthread_mutex_lock(preset_mutex);
+  g_rec_mutex_lock(preset_mutex);
   
   if(preset->n_params == 0 ||
      nth >= preset->n_params){
-    pthread_mutex_unlock(preset_mutex);
+    g_rec_mutex_unlock(preset_mutex);
 
     return;
   }
@@ -969,7 +1373,7 @@ ags_preset_remove_parameter(AgsPreset *preset,
   
   g_free(value);
   
-  pthread_mutex_unlock(preset_mutex);
+  g_rec_mutex_unlock(preset_mutex);
 }
 
 /**
@@ -982,7 +1386,7 @@ ags_preset_remove_parameter(AgsPreset *preset,
  * Get parameter specified by @param_name. If parameter not available
  * the @error is set to indicate the failure.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_preset_get_parameter(AgsPreset *preset,
@@ -992,7 +1396,7 @@ ags_preset_get_parameter(AgsPreset *preset,
   guint i;
   gboolean success;
   
-  pthread_mutex_t *preset_mutex;
+  GRecMutex *preset_mutex;
 
   if(!AGS_IS_PRESET(preset)){
     return;
@@ -1002,7 +1406,7 @@ ags_preset_get_parameter(AgsPreset *preset,
   preset_mutex = AGS_PRESET_GET_OBJ_MUTEX(preset);
 
   /* find */
-  pthread_mutex_lock(preset_mutex);
+  g_rec_mutex_lock(preset_mutex);
 
   success = FALSE;
   
@@ -1020,7 +1424,7 @@ ags_preset_get_parameter(AgsPreset *preset,
     }
   }
 
-  pthread_mutex_unlock(preset_mutex);
+  g_rec_mutex_unlock(preset_mutex);
   
   /* report error */
   if(!success && error != NULL){
@@ -1039,7 +1443,7 @@ ags_preset_get_parameter(AgsPreset *preset,
  *
  * Returns: the new #AgsPreset
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 AgsPreset*
 ags_preset_new()

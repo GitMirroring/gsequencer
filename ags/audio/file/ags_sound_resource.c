@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -25,6 +25,7 @@
 #include <ags/audio/ags_buffer.h>
 #include <ags/audio/ags_audio_signal.h>
 #include <ags/audio/ags_audio_buffer_util.h>
+#include <ags/audio/ags_resample_util.h>
 
 #include <math.h>
 
@@ -81,7 +82,7 @@ ags_sound_resource_base_init(AgsSoundResourceInterface *ginterface)
  * 
  * Returns: %TRUE if operation was successful, otherwise %FALSE.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gboolean
 ags_sound_resource_open(AgsSoundResource *sound_resource,
@@ -105,14 +106,16 @@ ags_sound_resource_open(AgsSoundResource *sound_resource,
  * ags_sound_resource_rw_open:
  * @sound_resource: the #AgsSoundResource
  * @filename: the filename as string
- * @create: create
+ * @audio_channels: the audio channels count
+ * @samplerate: the samplerate
+ * @create: if %TRUE create file, otherwise don't
  * 
  * Open @sound_resource for reading/writing and assign filename. Setting
  * @create to %TRUE causes to create the file if it doesn't exist.
  * 
  * Returns: %TRUE if operation was successful, otherwise %FALSE.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gboolean
 ags_sound_resource_rw_open(AgsSoundResource *sound_resource,
@@ -142,7 +145,7 @@ ags_sound_resource_rw_open(AgsSoundResource *sound_resource,
  * 
  * Load audio data of @sound_resource.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_sound_resource_load(AgsSoundResource *sound_resource)
@@ -164,7 +167,7 @@ ags_sound_resource_load(AgsSoundResource *sound_resource)
  * 
  * Get information about @sound_resource.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_sound_resource_info(AgsSoundResource *sound_resource,
@@ -191,7 +194,7 @@ ags_sound_resource_info(AgsSoundResource *sound_resource,
  * 
  * Set presets of @sound_resource.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_sound_resource_set_presets(AgsSoundResource *sound_resource,
@@ -222,7 +225,7 @@ ags_sound_resource_set_presets(AgsSoundResource *sound_resource,
  * 
  * Get presets of @sound_resource.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_sound_resource_get_presets(AgsSoundResource *sound_resource,
@@ -257,7 +260,7 @@ ags_sound_resource_get_presets(AgsSoundResource *sound_resource,
  * 
  * Returns: the count of frames actually read
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 guint
 ags_sound_resource_read(AgsSoundResource *sound_resource,
@@ -293,7 +296,7 @@ ags_sound_resource_read(AgsSoundResource *sound_resource,
  * Write @sbuffer to @sound_resource @frame_count number of 
  * frames having @format by skipping @saudio_channels.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_sound_resource_write(AgsSoundResource *sound_resource,
@@ -318,7 +321,7 @@ ags_sound_resource_write(AgsSoundResource *sound_resource,
  * 
  * Flush @sound_resource.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_sound_resource_flush(AgsSoundResource *sound_resource)
@@ -339,7 +342,7 @@ ags_sound_resource_flush(AgsSoundResource *sound_resource)
  * 
  * Seek the @sound_resource @frame_count from @whence.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_sound_resource_seek(AgsSoundResource *sound_resource,
@@ -360,7 +363,7 @@ ags_sound_resource_seek(AgsSoundResource *sound_resource,
  * 
  * Close @sound_resource.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_sound_resource_close(AgsSoundResource *sound_resource)
@@ -381,9 +384,9 @@ ags_sound_resource_close(AgsSoundResource *sound_resource)
  * 
  * Read audio signal from @sound_resource.
  * 
- * Returns: a #GList-struct containing #AgsAudioSignal
+ * Returns: (element-type AgsAudio.AudioSignal) (transfer full): a #GList-struct containing #AgsAudioSignal
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 GList*
 ags_sound_resource_read_audio_signal(AgsSoundResource *sound_resource,
@@ -421,7 +424,7 @@ ags_sound_resource_read_audio_signal(AgsSoundResource *sound_resource,
 	       "format", &format,
 	       NULL);
 
-  if(soundcard != NULL){
+  if(AGS_IS_SOUNDCARD(soundcard)){
     ags_soundcard_get_presets(AGS_SOUNDCARD(soundcard),
 			      NULL,
 			      &target_samplerate,
@@ -464,6 +467,7 @@ ags_sound_resource_read_audio_signal(AgsSoundResource *sound_resource,
     
     data = ags_stream_alloc(buffer_size,
 			    format);
+
     target_data = ags_stream_alloc(target_buffer_size,
 				   format);
   }
@@ -480,6 +484,7 @@ ags_sound_resource_read_audio_signal(AgsSoundResource *sound_resource,
 					NULL,
 					NULL);
     g_object_set(audio_signal,
+		 "frame-count", frame_count,
 		 "samplerate", target_samplerate,
 		 "buffer-size", target_buffer_size,
 		 "format", target_format,
@@ -488,6 +493,7 @@ ags_sound_resource_read_audio_signal(AgsSoundResource *sound_resource,
 		 NULL);
     ags_audio_signal_stream_resize(audio_signal,
 				   (guint) ceil(frame_count / target_buffer_size) + 1);
+    audio_signal->length = (guint) ceil(frame_count / target_buffer_size) + 1;
     audio_signal->stream_current = audio_signal->stream;
     
     start_list = g_list_prepend(start_list,
@@ -501,6 +507,16 @@ ags_sound_resource_read_audio_signal(AgsSoundResource *sound_resource,
     
     while(stream != NULL){
       if(samplerate != target_samplerate){
+	AgsResampleUtil resample_util;
+
+	guint allocated_buffer_length;
+
+	allocated_buffer_length = buffer_size;
+
+	if(allocated_buffer_length < target_buffer_size){
+	  allocated_buffer_length = target_buffer_size;
+	}
+
 	if(format == AGS_SOUNDCARD_DOUBLE){
 	  ags_audio_buffer_util_clear_double(data, 1,
 					     buffer_size);
@@ -519,12 +535,35 @@ ags_sound_resource_read_audio_signal(AgsSoundResource *sound_resource,
 
 	ags_audio_buffer_util_clear_buffer(target_data, 1,
 					   target_buffer_size, ags_audio_buffer_util_format_from_soundcard(format));
-	ags_audio_buffer_util_resample_with_buffer(data, 1,
-						   ags_audio_buffer_util_format_from_soundcard(format), samplerate,
-						   buffer_size,
-						   target_samplerate,
-						   target_buffer_size,
-						   target_data);
+
+	resample_util.secret_rabbit.src_ratio = target_samplerate / samplerate;
+
+	resample_util.secret_rabbit.input_frames = buffer_size;
+	resample_util.secret_rabbit.data_in = ags_stream_alloc(allocated_buffer_length,
+							       AGS_SOUNDCARD_FLOAT);
+
+	resample_util.secret_rabbit.output_frames = target_buffer_size;
+	resample_util.secret_rabbit.data_out = ags_stream_alloc(allocated_buffer_length,
+								AGS_SOUNDCARD_FLOAT);
+
+	resample_util.secret_rabbit.end_of_input = 0;
+	
+	resample_util.destination = target_data;
+	resample_util.destination_stride = 1;
+
+	resample_util.source = data;
+	resample_util.source_stride = 1;
+
+	resample_util.buffer_length = allocated_buffer_length;
+	resample_util.format = format;
+	resample_util.samplerate = samplerate;
+
+	resample_util.target_samplerate = target_samplerate;
+
+	ags_resample_util_compute(&resample_util);  
+
+	ags_stream_free(resample_util.secret_rabbit.data_out);
+	ags_stream_free(resample_util.secret_rabbit.data_in);
 
 	ags_audio_buffer_util_copy_buffer_to_buffer(stream->data, 1, 0,
 						    target_data, 1, 0,
@@ -559,6 +598,238 @@ ags_sound_resource_read_audio_signal(AgsSoundResource *sound_resource,
 }
 
 /**
+ * ags_sound_resource_read_audio_signal_at_once:
+ * @sound_resource: the #AgsSoundResource
+ * @soundcard: the #AgsSoundcard
+ * @audio_channel: the audio channel or -1 for all
+ * 
+ * Read audio signal from @sound_resource.
+ * 
+ * Returns: (element-type AgsAudio.AudioSignal) (transfer full): a #GList-struct containing #AgsAudioSignal
+ * 
+ * Since: 4.4.0
+ */
+GList*
+ags_sound_resource_read_audio_signal_at_once(AgsSoundResource *sound_resource,
+					     GObject *soundcard,
+					     gint audio_channel)
+{
+  GList *start_list;
+
+  void *target_data, *data;
+
+  guint frame_count;
+  guint target_frame_count;
+  guint loop_start, loop_end;
+  guint audio_channels;
+  guint target_samplerate, samplerate;
+  guint target_buffer_size, buffer_size;
+  guint target_format, format;
+  guint copy_mode;
+  guint i, i_start, i_stop;
+  guint j;
+
+  if(!AGS_SOUND_RESOURCE(sound_resource)){
+    return(NULL);
+  }
+
+  ags_sound_resource_info(AGS_SOUND_RESOURCE(sound_resource),
+			  &frame_count,
+			  &loop_start, &loop_end);
+
+  ags_sound_resource_get_presets(AGS_SOUND_RESOURCE(sound_resource),
+				 &audio_channels,
+				 &samplerate,
+				 &buffer_size,
+				 &format);
+  
+  g_object_get(G_OBJECT(sound_resource),
+	       "format", &format,
+	       NULL);
+
+  if(AGS_IS_SOUNDCARD(soundcard)){
+    ags_soundcard_get_presets(AGS_SOUNDCARD(soundcard),
+			      NULL,
+			      &target_samplerate,
+			      &target_buffer_size,
+			      &target_format);
+  }else{
+    AgsConfig *config;
+
+    config = ags_config_get_instance();
+
+    target_samplerate = ags_soundcard_helper_config_get_samplerate(config);
+    target_buffer_size = ags_soundcard_helper_config_get_buffer_size(config);
+    target_format = ags_soundcard_helper_config_get_format(config);
+  }
+
+  target_frame_count = (guint) floor(((double) target_samplerate / (double) samplerate) * (double) frame_count);
+  
+  start_list = NULL;
+
+  if(audio_channel == -1){
+    i_start = 0;
+    i_stop = audio_channels;
+  }else{
+    i_start = audio_channel;
+    i_stop = i_start + 1;
+  }
+  
+  copy_mode = ags_audio_buffer_util_get_copy_mode(ags_audio_buffer_util_format_from_soundcard(target_format),
+						  ags_audio_buffer_util_format_from_soundcard(format));
+
+  data = NULL;
+  target_data = NULL;
+
+  if(frame_count < buffer_size){
+    data = ags_stream_alloc(buffer_size,
+			    format);
+  }else{
+    data = ags_stream_alloc(buffer_size * ((guint) floor((double) frame_count / (double) buffer_size) + 1),
+			    format);
+  }
+  
+  if(samplerate != target_samplerate){
+    buffer_size = (guint) ceil((double) target_buffer_size / (double) target_samplerate * (double) samplerate);
+    
+    ags_sound_resource_set_presets(AGS_SOUND_RESOURCE(sound_resource),
+				   audio_channels,
+				   samplerate,
+				   buffer_size,
+				   format);
+    
+    if(target_frame_count < target_buffer_size){
+      target_data = ags_stream_alloc(target_buffer_size,
+				     format);
+    }else{
+      target_data = ags_stream_alloc(target_buffer_size * ((guint) floor((double) target_frame_count / (double) target_buffer_size) + 1),
+				     format);
+    }
+  }
+    
+  for(i = i_start; i < i_stop; i++){
+    AgsAudioSignal *audio_signal;
+
+    GList *stream;
+
+    ags_sound_resource_seek(AGS_SOUND_RESOURCE(sound_resource),
+    			    0, G_SEEK_SET);
+    
+    audio_signal = ags_audio_signal_new(soundcard,
+					NULL,
+					NULL);
+    g_object_set(audio_signal,
+		 "frame-count", frame_count,
+		 "samplerate", target_samplerate,
+		 "buffer-size", target_buffer_size,
+		 "format", target_format,
+		 "loop-start", target_samplerate * (loop_start / samplerate),
+		 "loop-end", target_samplerate * (loop_end / samplerate),
+		 NULL);
+    ags_audio_signal_stream_resize(audio_signal,
+				   (guint) ceil(frame_count / target_buffer_size) + 1);
+    audio_signal->length = (guint) ceil(frame_count / target_buffer_size) + 1;
+    audio_signal->stream_current = audio_signal->stream;
+    
+    start_list = g_list_prepend(start_list,
+				audio_signal);
+
+    stream = audio_signal->stream;
+
+    g_object_set(audio_signal,
+		 "last-frame", frame_count,
+		 NULL);
+
+    ags_sound_resource_read(AGS_SOUND_RESOURCE(sound_resource),
+			    data, 1,
+			    i,
+			    frame_count, format);
+
+    if(samplerate != target_samplerate){
+      AgsResampleUtil resample_util;
+
+      guint allocated_frame_count;
+
+      allocated_frame_count = frame_count;
+
+      if(allocated_frame_count < target_frame_count){
+	allocated_frame_count = target_frame_count;
+      }
+
+      ags_audio_buffer_util_clear_buffer(data, 1,
+					 frame_count, ags_audio_buffer_util_format_from_soundcard(format));
+	
+      ags_audio_buffer_util_clear_buffer(target_data, 1,
+					 target_frame_count, ags_audio_buffer_util_format_from_soundcard(format));
+
+      resample_util.secret_rabbit.src_ratio = target_samplerate / samplerate;
+
+      resample_util.secret_rabbit.input_frames = frame_count;
+      resample_util.secret_rabbit.data_in = ags_stream_alloc(allocated_frame_count,
+							     AGS_SOUNDCARD_FLOAT);
+
+      resample_util.secret_rabbit.output_frames = target_frame_count;
+      resample_util.secret_rabbit.data_out = ags_stream_alloc(allocated_frame_count,
+							      AGS_SOUNDCARD_FLOAT);
+
+      resample_util.secret_rabbit.end_of_input = 0;
+	
+      resample_util.destination = target_data;
+      resample_util.destination_stride = 1;
+
+      resample_util.source = data;
+      resample_util.source_stride = 1;
+
+      resample_util.buffer_length = allocated_frame_count;
+      resample_util.format = format;
+      resample_util.samplerate = samplerate;
+
+      resample_util.target_samplerate = target_samplerate;
+
+      ags_resample_util_compute(&resample_util);  
+
+      ags_stream_free(resample_util.secret_rabbit.data_out);
+      ags_stream_free(resample_util.secret_rabbit.data_in);
+    }
+    
+    for(j = 0; stream != NULL;){
+      if(samplerate != target_samplerate){
+	ags_audio_buffer_util_copy_buffer_to_buffer(stream->data, 1, 0,
+						    target_data, 1, j,
+						    target_buffer_size, copy_mode);
+
+	j += target_buffer_size;
+      }else{
+	ags_audio_buffer_util_copy_buffer_to_buffer(stream->data, 1, 0,
+						    data, 1, j,
+						    buffer_size, copy_mode);
+
+	j += buffer_size;
+      }
+      
+      /* iterate */
+      stream = stream->next;
+    }
+  }
+
+  if(data != NULL){
+    free(data);
+  }
+
+  if(target_data != NULL){
+    free(target_data);
+  }
+
+  start_list = g_list_reverse(start_list);
+
+  g_list_foreach(start_list,
+		 (GFunc) g_object_ref,
+		 NULL);
+  
+  return(start_list);
+}
+
+/**
  * ags_sound_resource_read_wave:
  * @sound_resource: the #AgsSoundResource
  * @soundcard: the #AgsSoundcard
@@ -569,9 +840,9 @@ ags_sound_resource_read_audio_signal(AgsSoundResource *sound_resource,
  * 
  * Read wave from @sound_resource.
  * 
- * Returns: a #GList-struct containing #AgsWave
+ * Returns: (element-type AgsAudio.Wave) (transfer full): a #GList-struct containing #AgsWave
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 GList*
 ags_sound_resource_read_wave(AgsSoundResource *sound_resource,
@@ -587,6 +858,7 @@ ags_sound_resource_read_wave(AgsSoundResource *sound_resource,
   guint copy_mode;
   guint64 relative_offset;
   guint64 x_point_offset;
+  guint64 current_offset;
   guint frame_count;
   guint audio_channels;
   guint target_samplerate, samplerate;
@@ -601,7 +873,7 @@ ags_sound_resource_read_wave(AgsSoundResource *sound_resource,
   ags_sound_resource_info(AGS_SOUND_RESOURCE(sound_resource),
 			  &frame_count,
 			  NULL, NULL);
-
+  
   ags_sound_resource_get_presets(AGS_SOUND_RESOURCE(sound_resource),
 				 &audio_channels,
 				 &samplerate,
@@ -612,7 +884,7 @@ ags_sound_resource_read_wave(AgsSoundResource *sound_resource,
 	       "format", &format,
 	       NULL);
   
-  if(soundcard != NULL){
+  if(AGS_IS_SOUNDCARD(soundcard)){
     ags_soundcard_get_presets(AGS_SOUNDCARD(soundcard),
 			      NULL,
 			      &target_samplerate,
@@ -633,8 +905,6 @@ ags_sound_resource_read_wave(AgsSoundResource *sound_resource,
   if(audio_channel == -1){
     i_start = 0;
     i_stop = audio_channels;
-
-    //    g_message("do %d", audio_channels);
   }else{
     i_start = audio_channel;
     i_stop = i_start + 1;
@@ -681,26 +951,27 @@ ags_sound_resource_read_wave(AgsSoundResource *sound_resource,
 			      wave);
     
     relative_offset = AGS_WAVE_DEFAULT_BUFFER_LENGTH * target_samplerate;
-        
-    frame_count = target_buffer_size;
-
+    
     x_point_offset = x_offset;
       
-    success = TRUE;
+    current_offset = 0;
     
-    while(success){
+    while(current_offset < frame_count){
       AgsBuffer *buffer;
-      
+
+      guint read_count;
       guint num_read;
       gboolean create_wave;
       
       create_wave = FALSE;
-      
-      if(x_point_offset + frame_count > relative_offset * floor(x_point_offset / relative_offset) + relative_offset){
-	frame_count = relative_offset * floor((x_point_offset + frame_count) / relative_offset) - x_point_offset;
+
+      read_count = target_buffer_size;
+  
+      if(x_point_offset + read_count > relative_offset * floor(x_point_offset / relative_offset) + relative_offset){
+	read_count = relative_offset * floor((x_point_offset + read_count) / relative_offset) - x_point_offset;
 
 	create_wave = TRUE;
-      }else if(x_point_offset + frame_count == relative_offset * floor(x_point_offset / relative_offset) + relative_offset){
+      }else if(x_point_offset + read_count == relative_offset * floor(x_point_offset / relative_offset) + relative_offset){
 	create_wave = TRUE;
       }
       
@@ -713,6 +984,16 @@ ags_sound_resource_read_wave(AgsSoundResource *sound_resource,
 		   NULL);
 
       if(samplerate != target_samplerate){
+	AgsResampleUtil resample_util;
+
+	guint allocated_buffer_length;
+
+	allocated_buffer_length = buffer_size;
+
+	if(allocated_buffer_length < target_buffer_size){
+	  allocated_buffer_length = target_buffer_size;
+	}
+
 	if(format == AGS_SOUNDCARD_DOUBLE){
 	  ags_audio_buffer_util_clear_double(data, 1,
 					     buffer_size);
@@ -731,26 +1012,55 @@ ags_sound_resource_read_wave(AgsSoundResource *sound_resource,
 
 	ags_audio_buffer_util_clear_buffer(target_data, 1,
 					   target_buffer_size, ags_audio_buffer_util_format_from_soundcard(format));
-	ags_audio_buffer_util_resample_with_buffer(data, 1,
-						   ags_audio_buffer_util_format_from_soundcard(format), samplerate,
-						   buffer_size,
-						   target_samplerate,
-						   target_buffer_size,
-						   target_data);
+	
+	resample_util.secret_rabbit.src_ratio = target_samplerate / samplerate;
+
+	//	g_message("buffer size -> %d", buffer_size);
+
+	resample_util.secret_rabbit.input_frames = buffer_size;
+	resample_util.secret_rabbit.data_in = ags_stream_alloc(allocated_buffer_length,
+							       AGS_SOUNDCARD_FLOAT);
+
+	//	g_message("target buffer size -> %d", target_buffer_size);
+	
+	resample_util.secret_rabbit.output_frames = target_buffer_size;
+	resample_util.secret_rabbit.data_out = ags_stream_alloc(allocated_buffer_length,
+								AGS_SOUNDCARD_FLOAT);
+
+	resample_util.secret_rabbit.end_of_input = 0;
+	
+	resample_util.destination = target_data;
+	resample_util.destination_stride = 1;
+
+	resample_util.source = data;
+	resample_util.source_stride = 1;
+
+	resample_util.buffer_length = allocated_buffer_length;
+	resample_util.format = format;
+	resample_util.samplerate = samplerate;
+  
+	resample_util.target_samplerate = target_samplerate;
+
+	ags_resample_util_compute(&resample_util);  
+
+	ags_stream_free(resample_util.secret_rabbit.data_out);
+	ags_stream_free(resample_util.secret_rabbit.data_in);
 
 	ags_audio_buffer_util_copy_buffer_to_buffer(buffer->data, 1, 0,
 						    target_data, 1, 0,
-						    frame_count, copy_mode);
-
-	num_read = (guint) (ceil((double) num_read / (double) buffer_size * (double) frame_count));
+						    target_buffer_size, copy_mode);
       }else{
 	num_read = ags_sound_resource_read(AGS_SOUND_RESOURCE(sound_resource),
 					   buffer->data, 1,
 					   i,
-					   frame_count, target_format);
+					   read_count, target_format);
       }
-      //      g_message("read %d[%d-%d]: %d", frame_count, i, i_stop, num_read);
+      //      g_message("read %d[%d-%d]: %d", read_count, i, i_stop, num_read);
 
+      if(num_read == 0){
+	break;
+      }
+      
       ags_wave_add_buffer(wave,
 			  buffer,
 			  FALSE);
@@ -770,24 +1080,19 @@ ags_sound_resource_read_wave(AgsSoundResource *sound_resource,
 		     "timestamp", &timestamp,
 		     NULL);
 	ags_timestamp_set_ags_offset(timestamp,
-				     (guint64) relative_offset * floor((x_point_offset + frame_count) / relative_offset));
+				     (guint64) relative_offset * floor((x_point_offset + read_count) / relative_offset));
 	
 	g_object_unref(timestamp);
 
 	start_list = ags_wave_add(start_list,
 				  wave);
+
       }
-      
+            
       /* iterate */
-      x_point_offset += frame_count;
+      x_point_offset += read_count;
 
-      if(num_read < frame_count){
-	success = FALSE;
-      }
-
-      if(frame_count != target_buffer_size){
-	frame_count = target_buffer_size;
-      }
+      current_offset += num_read;
     }
   }
   

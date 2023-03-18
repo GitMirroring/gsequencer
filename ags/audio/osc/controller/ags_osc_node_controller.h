@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -23,7 +23,11 @@
 #include <glib.h>
 #include <glib-object.h>
 
+#include <ags/libags.h>
+
 #include <ags/audio/osc/controller/ags_osc_controller.h>
+
+G_BEGIN_DECLS
 
 #define AGS_TYPE_OSC_NODE_CONTROLLER                (ags_osc_node_controller_get_type())
 #define AGS_OSC_NODE_CONTROLLER(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_OSC_NODE_CONTROLLER, AgsOscNodeController))
@@ -48,15 +52,17 @@ struct _AgsOscNodeControllerClass
 
   gpointer (*get_data)(AgsOscNodeController *osc_node_controller,
 		       AgsOscConnection *osc_connection,
-		       unsigned char *message, guint message_size);
+		       guchar *message, guint message_size);
 };
 
 GType ags_osc_node_controller_get_type();
 
 gpointer ags_osc_node_controller_get_data(AgsOscNodeController *osc_node_controller,
 					  AgsOscConnection *osc_connection,
-					  unsigned char *message, guint message_size);
+					  guchar *message, guint message_size);
 
 AgsOscNodeController* ags_osc_node_controller_new();
+
+G_END_DECLS
 
 #endif /*__AGS_OSC_NODE_CONTROLLER_H__*/

@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2020 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -23,7 +23,9 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include <pthread.h>
+#include <ags/libags.h>
+
+G_BEGIN_DECLS
 
 #define AGS_TYPE_PLUGIN_PORT                (ags_plugin_port_get_type())
 #define AGS_PLUGIN_PORT(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_PLUGIN_PORT, AgsPluginPort))
@@ -32,7 +34,7 @@
 #define AGS_IS_PLUGIN_PORT_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE ((class), AGS_TYPE_PLUGIN_PORT))
 #define AGS_PLUGIN_PORT_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS ((obj), AGS_TYPE_PLUGIN_PORT, AgsPluginPortClass))
 
-#define AGS_PLUGIN_PORT_GET_OBJ_MUTEX(obj) (((AgsPluginPort *) obj)->obj_mutex)
+#define AGS_PLUGIN_PORT_GET_OBJ_MUTEX(obj) (&(((AgsPluginPort *) obj)->obj_mutex))
 
 typedef struct _AgsPluginPort AgsPluginPort;
 typedef struct _AgsPluginPortClass AgsPluginPortClass;
@@ -54,6 +56,7 @@ typedef struct _AgsPluginPortClass AgsPluginPortClass;
  * @AGS_PLUGIN_PORT_BOUNDED_BELOW: bounded below
  * @AGS_PLUGIN_PORT_BOUNDED_ABOVE: bounded above
  * @AGS_PLUGIN_PORT_UI_NOTIFICATION: ui notification
+ * @AGS_PLUGIN_PORT_HIDDEN: hidden port
  * 
  * Common port attributes.
  */
@@ -73,6 +76,7 @@ typedef enum{
   AGS_PLUGIN_PORT_BOUNDED_BELOW   = 1 << 12,
   AGS_PLUGIN_PORT_BOUNDED_ABOVE   = 1 << 13,
   AGS_PLUGIN_PORT_UI_NOTIFICATION = 1 << 14,
+  AGS_PLUGIN_PORT_HIDDEN          = 1 << 15,
 }AgsPluginPortFlags;
 
 struct _AgsPluginPort
@@ -81,8 +85,7 @@ struct _AgsPluginPort
   
   guint flags;
   
-  pthread_mutex_t *obj_mutex;
-  pthread_mutexattr_t *obj_mutexattr;
+  GRecMutex obj_mutex;
 
   guint port_index;
 
@@ -107,12 +110,49 @@ struct _AgsPluginPortClass
 };
 
 GType ags_plugin_port_get_type(void);
+GType ags_plugin_port_flags_get_type();
 
-pthread_mutex_t* ags_plugin_port_get_class_mutex();
+GRecMutex* ags_plugin_port_get_obj_mutex(AgsPluginPort *plugin_port);
 
 gboolean ags_plugin_port_test_flags(AgsPluginPort *plugin_port, guint flags);
 void ags_plugin_port_set_flags(AgsPluginPort *plugin_port, guint flags);
 void ags_plugin_port_unset_flags(AgsPluginPort *plugin_port, guint flags);
+
+guint ags_plugin_port_get_port_index(AgsPluginPort *plugin_port);
+void ags_plugin_port_set_port_index(AgsPluginPort *plugin_port,
+				    guint port_index);
+
+gchar* ags_plugin_port_get_port_name(AgsPluginPort *plugin_port);
+void ags_plugin_port_set_port_name(AgsPluginPort *plugin_port,
+				   gchar *port_name);
+
+gchar* ags_plugin_port_get_port_symbol(AgsPluginPort *plugin_port);
+void ags_plugin_port_set_port_symbol(AgsPluginPort *plugin_port,
+				     gchar *port_symbol);
+
+gint ags_plugin_port_get_scale_steps(AgsPluginPort *plugin_port);
+void ags_plugin_port_set_scale_steps(AgsPluginPort *plugin_port,
+				     gint scale_steps);
+
+gchar** ags_plugin_port_get_scale_point(AgsPluginPort *plugin_port);
+void ags_plugin_port_set_scale_point(AgsPluginPort *plugin_port,
+				     gchar **scale_point);
+
+gdouble* ags_plugin_port_get_scale_value(AgsPluginPort *plugin_port);
+void ags_plugin_port_set_scale_value(AgsPluginPort *plugin_port,
+				     gdouble *scale_value);
+
+GValue* ags_plugin_port_get_lower_value(AgsPluginPort *plugin_port);
+void ags_plugin_port_set_lower_value(AgsPluginPort *plugin_port,
+				     GValue *lower_value);
+
+GValue* ags_plugin_port_get_upper_value(AgsPluginPort *plugin_port);
+void ags_plugin_port_set_upper_value(AgsPluginPort *plugin_port,
+				     GValue *upper_value);
+
+GValue* ags_plugin_port_get_default_value(AgsPluginPort *plugin_port);
+void ags_plugin_port_set_default_value(AgsPluginPort *plugin_port,
+				       GValue *default_value);
 
 GList* ags_plugin_port_find_symbol(GList *plugin_port,
 				   gchar *port_symbol);
@@ -120,5 +160,7 @@ GList* ags_plugin_port_find_port_index(GList *plugin_port,
 				       guint port_index);
 
 AgsPluginPort* ags_plugin_port_new();
+
+G_END_DECLS
 
 #endif /*__AGS_PLUGIN_PORT_H__*/

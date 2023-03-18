@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -23,9 +23,7 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include <pthread.h>
-
-#include <ags/config.h>
+#include <ags/ags_api_config.h>
 
 #ifdef AGS_WITH_WASAPI
 #include <windows.h>
@@ -41,6 +39,8 @@
 
 #include <ags/libags.h>
 
+G_BEGIN_DECLS
+
 #define AGS_TYPE_WASAPI_DEVOUT                (ags_wasapi_devout_get_type())
 #define AGS_WASAPI_DEVOUT(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_WASAPI_DEVOUT, AgsWasapiDevout))
 #define AGS_WASAPI_DEVOUT_CLASS(class)        (G_TYPE_CHECK_CLASS_CAST(class, AGS_TYPE_WASAPI_DEVOUT, AgsWasapiDevout))
@@ -48,7 +48,9 @@
 #define AGS_IS_WASAPI_DEVOUT_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE ((class), AGS_TYPE_WASAPI_DEVOUT))
 #define AGS_WASAPI_DEVOUT_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS(obj, AGS_TYPE_WASAPI_DEVOUT, AgsWasapiDevoutClass))
 
-#define AGS_WASAPI_DEVOUT_GET_OBJ_MUTEX(obj) (((AgsWasapiDevout *) obj)->obj_mutex)
+#define AGS_WASAPI_DEVOUT_GET_OBJ_MUTEX(obj) (&(((AgsWasapiDevout *) obj)->obj_mutex))
+
+#define AGS_WASAPI_DEVOUT_DEFAULT_APP_BUFFER_SIZE (8)
 
 #define AGS_WASAPI_DEVOUT_DEFAULT_WASAPI_BUFFER_SIZE (8192)
 
@@ -57,56 +59,61 @@ typedef struct _AgsWasapiDevoutClass AgsWasapiDevoutClass;
 
 /**
  * AgsWasapiDevoutFlags:
- * @AGS_WASAPI_DEVOUT_ADDED_TO_REGISTRY: the core-audio devout was added to registry, see #AgsConnectable::add_to_registry()
- * @AGS_WASAPI_DEVOUT_CONNECTED: indicates the core-audio devout was connected by calling #AgsConnectable::connect()
- * @AGS_WASAPI_DEVOUT_BUFFER0: ring-buffer 0
- * @AGS_WASAPI_DEVOUT_BUFFER1: ring-buffer 1
- * @AGS_WASAPI_DEVOUT_BUFFER2: ring-buffer 2
- * @AGS_WASAPI_DEVOUT_BUFFER3: ring-buffer 3
- * @AGS_WASAPI_DEVOUT_BUFFER4: ring-buffer 4
- * @AGS_WASAPI_DEVOUT_BUFFER5: ring-buffer 5
- * @AGS_WASAPI_DEVOUT_BUFFER6: ring-buffer 6
- * @AGS_WASAPI_DEVOUT_BUFFER7: ring-buffer 7
- * @AGS_WASAPI_DEVOUT_ATTACK_FIRST: use first attack, instead of second one
+ * @AGS_WASAPI_DEVOUT_INITIALIZED: the soundcard was initialized
+ * @AGS_WASAPI_DEVOUT_START_PLAY: playback starting
  * @AGS_WASAPI_DEVOUT_PLAY: do playback
  * @AGS_WASAPI_DEVOUT_SHUTDOWN: stop playback
- * @AGS_WASAPI_DEVOUT_START_PLAY: playback starting
  * @AGS_WASAPI_DEVOUT_NONBLOCKING: do non-blocking calls
- * @AGS_WASAPI_DEVOUT_INITIALIZED: the soundcard was initialized
+ * @AGS_WASAPI_DEVOUT_ATTACK_FIRST: use first attack, instead of second one
+ * @AGS_WASAPI_DEVOUT_SHARE_MODE_EXCLUSIVE: share mode exclusive
  *
  * Enum values to control the behavior or indicate internal state of #AgsWasapiDevout by
  * enable/disable as flags.
  */
 typedef enum{
-	     AGS_WASAPI_DEVOUT_ADDED_TO_REGISTRY              = 1,
-	     AGS_WASAPI_DEVOUT_CONNECTED                      = 1 <<  1,
+  AGS_WASAPI_DEVOUT_INITIALIZED                    = 1,
 
-	     AGS_WASAPI_DEVOUT_BUFFER0                        = 1 <<  2,
-	     AGS_WASAPI_DEVOUT_BUFFER1                        = 1 <<  3,
-	     AGS_WASAPI_DEVOUT_BUFFER2                        = 1 <<  4,
-	     AGS_WASAPI_DEVOUT_BUFFER3                        = 1 <<  5,
-	     AGS_WASAPI_DEVOUT_BUFFER4                        = 1 <<  6,
-	     AGS_WASAPI_DEVOUT_BUFFER5                        = 1 <<  7,
-	     AGS_WASAPI_DEVOUT_BUFFER6                        = 1 <<  8,
-	     AGS_WASAPI_DEVOUT_BUFFER7                        = 1 <<  9,
+  AGS_WASAPI_DEVOUT_START_PLAY                     = 1 <<  1,
+  AGS_WASAPI_DEVOUT_PLAY                           = 1 <<  2,
+  AGS_WASAPI_DEVOUT_SHUTDOWN                       = 1 <<  3,
 
-	     AGS_WASAPI_DEVOUT_ATTACK_FIRST                   = 1 << 10,
+  AGS_WASAPI_DEVOUT_NONBLOCKING                    = 1 <<  4,
 
-	     AGS_WASAPI_DEVOUT_PLAY                           = 1 << 11,
-	     AGS_WASAPI_DEVOUT_SHUTDOWN                       = 1 << 12,
-	     AGS_WASAPI_DEVOUT_START_PLAY                     = 1 << 13,
+  AGS_WASAPI_DEVOUT_ATTACK_FIRST                   = 1 <<  5,
 
-	     AGS_WASAPI_DEVOUT_NONBLOCKING                    = 1 << 14,
-	     AGS_WASAPI_DEVOUT_INITIALIZED                    = 1 << 15,
-
-	     AGS_WASAPI_DEVOUT_SHARE_MODE_EXCLUSIVE           = 1 << 16,
+  AGS_WASAPI_DEVOUT_SHARE_MODE_EXCLUSIVE           = 1 <<  6,
 }AgsWasapiDevoutFlags;
+
+/**
+ * AgsWasapiDevoutAppBufferMode:
+ * @AGS_WASAPI_DEVOUT_APP_BUFFER_0: ring-buffer 0
+ * @AGS_WASAPI_DEVOUT_APP_BUFFER_1: ring-buffer 1
+ * @AGS_WASAPI_DEVOUT_APP_BUFFER_2: ring-buffer 2
+ * @AGS_WASAPI_DEVOUT_APP_BUFFER_3: ring-buffer 3
+ * @AGS_WASAPI_DEVOUT_APP_BUFFER_4: ring-buffer 4
+ * @AGS_WASAPI_DEVOUT_APP_BUFFER_5: ring-buffer 5
+ * @AGS_WASAPI_DEVOUT_APP_BUFFER_6: ring-buffer 6
+ * @AGS_WASAPI_DEVOUT_APP_BUFFER_7: ring-buffer 7
+ * 
+ * Enum values to indicate internal state of #AgsWasapiDevout application buffer by
+ * setting mode.
+ */
+typedef enum{
+  AGS_WASAPI_DEVOUT_APP_BUFFER_0,
+  AGS_WASAPI_DEVOUT_APP_BUFFER_1,
+  AGS_WASAPI_DEVOUT_APP_BUFFER_2,
+  AGS_WASAPI_DEVOUT_APP_BUFFER_3,
+  AGS_WASAPI_DEVOUT_APP_BUFFER_4,
+  AGS_WASAPI_DEVOUT_APP_BUFFER_5,
+  AGS_WASAPI_DEVOUT_APP_BUFFER_6,
+  AGS_WASAPI_DEVOUT_APP_BUFFER_7,
+}AgsWasapiDevoutAppBufferMode;
 
 #define AGS_WASAPI_DEVOUT_ERROR (ags_wasapi_devout_error_quark())
 
 typedef enum{
-	     AGS_WASAPI_DEVOUT_ERROR_LOCKED_SOUNDCARD,
-	     AGS_WASAPI_DEVOUT_ERROR_BROKEN_CONFIGURATION,
+  AGS_WASAPI_DEVOUT_ERROR_LOCKED_SOUNDCARD,
+  AGS_WASAPI_DEVOUT_ERROR_BROKEN_CONFIGURATION,
 }AgsWasapiDevoutError;
 
 struct _AgsWasapiDevout
@@ -114,11 +121,9 @@ struct _AgsWasapiDevout
   GObject gobject;
 
   guint flags;
-  
-  pthread_mutex_t *obj_mutex;
-  pthread_mutexattr_t *obj_mutexattr;
+  guint connectable_flags;
 
-  AgsApplicationContext *application_context;
+  GRecMutex obj_mutex;
 
   AgsUUID *uuid;
 
@@ -128,12 +133,16 @@ struct _AgsWasapiDevout
   guint buffer_size;
   guint samplerate;
 
-  pthread_mutex_t **buffer_mutex;
+  guint wasapi_buffer_size;
+
+  guint app_buffer_mode;
+
+  GRecMutex **app_buffer_mutex;
 
   guint sub_block_count;
-  pthread_mutex_t **sub_block_mutex;
+  GRecMutex **sub_block_mutex;
 
-  void** buffer;
+  void **app_buffer;
 
   gboolean use_cache;
   guint cache_buffer_size;
@@ -142,8 +151,6 @@ struct _AgsWasapiDevout
   guint completed_cache;
   guint cache_offset;
   void **cache;
-
-  guint wasapi_buffer_size;
   
   double bpm; // beats per minute
   gdouble delay_factor;
@@ -175,13 +182,11 @@ struct _AgsWasapiDevout
   gpointer audio_client;
 #endif
   
-  pthread_mutex_t *callback_mutex;
-  pthread_cond_t *callback_cond;
+  GMutex callback_mutex;
+  GCond callback_cond;
 
-  pthread_mutex_t *callback_finish_mutex;
-  pthread_cond_t *callback_finish_cond;
-
-  GObject *notify_soundcard;
+  GMutex callback_finish_mutex;
+  GCond callback_finish_cond;
 };
 
 struct _AgsWasapiDevoutClass
@@ -190,10 +195,9 @@ struct _AgsWasapiDevoutClass
 };
 
 GType ags_wasapi_devout_get_type();
+GType ags_wasapi_devout_flags_get_type();
 
 GQuark ags_wasapi_devout_error_quark();
-
-pthread_mutex_t* ags_wasapi_devout_get_class_mutex();
 
 gboolean ags_wasapi_devout_test_flags(AgsWasapiDevout *wasapi_devout, guint flags);
 void ags_wasapi_devout_set_flags(AgsWasapiDevout *wasapi_devout, guint flags);
@@ -204,6 +208,8 @@ void ags_wasapi_devout_switch_buffer_flag(AgsWasapiDevout *wasapi_devout);
 void ags_wasapi_devout_adjust_delay_and_attack(AgsWasapiDevout *wasapi_devout);
 void ags_wasapi_devout_realloc_buffer(AgsWasapiDevout *wasapi_devout);
 
-AgsWasapiDevout* ags_wasapi_devout_new(AgsApplicationContext *application_context);
+AgsWasapiDevout* ags_wasapi_devout_new();
+
+G_END_DECLS
 
 #endif /*__AGS_WASAPI_DEVOUT_H__*/

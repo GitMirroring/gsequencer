@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2021 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -26,6 +26,9 @@
 #include <string.h>
 #include <stdlib.h>
 
+gpointer ags_midi_buffer_util_copy(gpointer ptr);
+void ags_midi_buffer_util_free(gpointer ptr);
+
 /**
  * SECTION:ags_midi_buffer_util
  * @short_description: MIDI buffer util
@@ -36,6 +39,41 @@
  * Utility functions for MIDI buffers.
  */
 
+GType
+ags_midi_buffer_util_get_type(void)
+{
+  static volatile gsize g_define_type_id__volatile = 0;
+
+  if(g_once_init_enter (&g_define_type_id__volatile)){
+    GType ags_type_midi_buffer_util = 0;
+
+    ags_type_midi_buffer_util =
+      g_boxed_type_register_static("AgsMidiBufferUtil",
+				   (GBoxedCopyFunc) ags_midi_buffer_util_copy,
+				   (GBoxedFreeFunc) ags_midi_buffer_util_free);
+
+    g_once_init_leave(&g_define_type_id__volatile, ags_type_midi_buffer_util);
+  }
+
+  return g_define_type_id__volatile;
+}
+
+gpointer
+ags_midi_buffer_util_copy(gpointer ptr)
+{
+  gpointer retval;
+
+  retval = g_memdup(ptr, sizeof(AgsMidiBufferUtil));
+ 
+  return(retval);
+}
+
+void
+ags_midi_buffer_util_free(gpointer ptr)
+{
+  g_free(ptr);
+}
+
 /**
  * ags_midi_buffer_util_get_varlength_size:
  * @varlength: the variable length
@@ -44,13 +82,13 @@
  *
  * Returns: the size needed to be allocated
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 guint
 ags_midi_buffer_util_get_varlength_size(glong varlength)
 {
   guint current;
-  unsigned char c;
+  guchar c;
   guint i;
   glong mask;
   
@@ -79,10 +117,10 @@ ags_midi_buffer_util_get_varlength_size(glong varlength)
  *
  * Put the variable lenght value to @buffer.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
-ags_midi_buffer_util_put_varlength(unsigned char *buffer,
+ags_midi_buffer_util_put_varlength(guchar *buffer,
 				   glong varlength)
 {
   guint varlength_size;
@@ -121,10 +159,10 @@ ags_midi_buffer_util_put_varlength(unsigned char *buffer,
  *
  * Returns: the number of bytes read.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 guint
-ags_midi_buffer_util_get_varlength(unsigned char *buffer,
+ags_midi_buffer_util_get_varlength(guchar *buffer,
 				   glong *varlength)
 {
   glong value;
@@ -132,6 +170,10 @@ ags_midi_buffer_util_get_varlength(unsigned char *buffer,
   char c;
 
   if(buffer == NULL){
+    if(varlength != NULL){
+      *varlength = 0;
+    }
+    
     return(0);
   }
 
@@ -162,10 +204,10 @@ ags_midi_buffer_util_get_varlength(unsigned char *buffer,
  * 
  * Put signed 16 bit integer.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
-ags_midi_buffer_util_put_int16(unsigned char *buffer,
+ags_midi_buffer_util_put_int16(guchar *buffer,
 			       glong val)
 {
   if(buffer == NULL){
@@ -183,15 +225,19 @@ ags_midi_buffer_util_put_int16(unsigned char *buffer,
  *
  * Get signed 32 bit integer.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
-ags_midi_buffer_util_get_int16(unsigned char *buffer,
+ags_midi_buffer_util_get_int16(guchar *buffer,
 			       glong *val)
 {
   glong tmp;
 
   if(buffer == NULL){
+    if(val != NULL){
+      *val = 0;
+    }
+    
     return;
   }
 
@@ -210,10 +256,10 @@ ags_midi_buffer_util_get_int16(unsigned char *buffer,
  * 
  * Put signed 24 bit integer.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
-ags_midi_buffer_util_put_int24(unsigned char *buffer,
+ags_midi_buffer_util_put_int24(guchar *buffer,
 			       glong val)
 {
   if(buffer == NULL){
@@ -232,15 +278,19 @@ ags_midi_buffer_util_put_int24(unsigned char *buffer,
  *
  * Get signed 24 bit integer.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
-ags_midi_buffer_util_get_int24(unsigned char *buffer,
+ags_midi_buffer_util_get_int24(guchar *buffer,
 			       glong *val)
 {
   glong tmp;
 
   if(buffer == NULL){
+    if(val != NULL){
+      *val = 0;
+    }
+
     return;
   }
   
@@ -260,10 +310,10 @@ ags_midi_buffer_util_get_int24(unsigned char *buffer,
  * 
  * Put signed 32 bit integer.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
-ags_midi_buffer_util_put_int32(unsigned char *buffer,
+ags_midi_buffer_util_put_int32(guchar *buffer,
 			       glong val)
 {
   if(buffer == NULL){
@@ -283,15 +333,19 @@ ags_midi_buffer_util_put_int32(unsigned char *buffer,
  *
  * Get signed 32 bit integer.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
-ags_midi_buffer_util_get_int32(unsigned char *buffer,
+ags_midi_buffer_util_get_int32(guchar *buffer,
 			       glong *val)
 {
   glong tmp;
 
   if(buffer == NULL){
+    if(val != NULL){
+      *val = 0;
+    }
+
     return;
   }
   
@@ -315,10 +369,10 @@ ags_midi_buffer_util_get_int32(unsigned char *buffer,
  *
  * Puts the midi header.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
-ags_midi_buffer_util_put_header(unsigned char *buffer,
+ags_midi_buffer_util_put_header(guchar *buffer,
 				glong offset, glong format,
 				glong track_count, glong division)
 {
@@ -329,15 +383,11 @@ ags_midi_buffer_util_put_header(unsigned char *buffer,
   }
   
   /* put MThd */
-  memcpy(buffer, header, 4 * sizeof(unsigned char));
+  memcpy(buffer, header, 4 * sizeof(guchar));
 
   /* chunk length */
-  if(offset != 6){
-    g_warning("invalid chunk length");
-  }
-  
   ags_midi_buffer_util_put_int32(buffer + 4,
-				 6);
+				 offset);
 
   /* format */
   ags_midi_buffer_util_put_int16(buffer + 8,
@@ -364,18 +414,35 @@ ags_midi_buffer_util_put_header(unsigned char *buffer,
  * 
  * Returns: the number of bytes read.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 guint
-ags_midi_buffer_util_get_header(unsigned char *buffer,
+ags_midi_buffer_util_get_header(guchar *buffer,
 				glong *offset, glong *format,
 				glong *track_count, glong *division)
 {
   static gchar header[] = "MThd";
 
-  if(g_ascii_strncasecmp(buffer,
-			 header,
-			 4)){
+  if(buffer == NULL ||
+     (!g_ascii_strncasecmp(buffer,
+			   header,
+			   4)) == FALSE){
+    if(offset != NULL){
+      *offset = 0;
+    }
+    
+    if(format != NULL){
+      *format = 0;
+    }
+
+    if(track_count != NULL){
+      *track_count = 0;
+    }
+
+    if(division != NULL){
+      *division = 0;
+    }
+    
     return(0);
   }
   
@@ -405,10 +472,10 @@ ags_midi_buffer_util_get_header(unsigned char *buffer,
  * 
  * Put track.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
-ags_midi_buffer_util_put_track(unsigned char *buffer,
+ags_midi_buffer_util_put_track(guchar *buffer,
 			       glong offset)
 {
   static gchar track[] = "MTrk";
@@ -418,7 +485,7 @@ ags_midi_buffer_util_put_track(unsigned char *buffer,
   }
   
   /* put MTrk */
-  memcpy(buffer, track, 4 * sizeof(unsigned char));
+  memcpy(buffer, track, 4 * sizeof(guchar));
 
   /* offset */
   ags_midi_buffer_util_put_int32(buffer + 4,
@@ -434,21 +501,22 @@ ags_midi_buffer_util_put_track(unsigned char *buffer,
  * 
  * Returns: the number of bytes read.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 guint
-ags_midi_buffer_util_get_track(unsigned char *buffer,
+ags_midi_buffer_util_get_track(guchar *buffer,
 			       glong *offset)
 {
   static gchar track[] = "MTrk";
 
-  if(buffer == NULL){
-    return(0);
-  }
-  
-  if(g_ascii_strncasecmp(buffer,
-			 track,
-			 4)){
+  if(buffer == NULL ||
+     (!g_ascii_strncasecmp(buffer,
+			   track,
+			   4)) == FALSE){
+    if(offset != NULL){
+      *offset = 0;
+    }
+
     return(0);
   }
 
@@ -469,10 +537,10 @@ ags_midi_buffer_util_get_track(unsigned char *buffer,
  * 
  * Puts the given values to @buffer with appropriate channel message.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
-ags_midi_buffer_util_put_key_on(unsigned char *buffer,
+ags_midi_buffer_util_put_key_on(guchar *buffer,
 				glong delta_time,
 				glong channel,
 				glong key,
@@ -511,10 +579,10 @@ ags_midi_buffer_util_put_key_on(unsigned char *buffer,
  *
  * Returns: the number of bytes read.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 guint
-ags_midi_buffer_util_get_key_on(unsigned char *buffer,
+ags_midi_buffer_util_get_key_on(guchar *buffer,
 				glong *delta_time,
 				glong *channel,
 				glong *key,
@@ -524,6 +592,22 @@ ags_midi_buffer_util_get_key_on(unsigned char *buffer,
   guint delta_time_size;
   
   if(buffer == NULL){
+    if(delta_time != NULL){
+      *delta_time = 0;
+    }
+
+    if(channel != NULL){
+      *channel = 0;
+    }
+
+    if(key != NULL){
+      *key = 0;
+    }
+
+    if(velocity != NULL){
+      *velocity = 0;
+    }
+    
     return(0);
   }
 
@@ -563,10 +647,10 @@ ags_midi_buffer_util_get_key_on(unsigned char *buffer,
  * 
  * Puts the given values to @buffer with appropriate channel message.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
-ags_midi_buffer_util_put_key_off(unsigned char *buffer,
+ags_midi_buffer_util_put_key_off(guchar *buffer,
 				 glong delta_time,
 				 glong channel,
 				 glong key,
@@ -606,10 +690,10 @@ ags_midi_buffer_util_put_key_off(unsigned char *buffer,
  *
  * Returns: the number of bytes read.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 guint
-ags_midi_buffer_util_get_key_off(unsigned char *buffer,
+ags_midi_buffer_util_get_key_off(guchar *buffer,
 				 glong *delta_time,
 				 glong *channel,
 				 glong *key,
@@ -619,6 +703,22 @@ ags_midi_buffer_util_get_key_off(unsigned char *buffer,
   guint delta_time_size;
   
   if(buffer == NULL){
+    if(delta_time != NULL){
+      *delta_time = 0;
+    }
+
+    if(channel != NULL){
+      *channel = 0;
+    }
+
+    if(key != NULL){
+      *key = 0;
+    }
+
+    if(velocity != NULL){
+      *velocity = 0;
+    }
+
     return(0);
   }
 
@@ -658,10 +758,10 @@ ags_midi_buffer_util_get_key_off(unsigned char *buffer,
  * 
  * Puts the given values to @buffer with appropriate channel message.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
-ags_midi_buffer_util_put_key_pressure(unsigned char *buffer,
+ags_midi_buffer_util_put_key_pressure(guchar *buffer,
 				      glong delta_time,
 				      glong channel,
 				      glong key,
@@ -701,10 +801,10 @@ ags_midi_buffer_util_put_key_pressure(unsigned char *buffer,
  *
  * Returns: the number of bytes read.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 guint
-ags_midi_buffer_util_get_key_pressure(unsigned char *buffer,
+ags_midi_buffer_util_get_key_pressure(guchar *buffer,
 				      glong *delta_time,
 				      glong *channel,
 				      glong *key,
@@ -714,6 +814,22 @@ ags_midi_buffer_util_get_key_pressure(unsigned char *buffer,
   guint delta_time_size;
   
   if(buffer == NULL){
+    if(delta_time != NULL){
+      *delta_time = 0;
+    }
+
+    if(channel != NULL){
+      *channel = 0;
+    }
+
+    if(key != NULL){
+      *key = 0;
+    }
+
+    if(pressure != NULL){
+      *pressure = 0;
+    }
+
     return(0);
   }
 
@@ -753,10 +869,10 @@ ags_midi_buffer_util_get_key_pressure(unsigned char *buffer,
  * 
  * Put change parameter.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
-ags_midi_buffer_util_put_change_parameter(unsigned char *buffer,
+ags_midi_buffer_util_put_change_parameter(guchar *buffer,
 					  glong delta_time,
 					  glong channel,
 					  glong control,
@@ -796,10 +912,10 @@ ags_midi_buffer_util_put_change_parameter(unsigned char *buffer,
  * 
  * Returns: the number of bytes read.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 guint
-ags_midi_buffer_util_get_change_parameter(unsigned char *buffer,
+ags_midi_buffer_util_get_change_parameter(guchar *buffer,
 					  glong *delta_time,
 					  glong *channel,
 					  glong *control,
@@ -809,6 +925,22 @@ ags_midi_buffer_util_get_change_parameter(unsigned char *buffer,
   guint delta_time_size;
   
   if(buffer == NULL){
+    if(delta_time != NULL){
+      *delta_time = 0;
+    }
+
+    if(channel != NULL){
+      *channel = 0;
+    }
+
+    if(control != NULL){
+      *control = 0;
+    }
+
+    if(value != NULL){
+      *value = 0;
+    }
+
     return(0);
   }
 
@@ -848,10 +980,10 @@ ags_midi_buffer_util_get_change_parameter(unsigned char *buffer,
  * 
  * Put pitch bend.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
-ags_midi_buffer_util_put_pitch_bend(unsigned char *buffer,
+ags_midi_buffer_util_put_pitch_bend(guchar *buffer,
 				    glong delta_time,
 				    glong channel,
 				    glong pitch,
@@ -891,10 +1023,10 @@ ags_midi_buffer_util_put_pitch_bend(unsigned char *buffer,
  * 
  * Returns: the number of bytes read.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 guint
-ags_midi_buffer_util_get_pitch_bend(unsigned char *buffer,
+ags_midi_buffer_util_get_pitch_bend(guchar *buffer,
 				    glong *delta_time,
 				    glong *channel,
 				    glong *pitch,
@@ -904,6 +1036,22 @@ ags_midi_buffer_util_get_pitch_bend(unsigned char *buffer,
   guint delta_time_size;
   
   if(buffer == NULL){
+    if(delta_time != NULL){
+      *delta_time = 0;
+    }
+
+    if(channel != NULL){
+      *channel = 0;
+    }
+
+    if(pitch != NULL){
+      *pitch = 0;
+    }
+
+    if(transmitter != NULL){
+      *transmitter = 0;
+    }
+
     return(0);
   }
 
@@ -942,10 +1090,10 @@ ags_midi_buffer_util_get_pitch_bend(unsigned char *buffer,
  * 
  * Put change program.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
-ags_midi_buffer_util_put_change_program(unsigned char *buffer,
+ags_midi_buffer_util_put_change_program(guchar *buffer,
 					glong delta_time,
 					glong channel,
 					glong program)
@@ -980,10 +1128,10 @@ ags_midi_buffer_util_put_change_program(unsigned char *buffer,
  * 
  * Returns: the number of bytes read.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 guint
-ags_midi_buffer_util_get_change_program(unsigned char *buffer,
+ags_midi_buffer_util_get_change_program(guchar *buffer,
 					glong *delta_time,
 					glong *channel,
 					glong *program)
@@ -992,6 +1140,18 @@ ags_midi_buffer_util_get_change_program(unsigned char *buffer,
   guint delta_time_size;
   
   if(buffer == NULL){
+    if(delta_time != NULL){
+      *delta_time = 0;
+    }
+
+    if(channel != NULL){
+      *channel = 0;
+    }
+
+    if(program != NULL){
+      *program = 0;
+    }
+
     return(0);
   }
 
@@ -1025,10 +1185,10 @@ ags_midi_buffer_util_get_change_program(unsigned char *buffer,
  *
  * Put change pressure.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
-ags_midi_buffer_util_put_change_pressure(unsigned char *buffer,
+ags_midi_buffer_util_put_change_pressure(guchar *buffer,
 					 glong delta_time,
 					 glong channel,
 					 glong pressure)
@@ -1063,10 +1223,10 @@ ags_midi_buffer_util_put_change_pressure(unsigned char *buffer,
  * 
  * Returns: the number of bytes read.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 guint
-ags_midi_buffer_util_get_change_pressure(unsigned char *buffer,
+ags_midi_buffer_util_get_change_pressure(guchar *buffer,
 					 glong *delta_time,
 					 glong *channel,
 					 glong *pressure)
@@ -1075,6 +1235,18 @@ ags_midi_buffer_util_get_change_pressure(unsigned char *buffer,
   guint delta_time_size;
   
   if(buffer == NULL){
+    if(delta_time != NULL){
+      *delta_time = 0;
+    }
+
+    if(channel != NULL){
+      *channel = 0;
+    }
+
+    if(pressure != NULL){
+      *pressure = 0;
+    }
+
     return(0);
   }
 
@@ -1108,12 +1280,12 @@ ags_midi_buffer_util_get_change_pressure(unsigned char *buffer,
  * 
  * Put sysex.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
-ags_midi_buffer_util_put_sysex(unsigned char *buffer,
+ags_midi_buffer_util_put_sysex(guchar *buffer,
 			       glong delta_time,
-			       unsigned char *data, glong length)
+			       guchar *data, glong length)
 {
   guint delta_time_size;
 
@@ -1130,7 +1302,7 @@ ags_midi_buffer_util_put_sysex(unsigned char *buffer,
   buffer[delta_time_size] = 0xf0;
 
   /* put data */  
-  memcpy(buffer + delta_time_size + 1, data, length * sizeof(unsigned char));
+  memcpy(buffer + delta_time_size + 1, data, length * sizeof(guchar));
 
   /* EOX end of sysex */
   buffer[delta_time_size + length + 1] = 0xf7;
@@ -1147,20 +1319,32 @@ ags_midi_buffer_util_put_sysex(unsigned char *buffer,
  * 
  * Returns: the number of bytes read.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 guint
-ags_midi_buffer_util_get_sysex(unsigned char *buffer,
+ags_midi_buffer_util_get_sysex(guchar *buffer,
 			       glong *delta_time,
-			       unsigned char **data, glong *length)
+			       guchar **data, glong *length)
 {
-  unsigned char *tmp_data;
+  guchar *tmp_data;
 
   glong val;
   guint delta_time_size;
   guint i;
   
   if(buffer == NULL){
+    if(delta_time != NULL){
+      *delta_time = 0;
+    }
+
+    if(data != NULL){
+      *data = NULL;
+    }
+
+    if(length != NULL){
+      *length = 0;
+    }
+
     return(0);
   }
   
@@ -1176,12 +1360,12 @@ ags_midi_buffer_util_get_sysex(unsigned char *buffer,
 
   if(data != NULL){
     if(i > 0){
-      tmp_data = (unsigned char *) malloc(i * sizeof(unsigned char));
+      tmp_data = (guchar *) malloc(i * sizeof(guchar));
     }else{
       tmp_data = NULL;
     }
 
-    memcpy(tmp_data, buffer + delta_time_size + 1, i * sizeof(unsigned char));
+    memcpy(tmp_data, buffer + delta_time_size + 1, i * sizeof(guchar));
 
     *data = tmp_data;
   }
@@ -1202,10 +1386,10 @@ ags_midi_buffer_util_get_sysex(unsigned char *buffer,
  * 
  * Put quarter frame.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
-ags_midi_buffer_util_put_quarter_frame(unsigned char *buffer,
+ags_midi_buffer_util_put_quarter_frame(guchar *buffer,
 				       glong delta_time,
 				       glong message_type,
 				       glong values)
@@ -1242,10 +1426,10 @@ ags_midi_buffer_util_put_quarter_frame(unsigned char *buffer,
  * 
  * Returns: the number of bytes read.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 guint
-ags_midi_buffer_util_get_quarter_frame(unsigned char *buffer,
+ags_midi_buffer_util_get_quarter_frame(guchar *buffer,
 				       glong *delta_time,
 				       glong *message_type, glong *values)
 {
@@ -1253,6 +1437,18 @@ ags_midi_buffer_util_get_quarter_frame(unsigned char *buffer,
   guint delta_time_size;
   
   if(buffer == NULL){
+    if(delta_time != NULL){
+      *delta_time = 0;
+    }
+
+    if(message_type != NULL){
+      *message_type = 0;
+    }
+
+    if(values != NULL){
+      *values = 0;
+    }
+
     return(0);
   }
   
@@ -1283,10 +1479,10 @@ ags_midi_buffer_util_get_quarter_frame(unsigned char *buffer,
  * 
  * Put song position.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
-ags_midi_buffer_util_put_song_position(unsigned char *buffer,
+ags_midi_buffer_util_put_song_position(guchar *buffer,
 				       glong delta_time,
 				       glong song_position)
 {
@@ -1319,10 +1515,10 @@ ags_midi_buffer_util_put_song_position(unsigned char *buffer,
  * 
  * Returns: the number of bytes read.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 guint
-ags_midi_buffer_util_get_song_position(unsigned char *buffer,
+ags_midi_buffer_util_get_song_position(guchar *buffer,
 				       glong *delta_time,
 				       glong *song_position)
 {
@@ -1330,6 +1526,14 @@ ags_midi_buffer_util_get_song_position(unsigned char *buffer,
   guint delta_time_size;
   
   if(buffer == NULL){
+    if(delta_time != NULL){
+      *delta_time = 0;
+    }
+
+    if(song_position != NULL){
+      *song_position = 0;
+    }
+
     return(0);
   }
 
@@ -1358,10 +1562,10 @@ ags_midi_buffer_util_get_song_position(unsigned char *buffer,
  * 
  * Put song select.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
-ags_midi_buffer_util_put_song_select(unsigned char *buffer,
+ags_midi_buffer_util_put_song_select(guchar *buffer,
 				     glong delta_time,
 				     glong song_select)
 {
@@ -1393,10 +1597,10 @@ ags_midi_buffer_util_put_song_select(unsigned char *buffer,
  * 
  * Returns: the number of bytes read.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 guint
-ags_midi_buffer_util_get_song_select(unsigned char *buffer,
+ags_midi_buffer_util_get_song_select(guchar *buffer,
 				     glong *delta_time,
 				     glong *song_select)
 {
@@ -1404,6 +1608,14 @@ ags_midi_buffer_util_get_song_select(unsigned char *buffer,
   guint delta_time_size;
   
   if(buffer == NULL){
+    if(delta_time != NULL){
+      *delta_time = 0;
+    }
+
+    if(song_select != NULL){
+      *song_select = 0;
+    }
+
     return(0);
   }
   
@@ -1429,10 +1641,10 @@ ags_midi_buffer_util_get_song_select(unsigned char *buffer,
  * 
  * Put tune request
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
-ags_midi_buffer_util_put_tune_request(unsigned char *buffer,
+ags_midi_buffer_util_put_tune_request(guchar *buffer,
 				      glong delta_time)
 {
   guint delta_time_size;
@@ -1459,16 +1671,20 @@ ags_midi_buffer_util_put_tune_request(unsigned char *buffer,
  * 
  * Returns: the number of bytes read.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 guint
-ags_midi_buffer_util_get_tune_request(unsigned char *buffer,
+ags_midi_buffer_util_get_tune_request(guchar *buffer,
 				      glong *delta_time)
 {
   glong val;
   guint delta_time_size;
   
   if(buffer == NULL){
+    if(delta_time != NULL){
+      *delta_time = 0;
+    }
+
     return(0);
   }
   
@@ -1491,10 +1707,10 @@ ags_midi_buffer_util_get_tune_request(unsigned char *buffer,
  * 
  * Put sequence number.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
-ags_midi_buffer_util_put_sequence_number(unsigned char *buffer,
+ags_midi_buffer_util_put_sequence_number(guchar *buffer,
 					 glong delta_time,
 					 glong sequence)
 {
@@ -1533,10 +1749,10 @@ ags_midi_buffer_util_put_sequence_number(unsigned char *buffer,
  * 
  * Returns: the number of bytes read.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 guint
-ags_midi_buffer_util_get_sequence_number(unsigned char *buffer,
+ags_midi_buffer_util_get_sequence_number(guchar *buffer,
 					 glong *delta_time,
 					 glong *sequence)
 {
@@ -1544,6 +1760,14 @@ ags_midi_buffer_util_get_sequence_number(unsigned char *buffer,
   guint delta_time_size;
   
   if(buffer == NULL){
+    if(delta_time != NULL){
+      *delta_time = 0;
+    }
+
+    if(sequence != NULL){
+      *sequence = 0;
+    }
+
     return(0);
   }
   
@@ -1576,10 +1800,10 @@ ags_midi_buffer_util_get_sequence_number(unsigned char *buffer,
  * 
  * Put smtpe timestamp.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
-ags_midi_buffer_util_put_smtpe(unsigned char *buffer,
+ags_midi_buffer_util_put_smtpe(guchar *buffer,
 			       glong delta_time,
 			       glong rr, glong hr, glong mn, glong se, glong fr)
 {
@@ -1633,10 +1857,10 @@ ags_midi_buffer_util_put_smtpe(unsigned char *buffer,
  * 
  * Returns: the number of bytes read.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 guint
-ags_midi_buffer_util_get_smtpe(unsigned char *buffer,
+ags_midi_buffer_util_get_smtpe(guchar *buffer,
 			       glong *delta_time,
 			       glong *rr, glong *hr, glong *mn, glong *se, glong *fr)
 {
@@ -1644,6 +1868,30 @@ ags_midi_buffer_util_get_smtpe(unsigned char *buffer,
   guint delta_time_size;
   
   if(buffer == NULL){
+    if(delta_time != NULL){
+      *delta_time = 0;
+    }
+
+    if(rr != NULL){
+      *rr = 0;
+    }
+
+    if(hr != NULL){
+      *hr = 0;
+    }
+
+    if(mn != NULL){
+      *mn = 0;
+    }
+
+    if(se != NULL){
+      *se = 0;
+    }
+
+    if(fr != NULL){
+      *fr = 0;
+    }
+
     return(0);
   }
   
@@ -1691,10 +1939,10 @@ ags_midi_buffer_util_get_smtpe(unsigned char *buffer,
  * 
  * Put tempo.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
-ags_midi_buffer_util_put_tempo(unsigned char *buffer,
+ags_midi_buffer_util_put_tempo(guchar *buffer,
 			       glong delta_time,
 			       glong tempo)
 {
@@ -1733,10 +1981,10 @@ ags_midi_buffer_util_put_tempo(unsigned char *buffer,
  * 
  * Returns: the number of bytes read.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 guint
-ags_midi_buffer_util_get_tempo(unsigned char *buffer,
+ags_midi_buffer_util_get_tempo(guchar *buffer,
 			       glong *delta_time,
 			       glong *tempo)
 {
@@ -1744,6 +1992,14 @@ ags_midi_buffer_util_get_tempo(unsigned char *buffer,
   guint delta_time_size;
   
   if(buffer == NULL){
+    if(delta_time != NULL){
+      *delta_time = 0;
+    }
+
+    if(tempo != NULL){
+      *tempo = 0;
+    }
+
     return(0);
   }
   
@@ -1773,10 +2029,10 @@ ags_midi_buffer_util_get_tempo(unsigned char *buffer,
  * 
  * Put time signature
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
-ags_midi_buffer_util_put_time_signature(unsigned char *buffer,
+ags_midi_buffer_util_put_time_signature(guchar *buffer,
 					glong delta_time,
 					glong nn, glong dd, glong cc, glong bb)
 {
@@ -1798,7 +2054,7 @@ ags_midi_buffer_util_put_time_signature(unsigned char *buffer,
   buffer[delta_time_size + 1] = 0x58;
 
   /* length */
-  buffer[delta_time_size + 2] = 4;
+  buffer[delta_time_size + 2] = 0x4;
 
   /* nn */
   buffer[delta_time_size + 3] = nn;
@@ -1826,10 +2082,10 @@ ags_midi_buffer_util_put_time_signature(unsigned char *buffer,
  * 
  * Returns: the number of bytes read.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 guint
-ags_midi_buffer_util_get_time_signature(unsigned char *buffer,
+ags_midi_buffer_util_get_time_signature(guchar *buffer,
 					glong *delta_time,
 					glong *nn, glong *dd, glong *cc, glong *bb)
 {
@@ -1837,6 +2093,26 @@ ags_midi_buffer_util_get_time_signature(unsigned char *buffer,
   guint delta_time_size;
   
   if(buffer == NULL){
+    if(delta_time != NULL){
+      *delta_time = 0;
+    }
+
+    if(nn != NULL){
+      *nn = 0;
+    }
+
+    if(dd != NULL){
+      *dd = 0;
+    }
+
+    if(cc != NULL){
+      *cc = 0;
+    }
+
+    if(bb != NULL){
+      *bb = 0;
+    }
+
     return(0);
   }
   
@@ -1880,10 +2156,10 @@ ags_midi_buffer_util_get_time_signature(unsigned char *buffer,
  * 
  * Put key signature.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
-ags_midi_buffer_util_put_key_signature(unsigned char *buffer,
+ags_midi_buffer_util_put_key_signature(guchar *buffer,
 				       glong delta_time,
 				       glong sf, glong mi)
 {
@@ -1925,10 +2201,10 @@ ags_midi_buffer_util_put_key_signature(unsigned char *buffer,
  * 
  * Returns: the number of bytes read.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 guint
-ags_midi_buffer_util_get_key_signature(unsigned char *buffer,
+ags_midi_buffer_util_get_key_signature(guchar *buffer,
 				       glong *delta_time,
 				       glong *sf, glong *mi)
 {
@@ -1936,6 +2212,18 @@ ags_midi_buffer_util_get_key_signature(unsigned char *buffer,
   guint delta_time_size;
   
   if(buffer == NULL){
+    if(delta_time != NULL){
+      *delta_time = 0;
+    }
+
+    if(sf != NULL){
+      *sf = 0;
+    }
+
+    if(mi != NULL){
+      *mi = 0;
+    }
+
     return(0);
   }
   
@@ -1970,10 +2258,10 @@ ags_midi_buffer_util_get_key_signature(unsigned char *buffer,
  * 
  * Put sequencer meta event.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
-ags_midi_buffer_util_put_sequencer_meta_event(unsigned char *buffer,
+ags_midi_buffer_util_put_sequencer_meta_event(guchar *buffer,
 					      glong delta_time,
 					      glong len, glong id, glong data)
 {
@@ -2026,10 +2314,10 @@ ags_midi_buffer_util_put_sequencer_meta_event(unsigned char *buffer,
  * 
  * Returns: the number of bytes read.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 guint
-ags_midi_buffer_util_get_sequencer_meta_event(unsigned char *buffer,
+ags_midi_buffer_util_get_sequencer_meta_event(guchar *buffer,
 					      glong *delta_time,
 					      glong *len, glong *id, glong *data)
 {
@@ -2037,6 +2325,22 @@ ags_midi_buffer_util_get_sequencer_meta_event(unsigned char *buffer,
   guint delta_time_size;
   
   if(buffer == NULL){
+    if(delta_time != NULL){
+      *delta_time = 0;
+    }
+
+    if(len != NULL){
+      *len = 0;
+    }
+
+    if(id != NULL){
+      *id = 0;
+    }
+
+    if(data != NULL){
+      *data = 0;
+    }
+
     return(0);
   }
   
@@ -2084,10 +2388,10 @@ ags_midi_buffer_util_get_sequencer_meta_event(unsigned char *buffer,
  * 
  * Put text event.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
-ags_midi_buffer_util_put_text_event(unsigned char *buffer,
+ags_midi_buffer_util_put_text_event(guchar *buffer,
 				    glong delta_time,
 				    gchar *text, glong length)
 {
@@ -2112,7 +2416,7 @@ ags_midi_buffer_util_put_text_event(unsigned char *buffer,
   buffer[delta_time_size + 2] = 0xff & length;
 
   /* text */
-  memcpy(buffer + delta_time_size + 3, text, length * sizeof(unsigned char));
+  memcpy(buffer + delta_time_size + 3, text, length * sizeof(guchar));
 }
 
 /**
@@ -2126,10 +2430,10 @@ ags_midi_buffer_util_put_text_event(unsigned char *buffer,
  * 
  * Returns: the number of bytes read.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 guint
-ags_midi_buffer_util_get_text_event(unsigned char *buffer,
+ags_midi_buffer_util_get_text_event(guchar *buffer,
 				    glong *delta_time,
 				    gchar **text, glong *length)
 {
@@ -2138,6 +2442,18 @@ ags_midi_buffer_util_get_text_event(unsigned char *buffer,
   guint delta_time_size;
   
   if(buffer == NULL){
+    if(delta_time != NULL){
+      *delta_time = 0;
+    }
+
+    if(text != NULL){
+      *text = NULL;
+    }
+
+    if(length != NULL){
+      *length = 0;
+    }
+    
     return(0);
   }
   
@@ -2158,8 +2474,8 @@ ags_midi_buffer_util_get_text_event(unsigned char *buffer,
   
   /* text */
   if(text != NULL){
-    text[0] = (unsigned char *) malloc(text_size * sizeof(unsigned char));
-    memcpy(text[0], buffer + delta_time_size + 3, text_size * sizeof(unsigned char));
+    text[0] = (gchar *) malloc(text_size * sizeof(gchar));
+    memcpy(text[0], buffer + delta_time_size + 3, text_size * sizeof(gchar));
   }
 
   return(delta_time_size + text_size + 3);
@@ -2172,10 +2488,10 @@ ags_midi_buffer_util_get_text_event(unsigned char *buffer,
  * 
  * Put end of track.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
-ags_midi_buffer_util_put_end_of_track(unsigned char *buffer,
+ags_midi_buffer_util_put_end_of_track(guchar *buffer,
 				      glong delta_time)
 {
   guint delta_time_size;
@@ -2208,16 +2524,20 @@ ags_midi_buffer_util_put_end_of_track(unsigned char *buffer,
  * 
  * Returns: the number of bytes read.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 guint
-ags_midi_buffer_util_get_end_of_track(unsigned char *buffer,
+ags_midi_buffer_util_get_end_of_track(guchar *buffer,
 				      glong *delta_time)
 {
   glong val;
   guint delta_time_size;
   
   if(buffer == NULL){
+    if(delta_time != NULL){
+      *delta_time = 0;
+    }
+
     return(0);
   }
 
@@ -2242,23 +2562,23 @@ ags_midi_buffer_util_get_end_of_track(unsigned char *buffer,
  * 
  * Returns: the buffer at offset at @message_count ahead
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
-unsigned char*
-ags_midi_buffer_util_seek_message(unsigned char *buffer,
+guchar*
+ags_midi_buffer_util_seek_message(guchar *buffer,
 				  guint message_count,
 				  glong *delta_time)
 {
-  static gchar header[] = "MThd";
-  static gchar track[] = "MTrk";
+  static const gchar header[] = "MThd";
+  static const gchar track[] = "MTrk";
 
-  unsigned char *offset;
+  guchar *offset;
   
-  glong current_delta_time;
+  glong current_delta_time, tmp_delta_time;
   glong next_delta_time;
   guint delta_time_size;
-  unsigned char status, prev_status;
-  unsigned char meta_type;
+  guchar status, prev_status;
+  guchar meta_type;
   guint n;
   guint i;
   gboolean initial_run;
@@ -2295,8 +2615,14 @@ ags_midi_buffer_util_seek_message(unsigned char *buffer,
     }
 
     /* read delta time */
+    tmp_delta_time = 0;
+    
     delta_time_size = ags_midi_buffer_util_get_varlength(offset,
-							 &current_delta_time);
+							 &tmp_delta_time);
+
+    if(delta_time_size > 0){
+      current_delta_time = tmp_delta_time;
+    }
     
     /* read status byte */
     status = offset[delta_time_size];
@@ -2369,6 +2695,8 @@ ags_midi_buffer_util_seek_message(unsigned char *buffer,
       offset += n;
 
       /* check if status is omitted */
+      next_delta_time = 0;
+      
       delta_time_size = ags_midi_buffer_util_get_varlength(offset,
 							   &next_delta_time);
       
@@ -2622,10 +2950,10 @@ ags_midi_buffer_util_seek_message(unsigned char *buffer,
  *
  * Returns: the bytes written
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 guint
-ags_midi_buffer_util_decode(unsigned char *buffer,
+ags_midi_buffer_util_decode(guchar *buffer,
 			    snd_seq_event_t *event)
 {
   guint count;
@@ -2640,7 +2968,7 @@ ags_midi_buffer_util_decode(unsigned char *buffer,
   switch(event->type){
   case SND_SEQ_EVENT_NOTEON:
     {    
-      unsigned char tmp[8];
+      guchar tmp[8];
       
       ags_midi_buffer_util_put_key_on(tmp,
 				      0,
@@ -2649,14 +2977,14 @@ ags_midi_buffer_util_decode(unsigned char *buffer,
 				      event->data.note.velocity);
 
       count = ags_midi_buffer_util_get_varlength_size(0);      
-      memcpy(buffer, tmp + count, 3 * sizeof(unsigned char));
+      memcpy(buffer, tmp + count, 3 * sizeof(guchar));
       
       count = 3;
     }
     break;
   case SND_SEQ_EVENT_NOTEOFF:
     {
-      unsigned char tmp[8];
+      guchar tmp[8];
 
       ags_midi_buffer_util_put_key_off(tmp,
 				       0,
@@ -2665,7 +2993,7 @@ ags_midi_buffer_util_decode(unsigned char *buffer,
 				       event->data.note.velocity);
 
       count = ags_midi_buffer_util_get_varlength_size(0);
-      memcpy(buffer, tmp + count, 3 * sizeof(unsigned char));
+      memcpy(buffer, tmp + count, 3 * sizeof(guchar));
       
       count = 3;      
     }

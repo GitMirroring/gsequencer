@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -23,11 +23,11 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include <pthread.h>
-
 #include <ags/libags.h>
 
 #include <ags/audio/ags_sound_enums.h>
+
+G_BEGIN_DECLS
 
 #define AGS_TYPE_PLAYBACK_DOMAIN                (ags_playback_domain_get_type())
 #define AGS_PLAYBACK_DOMAIN(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_PLAYBACK_DOMAIN, AgsPlaybackDomain))
@@ -36,14 +36,13 @@
 #define AGS_IS_PLAYBACK_DOMAIN_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE ((class), AGS_TYPE_PLAYBACK_DOMAIN))
 #define AGS_PLAYBACK_DOMAIN_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS(obj, AGS_TYPE_PLAYBACK_DOMAIN, AgsPlaybackDomainClass))
 
-#define AGS_PLAYBACK_DOMAIN_GET_OBJ_MUTEX(obj) (((AgsPlaybackDomain *) obj)->obj_mutex)
+#define AGS_PLAYBACK_DOMAIN_GET_OBJ_MUTEX(obj) (&(((AgsPlaybackDomain *) obj)->obj_mutex))
 
 typedef struct _AgsPlaybackDomain AgsPlaybackDomain;
 typedef struct _AgsPlaybackDomainClass AgsPlaybackDomainClass;
 
 /**
  * AgsPlaybackDomainFlags:
- * @AGS_PLAYBACK_DOMAIN_CONNECTED: indicates the playback domain was connected by calling #AgsConnectable::connect()
  * @AGS_PLAYBACK_DOMAIN_SINGLE_THREADED: single threaded
  * @AGS_PLAYBACK_DOMAIN_SUPER_THREADED_AUDIO: super threaded audio
  * 
@@ -51,9 +50,8 @@ typedef struct _AgsPlaybackDomainClass AgsPlaybackDomainClass;
  * enable/disable as flags.
  */
 typedef enum{
-  AGS_PLAYBACK_DOMAIN_CONNECTED                  = 1,
-  AGS_PLAYBACK_DOMAIN_SINGLE_THREADED            = 1 <<  1,
-  AGS_PLAYBACK_DOMAIN_SUPER_THREADED_AUDIO       = 1 <<  2,
+  AGS_PLAYBACK_DOMAIN_SINGLE_THREADED            = 1,
+  AGS_PLAYBACK_DOMAIN_SUPER_THREADED_AUDIO       = 1 <<  1,
 }AgsPlaybackDomainFlags;
 
 struct _AgsPlaybackDomain
@@ -61,9 +59,9 @@ struct _AgsPlaybackDomain
   GObject gobject;
 
   guint flags;
+  guint connectable_flags;
   
-  pthread_mutex_t *obj_mutex;
-  pthread_mutexattr_t *obj_mutexattr;
+  GRecMutex obj_mutex;
 
   GObject *audio;
 
@@ -80,8 +78,6 @@ struct _AgsPlaybackDomainClass
 
 GType ags_playback_domain_get_type();
 
-pthread_mutex_t* ags_playback_domain_get_class_mutex();
-
 gboolean ags_playback_domain_test_flags(AgsPlaybackDomain *playback_domain, guint flags);
 void ags_playback_domain_set_flags(AgsPlaybackDomain *playback_domain, guint flags);
 void ags_playback_domain_unset_flags(AgsPlaybackDomain *playback_domain, guint flags);
@@ -96,10 +92,15 @@ AgsThread* ags_playback_domain_get_audio_thread(AgsPlaybackDomain *playback_doma
 /* add and remove */
 void ags_playback_domain_add_playback(AgsPlaybackDomain *playback_domain,
 				      GObject *playback, GType channel_type);
+void ags_playback_domain_insert_playback(AgsPlaybackDomain *playback_domain,
+					 GObject *playback, GType channel_type,
+					 gint position);
 void ags_playback_domain_remove_playback(AgsPlaybackDomain *playback_domain,
 					 GObject *playback, GType channel_type);
 
 /* instance */
 AgsPlaybackDomain* ags_playback_domain_new(GObject *audio);
+
+G_END_DECLS
 
 #endif /*__AGS_PLAYBACK_DOMAIN_H__*/

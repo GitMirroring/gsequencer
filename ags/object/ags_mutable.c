@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2015 Joël Krähemann
+ * Copyright (C) 2005-2019 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -64,20 +64,20 @@ ags_mutable_base_init(AgsMutableInterface *ginterface)
 
 /**
  * ags_mutable_set_muted:
- * @mutable: an #AgsMutable
+ * @agsmutable: an #AgsMutable
  * @muted: if %TRUE then muted, else playing
  *
  * Mute a class instance.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
-ags_mutable_set_muted(AgsMutable *mutable, gboolean muted)
+ags_mutable_set_muted(AgsMutable *agsmutable, gboolean muted)
 {
   AgsMutableInterface *mutable_interface;
 
-  g_return_if_fail(AGS_IS_MUTABLE(mutable));
-  mutable_interface = AGS_MUTABLE_GET_INTERFACE(mutable);
+  g_return_if_fail(AGS_IS_MUTABLE(agsmutable));
+  mutable_interface = AGS_MUTABLE_GET_INTERFACE(agsmutable);
   g_return_if_fail(mutable_interface->set_muted);
-  mutable_interface->set_muted(mutable, muted);
+  mutable_interface->set_muted(agsmutable, muted);
 }

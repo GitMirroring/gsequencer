@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2018 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -20,41 +20,26 @@
 #ifndef __AGS_REGISTRY_H__
 #define __AGS_REGISTRY_H__
 
-#include <pthread.h>
-
 #include <glib.h>
 #include <glib-object.h>
 
-#ifdef AGS_WITH_XMLRPC_C
-#include <xmlrpc.h>
-#include <xmlrpc_server.h>
-#endif
-
 #include <ags/lib/ags_uuid.h>
 
+G_BEGIN_DECLS
+
 #define AGS_TYPE_REGISTRY                (ags_registry_get_type())
+#define AGS_TYPE_REGISTRY_FLAGS          (ags_registry_flags_get_type())
 #define AGS_REGISTRY(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_REGISTRY, AgsRegistry))
 #define AGS_REGISTRY_CLASS(class)        (G_TYPE_CHECK_CLASS_CAST(class, AGS_TYPE_REGISTRY, AgsRegistryClass))
 #define AGS_IS_REGISTRY(obj)             (G_TYPE_CHECK_INSTANCE_TYPE ((obj), AGS_TYPE_REGISTRY))
 #define AGS_IS_REGISTRY_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE ((class), AGS_TYPE_REGISTRY))
 #define AGS_REGISTRY_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS(obj, AGS_TYPE_REGISTRY, AgsRegistryClass))
 
+#define AGS_REGISTRY_GET_OBJ_MUTEX(obj) (&(((AgsRegistry *) obj)->obj_mutex))
+
 typedef struct _AgsRegistry AgsRegistry;
 typedef struct _AgsRegistryClass AgsRegistryClass;
 typedef struct _AgsRegistryEntry AgsRegistryEntry;
-
-/**
- * AgsRegistryFlags:
- * @AGS_REGISTRY_ADDED_TO_REGISTRY: the registry was added to registry, see #AgsConnectable::add_to_registry()
- * @AGS_REGISTRY_CONNECTED: the registry was connected by #AgsConnectable::connect()
- *
- * Enum values to control the behavior or indicate internal state of #AgsRegistry by
- * enable/disable as flags.
- */
-typedef enum{
-  AGS_REGISTRY_ADDED_TO_REGISTRY   = 1,
-  AGS_REGISTRY_CONNECTED           = 1 <<  1,
-}AgsRegistryFlags;
 
 struct _AgsRegistry
 {
@@ -62,14 +47,7 @@ struct _AgsRegistry
 
   guint flags;
 
-  pthread_mutex_t *mutex;
-  pthread_mutexattr_t *mutexattr;
-
-#ifdef AGS_WITH_XMLRPC_C
-  xmlrpc_registry *registry;
-#else
-  gpointer registry;
-#endif
+  GRecMutex obj_mutex;
   
   GObject *server;
 
@@ -108,5 +86,7 @@ AgsRegistryEntry* ags_registry_find_entry(AgsRegistry *registry,
 					  AgsUUID *id);
 
 AgsRegistry* ags_registry_new();
+
+G_END_DECLS
 
 #endif /*__AGS_REGISTRY_H__*/

@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2018 Joël Krähemann
+ * Copyright (C) 2005-2021 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -23,18 +23,19 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#ifdef AGS_USE_LINUX_THREADS
-#include <ags/thread/ags_thread-kthreads.h>
-#else
-#include <ags/thread/ags_thread-posix.h>
-#endif 
+#include <ags/thread/ags_thread.h>
+
+G_BEGIN_DECLS
 
 #define AGS_TYPE_RETURNABLE_THREAD                (ags_returnable_thread_get_type())
+#define AGS_TYPE_RETURNABLE_THREAD_FLAGS          (ags_returnable_thread_flags_get_type())
 #define AGS_RETURNABLE_THREAD(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_RETURNABLE_THREAD, AgsReturnableThread))
 #define AGS_RETURNABLE_THREAD_CLASS(class)        (G_TYPE_CHECK_CLASS_CAST(class, AGS_TYPE_RETURNABLE_THREAD, AgsReturnableThreadClass))
 #define AGS_IS_RETURNABLE_THREAD(obj)             (G_TYPE_CHECK_INSTANCE_TYPE ((obj), AGS_TYPE_RETURNABLE_THREAD))
 #define AGS_IS_RETURNABLE_THREAD_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE ((class), AGS_TYPE_RETURNABLE_THREAD))
 #define AGS_RETURNABLE_THREAD_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS(obj, AGS_TYPE_RETURNABLE_THREAD, AgsReturnableThreadClass))
+
+#define AGS_RETURNABLE_THREAD_GET_RESET_MUTEX(obj) (&(((AgsReturnableThread *) obj)->reset_mutex))
 
 #define AGS_RETURNABLE_THREAD_DEFAULT_JIFFIE (AGS_THREAD_DEFAULT_MAX_PRECISION)
 
@@ -66,7 +67,7 @@ struct _AgsReturnableThread
 
   GObject *thread_pool;
   
-  pthread_mutex_t *reset_mutex;
+  GRecMutex reset_mutex;
   volatile void *safe_data;
 
   gulong handler;
@@ -80,6 +81,7 @@ struct _AgsReturnableThreadClass
 };
 
 GType ags_returnable_thread_get_type();
+GType ags_returnable_thread_flags_get_type();
 
 gboolean ags_returnable_thread_test_flags(AgsReturnableThread *returnable_thread, guint flags);
 void ags_returnable_thread_set_flags(AgsReturnableThread *returnable_thread, guint flags);
@@ -91,5 +93,7 @@ void ags_returnable_thread_connect_safe_run(AgsReturnableThread *returnable_thre
 void ags_returnable_thread_disconnect_safe_run(AgsReturnableThread *returnable_thread);
 
 AgsReturnableThread* ags_returnable_thread_new(GObject *thread_pool);
+
+G_END_DECLS
 
 #endif /*__AGS_RETURNABLE_THREAD_H__*/

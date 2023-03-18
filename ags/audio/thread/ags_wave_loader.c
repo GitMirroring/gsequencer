@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -18,8 +18,6 @@
  */
 
 #include <ags/audio/thread/ags_wave_loader.h>
-
-#include <ags/libags.h>
 
 #include <ags/audio/ags_input.h>
 #include <ags/audio/ags_wave.h>
@@ -61,8 +59,6 @@ enum{
 };
 
 static gpointer ags_wave_loader_parent_class = NULL;
-
-static pthread_mutex_t ags_wave_loader_class_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 GType
 ags_wave_loader_get_type()
@@ -119,7 +115,7 @@ ags_wave_loader_class_init(AgsWaveLoaderClass *wave_loader)
    *
    * The assigned audio.
    * 
-   * Since: 2.0.13
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_object("audio",
 				   i18n_pspec("audio"),
@@ -135,7 +131,7 @@ ags_wave_loader_class_init(AgsWaveLoaderClass *wave_loader)
    *
    * The filename to open.
    * 
-   * Since: 2.0.13
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_string("filename",
 				   i18n_pspec("filename"),
@@ -151,7 +147,7 @@ ags_wave_loader_class_init(AgsWaveLoaderClass *wave_loader)
    *
    * The audio file opened.
    * 
-   * Since: 2.0.13
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_object("audio-file",
 				   i18n_pspec("audio file"),
@@ -166,30 +162,14 @@ ags_wave_loader_class_init(AgsWaveLoaderClass *wave_loader)
 void
 ags_wave_loader_init(AgsWaveLoader *wave_loader)
 {
-  pthread_mutex_t *mutex;
-  pthread_mutexattr_t *attr;
-
   wave_loader->flags = 0;
+  wave_loader->connectable_flags = 0;
 
   /* add base plugin mutex */
-  wave_loader->obj_mutexattr = 
-    attr = (pthread_mutexattr_t *) malloc(sizeof(pthread_mutexattr_t));
-  pthread_mutexattr_init(attr);
-  pthread_mutexattr_settype(attr,
-			    PTHREAD_MUTEX_RECURSIVE);
-
-#ifdef __linux__
-  pthread_mutexattr_setprotocol(attr,
-				PTHREAD_PRIO_INHERIT);
-#endif
-
-  wave_loader->obj_mutex = 
-    mutex = (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t));
-  pthread_mutex_init(mutex,
-		     attr);
+  g_rec_mutex_init(&(wave_loader->obj_mutex));
 
   /* fields */
-  wave_loader->thread = (pthread_t *) malloc(sizeof(pthread_t));
+  wave_loader->thread = NULL;
   
   wave_loader->audio = NULL;
 
@@ -206,7 +186,7 @@ ags_wave_loader_set_property(GObject *gobject,
 {
   AgsWaveLoader *wave_loader;
 
-  pthread_mutex_t *wave_loader_mutex;
+  GRecMutex *wave_loader_mutex;
 
   wave_loader = AGS_WAVE_LOADER(gobject);
 
@@ -215,82 +195,82 @@ ags_wave_loader_set_property(GObject *gobject,
 
   switch(prop_id){
   case PROP_AUDIO:
-    {
-      AgsAudio *audio;
+  {
+    AgsAudio *audio;
 
-      audio = g_value_get_object(value);
+    audio = g_value_get_object(value);
       
-      pthread_mutex_lock(wave_loader_mutex);
+    g_rec_mutex_lock(wave_loader_mutex);
 
-      if(wave_loader->audio == audio){
-	pthread_mutex_unlock(wave_loader_mutex);
+    if(wave_loader->audio == audio){
+      g_rec_mutex_unlock(wave_loader_mutex);
 
-	return;
-      }
-
-      if(wave_loader->audio != NULL){
-	g_object_unref(wave_loader->audio);
-      }
-
-      if(audio != NULL){
-	g_object_ref(audio);
-      }
-
-      wave_loader->audio = audio;
-      
-      pthread_mutex_unlock(wave_loader_mutex);
+      return;
     }
-    break;
+
+    if(wave_loader->audio != NULL){
+      g_object_unref(wave_loader->audio);
+    }
+
+    if(audio != NULL){
+      g_object_ref(audio);
+    }
+
+    wave_loader->audio = audio;
+      
+    g_rec_mutex_unlock(wave_loader_mutex);
+  }
+  break;
   case PROP_FILENAME:
-    {
-      gchar *filename;
+  {
+    gchar *filename;
 
-      filename = g_value_get_string(value);
+    filename = g_value_get_string(value);
       
-      pthread_mutex_lock(wave_loader_mutex);
+    g_rec_mutex_lock(wave_loader_mutex);
 
-      if(wave_loader->filename == filename){
-	pthread_mutex_unlock(wave_loader_mutex);
+    if(wave_loader->filename == filename){
+      g_rec_mutex_unlock(wave_loader_mutex);
 
-	return;
-      }
-
-      if(wave_loader->filename != NULL){
-	g_free(wave_loader->filename);
-      }
-
-      wave_loader->filename = g_strdup(filename);
-      
-      pthread_mutex_unlock(wave_loader_mutex);
+      return;
     }
-    break;
+
+    if(wave_loader->filename != NULL){
+      g_free(wave_loader->filename);
+    }
+
+    wave_loader->filename = g_strdup(filename);
+      
+    g_rec_mutex_unlock(wave_loader_mutex);
+  }
+  break;
   case PROP_AUDIO_FILE:
-    {
-      AgsAudioFile *audio_file;
+  {
+    AgsAudioFile *audio_file;
 
-      audio_file = g_value_get_object(value);
+    audio_file = g_value_get_object(value);
       
-      pthread_mutex_lock(wave_loader_mutex);
+    g_rec_mutex_lock(wave_loader_mutex);
 
-      if(wave_loader->audio_file == audio_file){
-	pthread_mutex_unlock(wave_loader_mutex);
+    if(wave_loader->audio_file == audio_file){
+      g_rec_mutex_unlock(wave_loader_mutex);
 
-	return;
-      }
-
-      if(wave_loader->audio_file != NULL){
-	g_object_unref(wave_loader->audio_file);
-      }
-
-      if(audio_file != NULL){
-	g_object_ref(audio_file);
-      }
-
-      wave_loader->audio_file = audio_file;
-      
-      pthread_mutex_unlock(wave_loader_mutex);
+      return;
     }
-    break;
+
+    if(wave_loader->audio_file != NULL){
+      g_object_unref(wave_loader->audio_file);
+    }
+
+    if(audio_file != NULL){
+      g_object_ref(audio_file);
+    }
+
+    wave_loader->audio_file = audio_file;
+      
+    g_rec_mutex_unlock(wave_loader_mutex);
+  }
+  break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(gobject, prop_id, param_spec);
     break;
@@ -305,7 +285,7 @@ ags_wave_loader_get_property(GObject *gobject,
 {
   AgsWaveLoader *wave_loader;
 
-  pthread_mutex_t *wave_loader_mutex;
+  GRecMutex *wave_loader_mutex;
 
   wave_loader = AGS_WAVE_LOADER(gobject);
 
@@ -314,32 +294,32 @@ ags_wave_loader_get_property(GObject *gobject,
 
   switch(prop_id){
   case PROP_AUDIO:
-    {
-      pthread_mutex_lock(wave_loader_mutex);
+  {
+    g_rec_mutex_lock(wave_loader_mutex);
       
-      g_value_set_object(value, wave_loader->audio);
+    g_value_set_object(value, wave_loader->audio);
 
-      pthread_mutex_unlock(wave_loader_mutex);
-    }
-    break;
+    g_rec_mutex_unlock(wave_loader_mutex);
+  }
+  break;
   case PROP_FILENAME:
-    {
-      pthread_mutex_lock(wave_loader_mutex);
+  {
+    g_rec_mutex_lock(wave_loader_mutex);
       
-      g_value_set_string(value, wave_loader->filename);
+    g_value_set_string(value, wave_loader->filename);
 
-      pthread_mutex_unlock(wave_loader_mutex);
-    }
-    break;
+    g_rec_mutex_unlock(wave_loader_mutex);
+  }
+  break;
   case PROP_AUDIO_FILE:
-    {
-      pthread_mutex_lock(wave_loader_mutex);
+  {
+    g_rec_mutex_lock(wave_loader_mutex);
       
-      g_value_set_object(value, wave_loader->audio_file);
+    g_value_set_object(value, wave_loader->audio_file);
 
-      pthread_mutex_unlock(wave_loader_mutex);
-    }
-    break;
+    g_rec_mutex_unlock(wave_loader_mutex);
+  }
+  break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(gobject, prop_id, param_spec);
     break;
@@ -377,12 +357,6 @@ ags_wave_loader_finalize(GObject *gobject)
   wave_loader = AGS_WAVE_LOADER(gobject);
   
   /* destroy object mutex */
-  pthread_mutex_destroy(wave_loader->obj_mutex);
-  free(wave_loader->obj_mutex);
-
-  pthread_mutexattr_destroy(wave_loader->obj_mutexattr);
-  free(wave_loader->obj_mutexattr);
-
   if(wave_loader->audio != NULL){
     g_object_unref(wave_loader->audio);
   }
@@ -398,21 +372,6 @@ ags_wave_loader_finalize(GObject *gobject)
 }
 
 /**
- * ags_wave_loader_get_class_mutex:
- * 
- * Use this function's returned mutex to access mutex fields.
- *
- * Returns: the class mutex
- * 
- * Since: 2.0.13
- */
-pthread_mutex_t*
-ags_wave_loader_get_class_mutex()
-{
-  return(&ags_wave_loader_class_mutex);
-}
-
-/**
  * ags_wave_loader_test_flags:
  * @wave_loader: the #AgsWaveLoader
  * @flags: the flags
@@ -421,14 +380,14 @@ ags_wave_loader_get_class_mutex()
  * 
  * Returns: %TRUE if flags are set, else %FALSE
  * 
- * Since: 2.0.13
+ * Since: 3.0.0
  */
 gboolean
 ags_wave_loader_test_flags(AgsWaveLoader *wave_loader, guint flags)
 {
   gboolean retval;
   
-  pthread_mutex_t *wave_loader_mutex;
+  GRecMutex *wave_loader_mutex;
 
   if(!AGS_IS_WAVE_LOADER(wave_loader)){
     return(FALSE);
@@ -438,11 +397,11 @@ ags_wave_loader_test_flags(AgsWaveLoader *wave_loader, guint flags)
   wave_loader_mutex = AGS_WAVE_LOADER_GET_OBJ_MUTEX(wave_loader);
 
   /* test flags */
-  pthread_mutex_lock(wave_loader_mutex);
+  g_rec_mutex_lock(wave_loader_mutex);
 
   retval = ((flags & (wave_loader->flags)) != 0) ? TRUE: FALSE;
   
-  pthread_mutex_unlock(wave_loader_mutex);
+  g_rec_mutex_unlock(wave_loader_mutex);
 
   return(retval);
 }
@@ -454,12 +413,12 @@ ags_wave_loader_test_flags(AgsWaveLoader *wave_loader, guint flags)
  *
  * Set flags.
  * 
- * Since: 2.0.13
+ * Since: 3.0.0
  */
 void
 ags_wave_loader_set_flags(AgsWaveLoader *wave_loader, guint flags)
 {
-  pthread_mutex_t *wave_loader_mutex;
+  GRecMutex *wave_loader_mutex;
 
   if(!AGS_IS_WAVE_LOADER(wave_loader)){
     return;
@@ -469,11 +428,11 @@ ags_wave_loader_set_flags(AgsWaveLoader *wave_loader, guint flags)
   wave_loader_mutex = AGS_WAVE_LOADER_GET_OBJ_MUTEX(wave_loader);
 
   /* set flags */
-  pthread_mutex_lock(wave_loader_mutex);
+  g_rec_mutex_lock(wave_loader_mutex);
 
   wave_loader->flags |= flags;
   
-  pthread_mutex_unlock(wave_loader_mutex);
+  g_rec_mutex_unlock(wave_loader_mutex);
 }
 
 /**
@@ -483,12 +442,12 @@ ags_wave_loader_set_flags(AgsWaveLoader *wave_loader, guint flags)
  *
  * Unset flags.
  * 
- * Since: 2.0.13
+ * Since: 3.0.0
  */
 void
 ags_wave_loader_unset_flags(AgsWaveLoader *wave_loader, guint flags)
 {
-  pthread_mutex_t *wave_loader_mutex;
+  GRecMutex *wave_loader_mutex;
 
   if(!AGS_IS_WAVE_LOADER(wave_loader)){
     return;
@@ -498,11 +457,11 @@ ags_wave_loader_unset_flags(AgsWaveLoader *wave_loader, guint flags)
   wave_loader_mutex = AGS_WAVE_LOADER_GET_OBJ_MUTEX(wave_loader);
 
   /* unset flags */
-  pthread_mutex_lock(wave_loader_mutex);
+  g_rec_mutex_lock(wave_loader_mutex);
 
   wave_loader->flags &= (~flags);
   
-  pthread_mutex_unlock(wave_loader_mutex);
+  g_rec_mutex_unlock(wave_loader_mutex);
 }
 
 void*
@@ -522,8 +481,6 @@ ags_wave_loader_run(void *ptr)
   g_object_get(wave_loader->audio,
 	       "output-soundcard", &output_soundcard,
 	       NULL);
-
-  g_object_unref(output_soundcard);
   
   wave_loader->audio_file = ags_audio_file_new(wave_loader->filename,
 					       output_soundcard,
@@ -556,7 +513,6 @@ ags_wave_loader_run(void *ptr)
   g_object_get(wave_loader->audio,
 	       "input-pads", &n_pads,
 	       "audio-channels", &n_audio_channels,
-	       "output-soundcard", &output_soundcard,
 	       NULL);
 
   ags_sound_resource_get_presets(AGS_SOUND_RESOURCE(wave_loader->audio_file->sound_resource),
@@ -613,16 +569,170 @@ ags_wave_loader_run(void *ptr)
     g_list_free(start_wave);
   }
   
+  if(output_soundcard != NULL){
+    g_object_unref(output_soundcard);
+  }
+  
   ags_wave_loader_set_flags(wave_loader,
 			    AGS_WAVE_LOADER_HAS_COMPLETED);
   
-  pthread_exit(NULL);
+  g_thread_exit(NULL);
 
-#ifdef AGS_W32API
   return(NULL);
-#endif  
 }
 
+/**
+ * ags_wave_loader_get_audio:
+ * @wave_loader: the #AgsWaveLoader
+ * 
+ * Get audio of @wave_loader.
+ * 
+ * Returns: (transfer full): the assigned #AgsAudio
+ * 
+ * Since: 3.2.0
+ */
+AgsAudio*
+ags_wave_loader_get_audio(AgsWaveLoader *wave_loader)
+{
+  AgsAudio *audio;
+
+  if(!AGS_IS_WAVE_LOADER(wave_loader)){
+    return(NULL);
+  }
+
+  g_object_get(wave_loader,
+	       "audio", &audio,
+	       NULL);
+
+  return(audio);
+}
+
+/**
+ * ags_wave_loader_set_audio:
+ * @wave_loader: the #AgsWaveLoader
+ * @audio: the #AgsAudio
+ * 
+ * Set audio of @wave_loader.
+ * 
+ * Since: 3.2.0
+ */
+void
+ags_wave_loader_set_audio(AgsWaveLoader *wave_loader,
+			  AgsAudio *audio)
+{
+  if(!AGS_IS_WAVE_LOADER(wave_loader)){
+    return;
+  }
+
+  g_object_set(wave_loader,
+	       "audio", audio,
+	       NULL);
+}
+
+/**
+ * ags_wave_loader_get_filename:
+ * @wave_loader: the #AgsWaveLoader
+ * 
+ * Get filename of @wave_loader.
+ * 
+ * Returns: the assigned filename
+ * 
+ * Since: 3.2.0
+ */
+gchar*
+ags_wave_loader_get_filename(AgsWaveLoader *wave_loader)
+{
+  gchar *filename;
+  
+  if(!AGS_IS_WAVE_LOADER(wave_loader)){
+    return(NULL);
+  }
+
+  g_object_get(wave_loader,
+	       "filename", &filename,
+	       NULL);
+
+  return(filename);
+}
+
+/**
+ * ags_wave_loader_set_filename:
+ * @wave_loader: the #AgsWaveLoader
+ * @filename: the filename
+ * 
+ * Set filename of @wave_loader.
+ * 
+ * Since: 3.2.0
+ */
+void
+ags_wave_loader_set_filename(AgsWaveLoader *wave_loader,
+			     gchar *filename)
+{
+  if(!AGS_IS_WAVE_LOADER(wave_loader)){
+    return;
+  }
+
+  g_object_set(wave_loader,
+	       "filename", filename,
+	       NULL);
+}
+
+/**
+ * ags_wave_loader_get_audio_file:
+ * @wave_loader: the #AgsWaveLoader
+ * 
+ * Get audio file of @wave_loader.
+ * 
+ * Returns: (transfer full): the assigned #AgsAudioFile
+ * 
+ * Since: 3.2.0
+ */
+AgsAudioFile*
+ags_wave_loader_get_audio_file(AgsWaveLoader *wave_loader)
+{
+  AgsAudioFile *audio_file;
+  
+  if(!AGS_IS_WAVE_LOADER(wave_loader)){
+    return(NULL);
+  }
+
+  g_object_get(wave_loader,
+	       "audio-file", &audio_file,
+	       NULL);
+
+  return(audio_file);
+}
+
+/**
+ * ags_wave_loader_set_audio_file:
+ * @wave_loader: the #AgsWaveLoader
+ * @audio_file: the #AgsAudioFile
+ * 
+ * Set audio file of @wave_loader.
+ * 
+ * Since: 3.2.0
+ */
+void
+ags_wave_loader_set_audio_file(AgsWaveLoader *wave_loader,
+			       AgsAudioFile *audio_file)
+{
+  if(!AGS_IS_WAVE_LOADER(wave_loader)){
+    return;
+  }
+
+  g_object_set(wave_loader,
+	       "audio-file", audio_file,
+	       NULL);
+}
+
+/**
+ * ags_wave_loader_start:
+ * @wave_loader: the #AgsWaveLoader
+ * 
+ * Start @wave_loader.
+ * 
+ * Since: 3.0.0
+ */
 void
 ags_wave_loader_start(AgsWaveLoader *wave_loader)
 {
@@ -630,10 +740,10 @@ ags_wave_loader_start(AgsWaveLoader *wave_loader)
     return;
   }
   
-  pthread_create(wave_loader->thread, NULL,
-		 ags_wave_loader_run, wave_loader);
+  wave_loader->thread = g_thread_new("Advanced Gtk+ Sequencer - SFZ loader",
+				     ags_wave_loader_run,
+				     wave_loader);
 }
-
 
 /**
  * ags_wave_loader_new:
@@ -645,7 +755,7 @@ ags_wave_loader_start(AgsWaveLoader *wave_loader)
  *
  * Returns: the new #AgsWaveLoader
  *
- * Since: 2.0.13
+ * Since: 3.0.0
  */ 
 AgsWaveLoader*
 ags_wave_loader_new(AgsAudio *audio,

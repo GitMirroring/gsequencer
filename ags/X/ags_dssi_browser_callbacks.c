@@ -45,8 +45,8 @@ ags_dssi_browser_plugin_filename_callback(GtkComboBoxText *combo_box,
 
   gchar *str;
   
-  pthread_mutex_t *dssi_manager_mutex;
-  pthread_mutex_t *base_plugin_mutex;
+  GRecMutex *dssi_manager_mutex;
+  GRecMutex *base_plugin_mutex;
 
   filename = GTK_COMBO_BOX_TEXT(dssi_browser->filename);
   effect = GTK_COMBO_BOX_TEXT(dssi_browser->effect);
@@ -56,19 +56,15 @@ ags_dssi_browser_plugin_filename_callback(GtkComboBoxText *combo_box,
   dssi_manager = ags_dssi_manager_get_instance();
 
   /* get dssi manager mutex */
-  pthread_mutex_lock(ags_dssi_manager_get_class_mutex());
-  
-  dssi_manager_mutex = dssi_manager->obj_mutex;
-  
-  pthread_mutex_unlock(ags_dssi_manager_get_class_mutex());
+  dssi_manager_mutex = AGS_DSSI_MANAGER_GET_OBJ_MUTEX(dssi_manager);
 
   /* get dssi plugin */
-  pthread_mutex_lock(dssi_manager_mutex);
+  g_rec_mutex_lock(dssi_manager_mutex);
 
   list =
     start_list = g_list_copy(dssi_manager->dssi_plugin);
 
-  pthread_mutex_unlock(dssi_manager_mutex);
+  g_rec_mutex_unlock(dssi_manager_mutex);
 
   str = gtk_combo_box_text_get_active_text(filename);
   
@@ -78,18 +74,14 @@ ags_dssi_browser_plugin_filename_callback(GtkComboBoxText *combo_box,
     dssi_plugin = list->data;
 
     /* get base plugin mutex */
-    pthread_mutex_lock(ags_base_plugin_get_class_mutex());
-  
-    base_plugin_mutex = AGS_BASE_PLUGIN(dssi_plugin)->obj_mutex;
-    
-    pthread_mutex_unlock(ags_base_plugin_get_class_mutex());
+    base_plugin_mutex = AGS_BASE_PLUGIN_GET_OBJ_MUTEX(dssi_plugin);
 
     /* set effect */
-    pthread_mutex_lock(base_plugin_mutex);
+    g_rec_mutex_lock(base_plugin_mutex);
 
     str = g_strdup(AGS_BASE_PLUGIN(dssi_plugin)->effect);
 
-    pthread_mutex_unlock(base_plugin_mutex);
+    g_rec_mutex_unlock(base_plugin_mutex);
     
     if(str != NULL){
       gtk_combo_box_text_append_text(effect,
@@ -130,7 +122,7 @@ ags_dssi_browser_plugin_effect_callback(GtkComboBoxText *combo_box,
   DSSI_Descriptor *plugin_descriptor;
   LADSPA_PortDescriptor *port_descriptor;
 
-  pthread_mutex_t *base_plugin_mutex;
+  GRecMutex *base_plugin_mutex;
 
   /* retrieve filename and effect */
   filename = GTK_COMBO_BOX_TEXT(dssi_browser->filename);
@@ -148,14 +140,10 @@ ags_dssi_browser_plugin_effect_callback(GtkComboBoxText *combo_box,
   /* update description */
   if(plugin_so){
     /* get base plugin mutex */
-    pthread_mutex_lock(ags_base_plugin_get_class_mutex());
-  
-    base_plugin_mutex = AGS_BASE_PLUGIN(dssi_plugin)->obj_mutex;
-    
-    pthread_mutex_unlock(ags_base_plugin_get_class_mutex());
+    base_plugin_mutex = AGS_BASE_PLUGIN_GET_OBJ_MUTEX(dssi_plugin);
 
     /* plugin and port descriptor */
-    pthread_mutex_lock(base_plugin_mutex);
+    g_rec_mutex_lock(base_plugin_mutex);
 
     plugin_descriptor = AGS_DSSI_PLUGIN_DESCRIPTOR(AGS_BASE_PLUGIN(dssi_plugin)->plugin_descriptor);
 
@@ -233,7 +221,7 @@ ags_dssi_browser_plugin_effect_callback(GtkComboBoxText *combo_box,
       y++;
     }
 
-    pthread_mutex_unlock(base_plugin_mutex);
+    g_rec_mutex_unlock(base_plugin_mutex);
 
     gtk_widget_show_all((GtkWidget *) table);
   }else{

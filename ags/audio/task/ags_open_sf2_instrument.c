@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2020 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -129,7 +129,7 @@ ags_open_sf2_instrument_class_init(AgsOpenSf2InstrumentClass *open_sf2_instrumen
    *
    * The assigned #AgsAudio
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_object("audio",
 				   i18n_pspec("audio of open sf2 instrument"),
@@ -145,7 +145,7 @@ ags_open_sf2_instrument_class_init(AgsOpenSf2InstrumentClass *open_sf2_instrumen
    *
    * The assigned #AgsIpatch
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_object("ipatch",
 				   i18n_pspec("ipatch object"),
@@ -161,7 +161,7 @@ ags_open_sf2_instrument_class_init(AgsOpenSf2InstrumentClass *open_sf2_instrumen
    *
    * The assigned filename.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_string("filename",
 				   i18n_pspec("the filename"),
@@ -177,7 +177,7 @@ ags_open_sf2_instrument_class_init(AgsOpenSf2InstrumentClass *open_sf2_instrumen
    *
    * The assigned preset.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_string("preset",
 				   i18n_pspec("the preset"),
@@ -193,7 +193,7 @@ ags_open_sf2_instrument_class_init(AgsOpenSf2InstrumentClass *open_sf2_instrumen
    *
    * The assigned instrument.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_string("instrument",
 				   i18n_pspec("the instrument"),
@@ -209,7 +209,7 @@ ags_open_sf2_instrument_class_init(AgsOpenSf2InstrumentClass *open_sf2_instrumen
    *
    * The assigned start-pad.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("start-pad",
 				 i18n_pspec("the start pad"),
@@ -233,7 +233,7 @@ ags_open_sf2_instrument_init(AgsOpenSf2Instrument *open_sf2_instrument)
 {
   open_sf2_instrument->audio = NULL;
 
-  open_sf2_instrument->instrument = NULL;
+  open_sf2_instrument->ipatch = NULL;
 
   open_sf2_instrument->filename = NULL;
 
@@ -475,6 +475,9 @@ ags_open_sf2_instrument_launch(AgsTask *task)
   
   open_sf2_instrument = (AgsOpenSf2Instrument *) task;
 
+  g_return_if_fail(AGS_IS_AUDIO(open_sf2_instrument->audio));
+  g_return_if_fail(AGS_IS_IPATCH(open_sf2_instrument->ipatch));
+  
   audio = open_sf2_instrument->audio;
 
   ipatch = open_sf2_instrument->ipatch;
@@ -589,10 +592,6 @@ ags_open_sf2_instrument_launch(AgsTask *task)
 	
 	/* replace template audio signal */
 	AGS_AUDIO_SIGNAL(audio_signal->data)->flags |= AGS_AUDIO_SIGNAL_TEMPLATE;
-	g_object_set(AGS_AUDIO_SIGNAL(audio_signal->data),
-		     "recycling", recycling,
-		     NULL);
-
 	ags_recycling_add_audio_signal(recycling,
 				       audio_signal->data);
 	
@@ -648,7 +647,7 @@ ags_open_sf2_instrument_launch(AgsTask *task)
  *
  * Returns: an new #AgsOpenSf2Instrument.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 AgsOpenSf2Instrument*
 ags_open_sf2_instrument_new(AgsAudio *audio,

@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -19,11 +19,10 @@
 
 #include <ags/audio/ags_audio_signal.h>
 
-#include <ags/libags.h>
-
 #include <ags/audio/ags_recycling.h>
 #include <ags/audio/ags_recall_id.h>
 #include <ags/audio/ags_audio_buffer_util.h>
+#include <ags/audio/ags_resample_util.h>
 #include <ags/audio/ags_note.h>
 
 #include <libxml/tree.h>
@@ -65,6 +64,10 @@ gboolean ags_audio_signal_is_connected(AgsConnectable *connectable);
 void ags_audio_signal_connect(AgsConnectable *connectable);
 void ags_audio_signal_disconnect(AgsConnectable *connectable);
 
+void ags_audio_signal_real_set_output_soundcard(AgsAudioSignal *audio_signal, GObject *output_soundcard);
+
+void ags_audio_signal_real_set_input_soundcard(AgsAudioSignal *audio_signal, GObject *input_soundcard);
+
 void ags_audio_signal_real_add_note(AgsAudioSignal *audio_signal,
 				    GObject *note);
 void ags_audio_signal_real_remove_note(AgsAudioSignal *audio_signal,
@@ -79,6 +82,20 @@ void ags_audio_signal_real_remove_note(AgsAudioSignal *audio_signal,
  *
  * #AgsAudioSignal organizes audio data within a #GList-struct whereby data
  * pointing to the buffer.
+ *
+ * It has `output-soundcard` and `input-soundcard` properties #AgsRecall implementations
+ * should default to.
+ *
+ * The `stream` property contains the processing audio data. You may set `loop-start` and `loop-end`
+ * to loop over samples until desired audio buffer length is achieved.
+ *
+ * As accessing the audio data you should lock it with ags_audio_signal_stream_lock() and as
+ * completed your work you release the lock with ags_audio_signal_stream_unlock().
+ *
+ * The `note` property contains information about assigned #AgsNote objects coming from #AgsNotation
+ * residing in #AgsAudio.
+ *
+ * As you might see multiple key presses may apply to one #AgsAudioSignal.
  */
 
 enum{
@@ -123,8 +140,6 @@ enum{
 static gpointer ags_audio_signal_parent_class = NULL;
 static guint audio_signal_signals[LAST_SIGNAL];
 
-static pthread_mutex_t ags_audio_signal_class_mutex = PTHREAD_MUTEX_INITIALIZER;
-
 GType
 ags_audio_signal_get_type(void)
 {
@@ -166,6 +181,31 @@ ags_audio_signal_get_type(void)
   return g_define_type_id__volatile;
 }
 
+GType
+ags_audio_signal_flags_get_type()
+{
+  static volatile gsize g_flags_type_id__volatile;
+
+  if(g_once_init_enter (&g_flags_type_id__volatile)){
+    static const GFlagsValue values[] = {
+      { AGS_AUDIO_SIGNAL_TEMPLATE, "AGS_AUDIO_SIGNAL_template", "audio-signal-template" },
+      { AGS_AUDIO_SIGNAL_RT_TEMPLATE, "AGS_AUDIO_SIGNAL_RT_TEMPLATE", "audio-signal-rt-template" },
+      { AGS_AUDIO_SIGNAL_MASTER, "AGS_AUDIO_SIGNAL_MASTER", "audio-signal-master" },
+      { AGS_AUDIO_SIGNAL_FEED, "AGS_AUDIO_SIGNAL_FEED", "audio-signal-feed" },
+      { AGS_AUDIO_SIGNAL_RECYCLED, "AGS_AUDIO_SIGNAL_RECYCLED", "audio-signal-recycled" },
+      { AGS_AUDIO_SIGNAL_STREAM, "AGS_AUDIO_SIGNAL_STREAM", "audio-signal-stream" },
+      { AGS_AUDIO_SIGNAL_SLICE_ALLOC, "AGS_AUDIO_SIGNAL_SLICE_ALLOC", "audio-signal-slice-alloc" },
+      { 0, NULL, NULL }
+    };
+
+    GType g_flags_type_id = g_flags_register_static(g_intern_static_string("AgsAudioSignalFlags"), values);
+
+    g_once_init_leave (&g_flags_type_id__volatile, g_flags_type_id);
+  }
+  
+  return g_flags_type_id__volatile;
+}
+
 void
 ags_audio_signal_class_init(AgsAudioSignalClass *audio_signal)
 {
@@ -190,7 +230,7 @@ ags_audio_signal_class_init(AgsAudioSignalClass *audio_signal)
    *
    * The assigned #AgsRecycling linking tree.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_object("recycling",
 				   i18n_pspec("assigned recycling"),
@@ -206,7 +246,7 @@ ags_audio_signal_class_init(AgsAudioSignalClass *audio_signal)
    *
    * The assigned output #AgsSoundcard providing default settings.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_object("output-soundcard",
 				   i18n_pspec("assigned output soundcard"),
@@ -222,7 +262,7 @@ ags_audio_signal_class_init(AgsAudioSignalClass *audio_signal)
    *
    * The output soundcard channel.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec =  g_param_spec_int("output-soundcard-channel",
 				 i18n_pspec("output soundcard channel"),
@@ -240,7 +280,7 @@ ags_audio_signal_class_init(AgsAudioSignalClass *audio_signal)
    *
    * The assigned input #AgsSoundcard.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_object("input-soundcard",
 				   i18n_pspec("assigned input soundcard"),
@@ -256,7 +296,7 @@ ags_audio_signal_class_init(AgsAudioSignalClass *audio_signal)
    *
    * The input soundcard channel.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec =  g_param_spec_int("input-soundcard-channel",
 				 i18n_pspec("input soundcard channel"),
@@ -274,7 +314,7 @@ ags_audio_signal_class_init(AgsAudioSignalClass *audio_signal)
    *
    * The samplerate to be used.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("samplerate",
 				 i18n_pspec("using samplerate"),
@@ -292,7 +332,7 @@ ags_audio_signal_class_init(AgsAudioSignalClass *audio_signal)
    *
    * The buffer size to be used.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("buffer-size",
 				 i18n_pspec("using buffer size"),
@@ -310,7 +350,7 @@ ags_audio_signal_class_init(AgsAudioSignalClass *audio_signal)
    *
    * The format to be used.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("format",
 				 i18n_pspec("using format"),
@@ -328,7 +368,7 @@ ags_audio_signal_class_init(AgsAudioSignalClass *audio_signal)
    *
    * The word size of frame.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("word-size",
 				 i18n_pspec("frame word size"),
@@ -346,7 +386,7 @@ ags_audio_signal_class_init(AgsAudioSignalClass *audio_signal)
    *
    * The length of the stream.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("length",
 				 i18n_pspec("stream length"),
@@ -364,7 +404,7 @@ ags_audio_signal_class_init(AgsAudioSignalClass *audio_signal)
    *
    * The first frame of stream.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("first-frame",
 				 i18n_pspec("stream's first frame"),
@@ -382,7 +422,7 @@ ags_audio_signal_class_init(AgsAudioSignalClass *audio_signal)
    *
    * The last frame of stream.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("last-frame",
 				 i18n_pspec("stream's last frame"),
@@ -400,7 +440,7 @@ ags_audio_signal_class_init(AgsAudioSignalClass *audio_signal)
    *
    * The initial size of audio data.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("frame-count",
 				 i18n_pspec("frame count of audio data"),
@@ -418,7 +458,7 @@ ags_audio_signal_class_init(AgsAudioSignalClass *audio_signal)
    *
    * The loop start of stream.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("loop-start",
 				 i18n_pspec("stream's loop start"),
@@ -436,7 +476,7 @@ ags_audio_signal_class_init(AgsAudioSignalClass *audio_signal)
    *
    * The loop end of stream.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("loop-end",
 				 i18n_pspec("stream's loop end"),
@@ -454,7 +494,7 @@ ags_audio_signal_class_init(AgsAudioSignalClass *audio_signal)
    *
    * The delay to be used.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_double("delay",
 				   i18n_pspec("using delay"),
@@ -472,7 +512,7 @@ ags_audio_signal_class_init(AgsAudioSignalClass *audio_signal)
    *
    * The attack to be used.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("attack",
 				 i18n_pspec("using attack"),
@@ -490,7 +530,7 @@ ags_audio_signal_class_init(AgsAudioSignalClass *audio_signal)
    *
    * Damping of timbre.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_boxed("damping",
 				  i18n_pspec("damping"),
@@ -506,7 +546,7 @@ ags_audio_signal_class_init(AgsAudioSignalClass *audio_signal)
    *
    * Vibration of timbre.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_boxed("vibration",
 				  i18n_pspec("vibration"),
@@ -522,7 +562,7 @@ ags_audio_signal_class_init(AgsAudioSignalClass *audio_signal)
    *
    * The timbre's start frame.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("timbre-start",
 				 i18n_pspec("timbre's start"),
@@ -540,7 +580,7 @@ ags_audio_signal_class_init(AgsAudioSignalClass *audio_signal)
    *
    * The timbre's end frame.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("timbre-end",
 				 i18n_pspec("timbre's end"),
@@ -558,7 +598,7 @@ ags_audio_signal_class_init(AgsAudioSignalClass *audio_signal)
    *
    * The assigned #AgsAudioSignal template.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_object("template",
 				   i18n_pspec("assigned template"),
@@ -574,7 +614,7 @@ ags_audio_signal_class_init(AgsAudioSignalClass *audio_signal)
    *
    * The assigned #AgsAudioSignal realtime template.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_object("rt-template",
 				   i18n_pspec("assigned realtime template"),
@@ -586,11 +626,11 @@ ags_audio_signal_class_init(AgsAudioSignalClass *audio_signal)
 				  param_spec);
 
   /**
-   * AgsAudioSignal:note:
+   * AgsAudioSignal:note: (type GList(AgsNote)) (transfer full)
    *
    * The assigned #AgsNote providing default settings.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_pointer("note",
 				    i18n_pspec("assigned note"),
@@ -605,7 +645,7 @@ ags_audio_signal_class_init(AgsAudioSignalClass *audio_signal)
    *
    * The assigned #AgsRecallID providing context.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_object("recall-id",
 				   i18n_pspec("assigned recall id"),
@@ -621,7 +661,7 @@ ags_audio_signal_class_init(AgsAudioSignalClass *audio_signal)
    *
    * The stream it contains.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_pointer("stream",
 				    i18n_pspec("containing stream"),
@@ -636,7 +676,7 @@ ags_audio_signal_class_init(AgsAudioSignalClass *audio_signal)
    *
    * The end of stream.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_pointer("stream-end",
 				    i18n_pspec("end of stream"),
@@ -651,7 +691,7 @@ ags_audio_signal_class_init(AgsAudioSignalClass *audio_signal)
    *
    * The current stream.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_pointer("stream-current",
 				    i18n_pspec("current stream"),
@@ -673,7 +713,7 @@ ags_audio_signal_class_init(AgsAudioSignalClass *audio_signal)
    *
    * The ::add-note signal notifies about adding @note.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   audio_signal_signals[ADD_NOTE] =
     g_signal_new("add-note",
@@ -692,7 +732,7 @@ ags_audio_signal_class_init(AgsAudioSignalClass *audio_signal)
    *
    * The ::remove-note signal notifies about removing @note.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   audio_signal_signals[REMOVE_NOTE] =
     g_signal_new("remove-note",
@@ -711,7 +751,7 @@ ags_audio_signal_class_init(AgsAudioSignalClass *audio_signal)
    *
    * The ::refresh-data signal notifies about requesting to refresh data.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   audio_signal_signals[REFRESH_DATA] =
     g_signal_new("refresh-data",
@@ -751,29 +791,13 @@ ags_audio_signal_init(AgsAudioSignal *audio_signal)
 {
   AgsConfig *config;
   
-  complex z;
-
-  pthread_mutex_t *mutex;
-  pthread_mutexattr_t *attr;
+  double _Complex z;
 
   audio_signal->flags = 0;
+  audio_signal->connectable_flags = 0;
 
-  /* add audio signal mutex */
-  audio_signal->obj_mutexattr = 
-    attr = (pthread_mutexattr_t *) malloc(sizeof(pthread_mutexattr_t));
-  pthread_mutexattr_init(attr);
-  pthread_mutexattr_settype(attr,
-			    PTHREAD_MUTEX_RECURSIVE);
-
-#ifdef __linux__
-  pthread_mutexattr_setprotocol(attr,
-				PTHREAD_PRIO_INHERIT);
-#endif
-
-  audio_signal->obj_mutex = 
-    mutex = (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t));
-  pthread_mutex_init(mutex,
-		     attr);  
+  /* audio signal mutex */
+  g_rec_mutex_init(&(audio_signal->obj_mutex)); 
 
   /* uuid */
 #if 0
@@ -793,7 +817,7 @@ ags_audio_signal_init(AgsAudioSignal *audio_signal)
   audio_signal->input_soundcard = NULL;
   audio_signal->input_soundcard_channel = 0;
 
-#if 0
+#if 1
   /* config */
   config = ags_config_get_instance();
 
@@ -885,15 +909,7 @@ ags_audio_signal_init(AgsAudioSignal *audio_signal)
   audio_signal->recall_id = NULL;
   
   /* stream */
-  audio_signal->stream_mutexattr = 
-    attr = (pthread_mutexattr_t *) malloc(sizeof(pthread_mutexattr_t));
-  pthread_mutexattr_init(attr);
-  pthread_mutexattr_settype(attr,
-			    PTHREAD_MUTEX_RECURSIVE);
-
-  audio_signal->stream_mutex = (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t));
-  pthread_mutex_init(audio_signal->stream_mutex,
-		     attr);
+  g_rec_mutex_init(&(audio_signal->stream_mutex)); 
 
   audio_signal->stream = NULL;
   audio_signal->stream_current = NULL;
@@ -908,7 +924,7 @@ ags_audio_signal_set_property(GObject *gobject,
 {
   AgsAudioSignal *audio_signal;
 
-  pthread_mutex_t *audio_signal_mutex;
+  GRecMutex *audio_signal_mutex;
 
   audio_signal = AGS_AUDIO_SIGNAL(gobject);
 
@@ -922,10 +938,10 @@ ags_audio_signal_set_property(GObject *gobject,
 
     recycling = g_value_get_object(value);
 
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     if(audio_signal->recycling == recycling){
-      pthread_mutex_unlock(audio_signal_mutex);
+      g_rec_mutex_unlock(audio_signal_mutex);
 
       return;
     }
@@ -940,7 +956,7 @@ ags_audio_signal_set_property(GObject *gobject,
       
     audio_signal->recycling = recycling;
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   case PROP_OUTPUT_SOUNDCARD:
@@ -949,17 +965,17 @@ ags_audio_signal_set_property(GObject *gobject,
 
     output_soundcard = g_value_get_object(value);
 
-    ags_audio_signal_set_output_soundcard(audio_signal,
-					  output_soundcard);
+    ags_audio_signal_real_set_output_soundcard(audio_signal,
+					       output_soundcard);
   }
   break;
   case PROP_OUTPUT_SOUNDCARD_CHANNEL:
   {
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     audio_signal->output_soundcard_channel = g_value_get_int(value);
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   case PROP_INPUT_SOUNDCARD:
@@ -968,17 +984,17 @@ ags_audio_signal_set_property(GObject *gobject,
       
     input_soundcard = g_value_get_object(value);
 
-    ags_audio_signal_set_input_soundcard(audio_signal,
-					 input_soundcard);
+    ags_audio_signal_real_set_input_soundcard(audio_signal,
+					      input_soundcard);
   }
   break;
   case PROP_INPUT_SOUNDCARD_CHANNEL:
   {
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     audio_signal->input_soundcard_channel = g_value_get_int(value);
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   case PROP_SAMPLERATE:
@@ -1017,11 +1033,11 @@ ags_audio_signal_set_property(GObject *gobject,
 
     length = g_value_get_uint(value);
 
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     audio_signal->length = length;
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   case PROP_FIRST_FRAME:
@@ -1030,11 +1046,11 @@ ags_audio_signal_set_property(GObject *gobject,
 
     first_frame = g_value_get_uint(value);
 
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     audio_signal->first_frame = first_frame;
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   case PROP_LAST_FRAME:
@@ -1043,11 +1059,11 @@ ags_audio_signal_set_property(GObject *gobject,
 
     last_frame = g_value_get_uint(value);
 
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     audio_signal->last_frame = last_frame;
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   case PROP_FRAME_COUNT:
@@ -1056,11 +1072,11 @@ ags_audio_signal_set_property(GObject *gobject,
 
     frame_count = g_value_get_uint(value);
 
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     audio_signal->frame_count = frame_count;
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   case PROP_LOOP_START:
@@ -1069,11 +1085,11 @@ ags_audio_signal_set_property(GObject *gobject,
 
     loop_start = g_value_get_uint(value);
 
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     audio_signal->loop_start = loop_start;
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   case PROP_LOOP_END:
@@ -1082,11 +1098,11 @@ ags_audio_signal_set_property(GObject *gobject,
 
     loop_end = g_value_get_uint(value);
 
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     audio_signal->loop_end = loop_end;
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   case PROP_DELAY:
@@ -1095,11 +1111,11 @@ ags_audio_signal_set_property(GObject *gobject,
 
     delay = g_value_get_double(value);
 
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     audio_signal->delay = delay;
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   case PROP_ATTACK:
@@ -1108,11 +1124,11 @@ ags_audio_signal_set_property(GObject *gobject,
 
     attack = g_value_get_uint(value);
 
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     audio_signal->attack = attack;
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   case PROP_DAMPING:
@@ -1121,12 +1137,12 @@ ags_audio_signal_set_property(GObject *gobject,
 
     damping = (AgsComplex *) g_value_get_boxed(value);
 
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     ags_complex_set(&(audio_signal->damping),
 		    ags_complex_get(damping));      
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   case PROP_VIBRATION:
@@ -1135,30 +1151,30 @@ ags_audio_signal_set_property(GObject *gobject,
 
     vibration = (AgsComplex *) g_value_get_boxed(value);
 
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     ags_complex_set(&(audio_signal->vibration),
 		    ags_complex_get(vibration));      
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   case PROP_TIMBRE_START:
   {
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     audio_signal->timbre_start = g_value_get_uint(value);      
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   case PROP_TIMBRE_END:
   {
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     audio_signal->timbre_end = g_value_get_uint(value);      
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   case PROP_TEMPLATE:
@@ -1167,10 +1183,10 @@ ags_audio_signal_set_property(GObject *gobject,
 
     template = g_value_get_object(value);
 
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     if(audio_signal->template == template){
-      pthread_mutex_unlock(audio_signal_mutex);
+      g_rec_mutex_unlock(audio_signal_mutex);
 	
       return;
     }
@@ -1185,7 +1201,7 @@ ags_audio_signal_set_property(GObject *gobject,
       
     audio_signal->template = template;
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   case PROP_RT_TEMPLATE:
@@ -1194,10 +1210,10 @@ ags_audio_signal_set_property(GObject *gobject,
 
     rt_template = g_value_get_object(value);
 
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     if(audio_signal->rt_template == rt_template){
-      pthread_mutex_unlock(audio_signal_mutex);
+      g_rec_mutex_unlock(audio_signal_mutex);
 	
       return;
     }
@@ -1212,7 +1228,7 @@ ags_audio_signal_set_property(GObject *gobject,
       
     audio_signal->rt_template = rt_template;
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   case PROP_NOTE:
@@ -1221,15 +1237,15 @@ ags_audio_signal_set_property(GObject *gobject,
 
     note = g_value_get_pointer(value);
 
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     if(g_list_find(audio_signal->note, note) != NULL){
-      pthread_mutex_unlock(audio_signal_mutex);
+      g_rec_mutex_unlock(audio_signal_mutex);
 	
       return;
     }
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
 
     ags_audio_signal_add_note(audio_signal,
 			      note);
@@ -1241,10 +1257,10 @@ ags_audio_signal_set_property(GObject *gobject,
 
     recall_id = g_value_get_object(value);
       
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     if(audio_signal->recall_id == recall_id){
-      pthread_mutex_unlock(audio_signal_mutex);
+      g_rec_mutex_unlock(audio_signal_mutex);
 	
       return;
     }
@@ -1259,7 +1275,7 @@ ags_audio_signal_set_property(GObject *gobject,
       
     audio_signal->recall_id = recall_id;
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   default:
@@ -1276,8 +1292,8 @@ ags_audio_signal_get_property(GObject *gobject,
 {
   AgsAudioSignal *audio_signal;
 
-  pthread_mutex_t *audio_signal_mutex;
-  pthread_mutex_t *stream_mutex;
+  GRecMutex *audio_signal_mutex;
+  GRecMutex *stream_mutex;
 
   audio_signal = AGS_AUDIO_SIGNAL(gobject);
 
@@ -1288,257 +1304,257 @@ ags_audio_signal_get_property(GObject *gobject,
   switch(prop_id){
   case PROP_RECYCLING:
   {
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     g_value_set_object(value, audio_signal->recycling);
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   case PROP_OUTPUT_SOUNDCARD:
   {
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     g_value_set_object(value, audio_signal->output_soundcard);
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   case PROP_OUTPUT_SOUNDCARD_CHANNEL:
   {
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     g_value_set_int(value, audio_signal->output_soundcard_channel);
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   case PROP_INPUT_SOUNDCARD:
   {
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     g_value_set_object(value, audio_signal->input_soundcard);
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   case PROP_INPUT_SOUNDCARD_CHANNEL:
   {
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     g_value_set_int(value, audio_signal->input_soundcard_channel);
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   case PROP_SAMPLERATE:
   {
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     g_value_set_uint(value, audio_signal->samplerate);
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   case PROP_BUFFER_SIZE:
   {
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     g_value_set_uint(value, audio_signal->buffer_size);
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   case PROP_FORMAT:
   {
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     g_value_set_uint(value, audio_signal->format);
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   case PROP_WORD_SIZE:
   {
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     g_value_set_uint(value, audio_signal->word_size);
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   case PROP_LENGTH:
   {
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     g_value_set_uint(value, audio_signal->length);
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   case PROP_FIRST_FRAME:
   {
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     g_value_set_uint(value, audio_signal->first_frame);
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   case PROP_LAST_FRAME:
   {
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     g_value_set_uint(value, audio_signal->last_frame);
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   case PROP_FRAME_COUNT:
   {
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     g_value_set_uint(value, audio_signal->frame_count);
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   case PROP_LOOP_START:
   {
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     g_value_set_uint(value, audio_signal->loop_start);
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   case PROP_LOOP_END:
   {
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     g_value_set_uint(value, audio_signal->loop_end);
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   case PROP_DELAY:
   {
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     g_value_set_double(value, audio_signal->delay);
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   case PROP_ATTACK:
   {
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     g_value_set_uint(value, audio_signal->attack);
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   case PROP_DAMPING:
   {
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
-    g_value_set_boxed(value, audio_signal->damping);
+    g_value_set_boxed(value, &(audio_signal->damping));
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   case PROP_VIBRATION:
   {
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
-    g_value_set_boxed(value, audio_signal->vibration);
+    g_value_set_boxed(value, &(audio_signal->vibration));
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   case PROP_TIMBRE_START:
   {
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     g_value_set_uint(value, audio_signal->timbre_start);
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   case PROP_TIMBRE_END:
   {
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     g_value_set_uint(value, audio_signal->timbre_end);
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   case PROP_TEMPLATE:
   {
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     g_value_set_object(value, audio_signal->template);
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   case PROP_RT_TEMPLATE:
   {
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     g_value_set_object(value, audio_signal->rt_template);
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   case PROP_NOTE:
   {
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     g_value_set_pointer(value,
 			g_list_copy_deep(audio_signal->note,
 					 (GCopyFunc) g_object_ref,
 					 NULL));
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   case PROP_RECALL_ID:
   {
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     g_value_set_object(value, audio_signal->recall_id);
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
   }
   break;
   case PROP_STREAM:
   {
-    pthread_mutex_lock(stream_mutex);
+    g_rec_mutex_lock(stream_mutex);
 
     g_value_set_pointer(value, audio_signal->stream);
 
-    pthread_mutex_unlock(stream_mutex);
+    g_rec_mutex_unlock(stream_mutex);
   }
   break;
   case PROP_STREAM_END:
   {
-    pthread_mutex_lock(stream_mutex);
+    g_rec_mutex_lock(stream_mutex);
 
     g_value_set_pointer(value, audio_signal->stream_end);
 
-    pthread_mutex_unlock(stream_mutex);
+    g_rec_mutex_unlock(stream_mutex);
   }
   break;
   case PROP_STREAM_CURRENT:
   {
-    pthread_mutex_lock(stream_mutex);
+    g_rec_mutex_lock(stream_mutex);
 
     g_value_set_pointer(value, audio_signal->stream_current);
 
-    pthread_mutex_unlock(stream_mutex);
+    g_rec_mutex_unlock(stream_mutex);
   }
   break;
   default:
@@ -1626,12 +1642,6 @@ ags_audio_signal_finalize(GObject *gobject)
   }
 #endif
 
-  pthread_mutex_destroy(audio_signal->obj_mutex);
-  free(audio_signal->obj_mutex);
-
-  pthread_mutexattr_destroy(audio_signal->obj_mutexattr);
-  free(audio_signal->obj_mutexattr);
-
   ags_uuid_free(audio_signal->uuid);
 
   /* disconnect */
@@ -1689,15 +1699,25 @@ ags_audio_signal_finalize(GObject *gobject)
   }
 
   /* audio data */
-  pthread_mutex_destroy(audio_signal->stream_mutex);
-  free(audio_signal->stream_mutex);
+  if((AGS_AUDIO_SIGNAL_SLICE_ALLOC & (audio_signal->flags)) == 0){
+    g_list_free_full(audio_signal->stream,
+		     (GDestroyNotify) ags_stream_free);
+  }else{
+    GList *stream;
 
-  pthread_mutexattr_destroy(audio_signal->stream_mutexattr);
-  free(audio_signal->stream_mutexattr);
+    stream = audio_signal->stream;
 
-  g_list_free_full(audio_signal->stream,
-		   (GDestroyNotify) ags_stream_free);
-
+    while(stream != NULL){
+      ags_stream_slice_free(audio_signal->buffer_size,
+			    audio_signal->format,
+			    stream->data);
+      
+      stream = stream->next;
+    }
+    
+    g_list_free(audio_signal->stream);    
+  }
+  
   /* call parent */
   G_OBJECT_CLASS(ags_audio_signal_parent_class)->finalize(gobject);
 }
@@ -1709,7 +1729,7 @@ ags_audio_signal_get_uuid(AgsConnectable *connectable)
   
   AgsUUID *ptr;
 
-  pthread_mutex_t *audio_signal_mutex;
+  GRecMutex *audio_signal_mutex;
 
   audio_signal = AGS_AUDIO_SIGNAL(connectable);
 
@@ -1717,11 +1737,11 @@ ags_audio_signal_get_uuid(AgsConnectable *connectable)
   audio_signal_mutex = AGS_AUDIO_SIGNAL_GET_OBJ_MUTEX(audio_signal);
 
   /* get UUID */
-  pthread_mutex_lock(audio_signal_mutex);
+  g_rec_mutex_lock(audio_signal_mutex);
 
   ptr = audio_signal->uuid;
 
-  pthread_mutex_unlock(audio_signal_mutex);
+  g_rec_mutex_unlock(audio_signal_mutex);
   
   return(ptr);
 }
@@ -1739,7 +1759,7 @@ ags_audio_signal_is_ready(AgsConnectable *connectable)
   
   gboolean is_ready;
 
-  pthread_mutex_t *audio_signal_mutex;
+  GRecMutex *audio_signal_mutex;
 
   audio_signal = AGS_AUDIO_SIGNAL(connectable);
 
@@ -1747,12 +1767,12 @@ ags_audio_signal_is_ready(AgsConnectable *connectable)
   audio_signal_mutex = AGS_AUDIO_SIGNAL_GET_OBJ_MUTEX(audio_signal);
 
   /* check is ready */
-  pthread_mutex_lock(audio_signal_mutex);
-  
-  is_ready = (((AGS_AUDIO_SIGNAL_ADDED_TO_REGISTRY & (audio_signal->flags)) != 0) ? TRUE: FALSE);
-  
-  pthread_mutex_unlock(audio_signal_mutex);
+  g_rec_mutex_lock(audio_signal_mutex);
 
+  is_ready = ((AGS_CONNECTABLE_ADDED_TO_REGISTRY & (audio_signal->connectable_flags)) != 0) ? TRUE: FALSE;
+
+  g_rec_mutex_unlock(audio_signal_mutex);
+  
   return(is_ready);
 }
 
@@ -1766,13 +1786,22 @@ ags_audio_signal_add_to_registry(AgsConnectable *connectable)
 
   AgsApplicationContext *application_context;
 
+  GRecMutex *audio_signal_mutex;
+
   if(ags_connectable_is_ready(connectable)){
     return;
   }
 
   audio_signal = AGS_AUDIO_SIGNAL(connectable);
 
-  ags_audio_signal_set_flags(audio_signal, AGS_AUDIO_SIGNAL_ADDED_TO_REGISTRY);
+  /* get audio signal mutex */
+  audio_signal_mutex = AGS_AUDIO_SIGNAL_GET_OBJ_MUTEX(audio_signal);
+
+  g_rec_mutex_lock(audio_signal_mutex);
+
+  audio_signal->connectable_flags |= AGS_CONNECTABLE_ADDED_TO_REGISTRY;
+  
+  g_rec_mutex_unlock(audio_signal_mutex);
 
   application_context = ags_application_context_get_instance();
 
@@ -1790,9 +1819,24 @@ ags_audio_signal_add_to_registry(AgsConnectable *connectable)
 void
 ags_audio_signal_remove_from_registry(AgsConnectable *connectable)
 {
+  AgsAudioSignal *audio_signal;
+
+  GRecMutex *audio_signal_mutex;
+
   if(!ags_connectable_is_ready(connectable)){
     return;
   }
+
+  audio_signal = AGS_AUDIO_SIGNAL(connectable);
+
+  /* get audio signal mutex */
+  audio_signal_mutex = AGS_AUDIO_SIGNAL_GET_OBJ_MUTEX(audio_signal);
+
+  g_rec_mutex_lock(audio_signal_mutex);
+
+  audio_signal->connectable_flags &= (~AGS_CONNECTABLE_ADDED_TO_REGISTRY);
+  
+  g_rec_mutex_unlock(audio_signal_mutex);
 
   //TODO:JK: implement me
 }
@@ -1835,7 +1879,7 @@ ags_audio_signal_is_connected(AgsConnectable *connectable)
   
   gboolean is_connected;
 
-  pthread_mutex_t *audio_signal_mutex;
+  GRecMutex *audio_signal_mutex;
 
   audio_signal = AGS_AUDIO_SIGNAL(connectable);
 
@@ -1843,12 +1887,12 @@ ags_audio_signal_is_connected(AgsConnectable *connectable)
   audio_signal_mutex = AGS_AUDIO_SIGNAL_GET_OBJ_MUTEX(audio_signal);
 
   /* check is connected */
-  pthread_mutex_lock(audio_signal_mutex);
+  g_rec_mutex_lock(audio_signal_mutex);
 
-  is_connected = (((AGS_AUDIO_SIGNAL_CONNECTED & (audio_signal->flags)) != 0) ? TRUE: FALSE);
+  is_connected = ((AGS_CONNECTABLE_CONNECTED & (audio_signal->connectable_flags)) != 0) ? TRUE: FALSE;
+
+  g_rec_mutex_unlock(audio_signal_mutex);
   
-  pthread_mutex_unlock(audio_signal_mutex);
-
   return(is_connected);
 }
 
@@ -1857,13 +1901,22 @@ ags_audio_signal_connect(AgsConnectable *connectable)
 {
   AgsAudioSignal *audio_signal;
 
+  GRecMutex *audio_signal_mutex;
+
   if(ags_connectable_is_connected(connectable)){
     return;
   }
 
   audio_signal = AGS_AUDIO_SIGNAL(connectable);
+
+  /* get audio signal mutex */
+  audio_signal_mutex = AGS_AUDIO_SIGNAL_GET_OBJ_MUTEX(audio_signal);
+
+  g_rec_mutex_lock(audio_signal_mutex);
+
+  audio_signal->connectable_flags |= AGS_CONNECTABLE_CONNECTED;
   
-  ags_audio_signal_set_flags(audio_signal, AGS_AUDIO_SIGNAL_CONNECTED);
+  g_rec_mutex_unlock(audio_signal_mutex);
 }
 
 void
@@ -1871,28 +1924,78 @@ ags_audio_signal_disconnect(AgsConnectable *connectable)
 {
   AgsAudioSignal *audio_signal;
 
+  GRecMutex *audio_signal_mutex;
+
   if(!ags_connectable_is_connected(connectable)){
     return;
   }
 
   audio_signal = AGS_AUDIO_SIGNAL(connectable);
 
-  ags_audio_signal_unset_flags(audio_signal, AGS_AUDIO_SIGNAL_CONNECTED);
+  /* get audio signal mutex */
+  audio_signal_mutex = AGS_AUDIO_SIGNAL_GET_OBJ_MUTEX(audio_signal);
+
+  g_rec_mutex_lock(audio_signal_mutex);
+
+  audio_signal->connectable_flags &= (~AGS_CONNECTABLE_CONNECTED);
+  
+  g_rec_mutex_unlock(audio_signal_mutex);
 }
 
 /**
- * ags_audio_signal_get_class_mutex:
+ * ags_audio_signal_get_obj_mutex:
+ * @audio_signal: the #AgsAudioSignal
  * 
- * Use this function's returned mutex to access mutex fields.
- *
- * Returns: the class mutex
+ * Get object mutex.
  * 
- * Since: 2.0.0
+ * Returns: the #GRecMutex to lock @audio_signal
+ * 
+ * Since: 3.1.0
  */
-pthread_mutex_t*
-ags_audio_signal_get_class_mutex()
+GRecMutex*
+ags_audio_signal_get_obj_mutex(AgsAudioSignal *audio_signal)
 {
-  return(&ags_audio_signal_class_mutex);
+  if(!AGS_IS_AUDIO_SIGNAL(audio_signal)){
+    return(NULL);
+  }
+
+  return(AGS_AUDIO_SIGNAL_GET_OBJ_MUTEX(audio_signal));
+}
+
+/**
+ * ags_audio_signal_stream_lock:
+ * @audio_signal: the #AgsAudioSignal
+ * 
+ * Lock stream mutex.
+ * 
+ * Since: 3.1.0
+ */
+void
+ags_audio_signal_stream_lock(AgsAudioSignal *audio_signal)
+{
+  if(!AGS_IS_AUDIO_SIGNAL(audio_signal)){
+    return;
+  }
+
+  g_rec_mutex_lock(AGS_AUDIO_SIGNAL_GET_STREAM_MUTEX(audio_signal));
+}
+
+/**
+ * ags_audio_signal_stream_unlock:
+ * @audio_signal: the #AgsAudioSignal
+ * 
+ * Unlock stream mutex.
+ * 
+ * Since: 3.1.0
+ */
+void
+ags_audio_signal_stream_unlock(AgsAudioSignal *audio_signal)
+{
+  if(!AGS_IS_AUDIO_SIGNAL(audio_signal)){
+    return;
+  }
+
+  g_rec_mutex_unlock(AGS_AUDIO_SIGNAL_GET_STREAM_MUTEX(audio_signal));
 }
 
 /**
@@ -1904,14 +2007,14 @@ ags_audio_signal_get_class_mutex()
  * 
  * Returns: %TRUE if flags are set, else %FALSE
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gboolean
 ags_audio_signal_test_flags(AgsAudioSignal *audio_signal, guint flags)
 {
   gboolean retval;  
   
-  pthread_mutex_t *audio_signal_mutex;
+  GRecMutex *audio_signal_mutex;
 
   if(!AGS_IS_AUDIO_SIGNAL(audio_signal)){
     return(FALSE);
@@ -1921,11 +2024,11 @@ ags_audio_signal_test_flags(AgsAudioSignal *audio_signal, guint flags)
   audio_signal_mutex = AGS_AUDIO_SIGNAL_GET_OBJ_MUTEX(audio_signal);
 
   /* test */
-  pthread_mutex_lock(audio_signal_mutex);
+  g_rec_mutex_lock(audio_signal_mutex);
 
   retval = (flags & (audio_signal->flags)) ? TRUE: FALSE;
   
-  pthread_mutex_unlock(audio_signal_mutex);
+  g_rec_mutex_unlock(audio_signal_mutex);
 
   return(retval);
 }
@@ -1937,12 +2040,12 @@ ags_audio_signal_test_flags(AgsAudioSignal *audio_signal, guint flags)
  *
  * Enable a feature of @audio_signal.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_audio_signal_set_flags(AgsAudioSignal *audio_signal, guint flags)
 {
-  pthread_mutex_t *audio_signal_mutex;
+  GRecMutex *audio_signal_mutex;
 
   if(!AGS_IS_AUDIO_SIGNAL(audio_signal)){
     return;
@@ -1954,11 +2057,11 @@ ags_audio_signal_set_flags(AgsAudioSignal *audio_signal, guint flags)
   //TODO:JK: add more?
 
   /* set flags */
-  pthread_mutex_lock(audio_signal_mutex);
+  g_rec_mutex_lock(audio_signal_mutex);
 
   audio_signal->flags |= flags;
   
-  pthread_mutex_unlock(audio_signal_mutex);
+  g_rec_mutex_unlock(audio_signal_mutex);
 }
     
 /**
@@ -1968,12 +2071,12 @@ ags_audio_signal_set_flags(AgsAudioSignal *audio_signal, guint flags)
  *
  * Disable a feature of @audio_signal.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_audio_signal_unset_flags(AgsAudioSignal *audio_signal, guint flags)
 {  
-  pthread_mutex_t *audio_signal_mutex;
+  GRecMutex *audio_signal_mutex;
 
   if(!AGS_IS_AUDIO_SIGNAL(audio_signal)){
     return;
@@ -1985,11 +2088,11 @@ ags_audio_signal_unset_flags(AgsAudioSignal *audio_signal, guint flags)
   //TODO:JK: add more?
 
   /* unset flags */
-  pthread_mutex_lock(audio_signal_mutex);
+  g_rec_mutex_lock(audio_signal_mutex);
 
   audio_signal->flags &= (~flags);
   
-  pthread_mutex_unlock(audio_signal_mutex);
+  g_rec_mutex_unlock(audio_signal_mutex);
 }
 
 /**
@@ -2001,71 +2104,68 @@ ags_audio_signal_unset_flags(AgsAudioSignal *audio_signal, guint flags)
  *
  * Returns: the audio data array
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void*
 ags_stream_alloc(guint buffer_size,
 		 guint format)
 {
   void *buffer;
-  guint word_size;
   
   switch(format){
   case AGS_SOUNDCARD_SIGNED_8_BIT:
     {
-      buffer = (gint8 *) malloc(buffer_size * sizeof(gint8));
-      word_size = sizeof(gint8);
+      buffer = (gint8 *) g_malloc(buffer_size * sizeof(gint8));
+      memset(buffer, 0, buffer_size * sizeof(gint8));
     }
     break;
   case AGS_SOUNDCARD_SIGNED_16_BIT:
     {
-      buffer = (gint16 *) malloc(buffer_size * sizeof(gint16));
-      word_size = sizeof(gint16);
+      buffer = (gint16 *) g_malloc(buffer_size * sizeof(gint16));
+      memset(buffer, 0, buffer_size * sizeof(gint16));
     }
     break;
   case AGS_SOUNDCARD_SIGNED_24_BIT:
     {
-      buffer = (gint32 *) malloc(buffer_size * sizeof(gint32));
+      buffer = (gint32 *) g_malloc(buffer_size * sizeof(gint32));
+      memset(buffer, 0, buffer_size * sizeof(gint32));
       //NOTE:JK: The 24-bit linear samples use 32-bit physical space
-      word_size = sizeof(gint32);
     }
     break;
   case AGS_SOUNDCARD_SIGNED_32_BIT:
     {
-      buffer = (gint32 *) malloc(buffer_size * sizeof(gint32));
-      word_size = sizeof(gint32);
+      buffer = (gint32 *) g_malloc(buffer_size * sizeof(gint32));
+      memset(buffer, 0, buffer_size * sizeof(gint32));
     }
     break;
   case AGS_SOUNDCARD_SIGNED_64_BIT:
     {
-      buffer = (gint64 *) malloc(buffer_size * sizeof(gint64));
-      word_size = sizeof(gint64);
+      buffer = (gint64 *) g_malloc(buffer_size * sizeof(gint64));
+      memset(buffer, 0, buffer_size * sizeof(gint64));
     }
     break;
   case AGS_SOUNDCARD_FLOAT:
     {
-      buffer = (gfloat *) malloc(buffer_size * sizeof(gfloat));
-      word_size = sizeof(gfloat);
+      buffer = (gfloat *) g_malloc(buffer_size * sizeof(gfloat));
+      memset(buffer, 0, buffer_size * sizeof(gfloat));
     }
     break;
   case AGS_SOUNDCARD_DOUBLE:
     {
-      buffer = (gdouble *) malloc(buffer_size * sizeof(gdouble));
-      word_size = sizeof(gdouble);
+      buffer = (gdouble *) g_malloc(buffer_size * sizeof(gdouble));
+      memset(buffer, 0, buffer_size * sizeof(gdouble));
     }
     break;
   case AGS_SOUNDCARD_COMPLEX:
     {
       guint i;
       
-      buffer = (AgsComplex *) malloc(buffer_size * sizeof(AgsComplex));
+      buffer = (AgsComplex *) g_malloc(buffer_size * sizeof(AgsComplex));
 
       for(i = 0; i < buffer_size; i++){
-	((AgsComplex *) buffer)[i][0] = 0.0;
-	((AgsComplex *) buffer)[i][1] = 0.0;
+	((AgsComplex *) buffer)[i].real = 0.0;
+	((AgsComplex *) buffer)[i].imag = 0.0;
       }
-      
-      return(buffer);
     }
     break;
   default:
@@ -2073,18 +2173,16 @@ ags_stream_alloc(guint buffer_size,
     return(NULL);
   }
 
-  memset(buffer, 0, buffer_size * word_size);
-
   return(buffer);
 }
 
 /**
  * ags_stream_free:
- * @buffer_size: the buffer size
+ * @buffer: the buffer
  *
  * Frees an audio buffer.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_stream_free(void *buffer)
@@ -2093,26 +2191,237 @@ ags_stream_free(void *buffer)
     return;
   }
   
-  free(buffer);
+  g_free(buffer);
 }
 
 /**
- * ags_audio_signal_set_output_soundcard:
- * @audio_signal: the #AgsAudioSignal
- * @output_soundcard: the #GObject implementing #AgsSoundcard
- * 
- * Set output soundcarod of @audio_signal.
- * 
- * Since: 2.0.0
+ * ags_stream_slice_alloc:
+ * @buffer_size: the buffer size
+ * @format: the format
+ *
+ * Allocs an audio buffer.
+ *
+ * Returns: the audio data array
+ *
+ * Since: 3.3.0
+ */
+void*
+ags_stream_slice_alloc(guint buffer_size,
+		       guint format)
+{
+  void *buffer;
+  guint word_size;
+  
+  switch(format){
+  case AGS_SOUNDCARD_SIGNED_8_BIT:
+    {
+      buffer = (gint8 *) g_slice_alloc0(buffer_size * sizeof(gint8));
+      word_size = sizeof(gint8);
+    }
+    break;
+  case AGS_SOUNDCARD_SIGNED_16_BIT:
+    {
+      buffer = (gint16 *) g_slice_alloc0(buffer_size * sizeof(gint16));
+      word_size = sizeof(gint16);
+    }
+    break;
+  case AGS_SOUNDCARD_SIGNED_24_BIT:
+    {
+      buffer = (gint32 *) g_slice_alloc0(buffer_size * sizeof(gint32));
+      //NOTE:JK: The 24-bit linear samples use 32-bit physical space
+      word_size = sizeof(gint32);
+    }
+    break;
+  case AGS_SOUNDCARD_SIGNED_32_BIT:
+    {
+      buffer = (gint32 *) g_slice_alloc0(buffer_size * sizeof(gint32));
+      word_size = sizeof(gint32);
+    }
+    break;
+  case AGS_SOUNDCARD_SIGNED_64_BIT:
+    {
+      buffer = (gint64 *) g_slice_alloc0(buffer_size * sizeof(gint64));
+      word_size = sizeof(gint64);
+    }
+    break;
+  case AGS_SOUNDCARD_FLOAT:
+    {
+      buffer = (gfloat *) g_slice_alloc0(buffer_size * sizeof(gfloat));
+      word_size = sizeof(gfloat);
+    }
+    break;
+  case AGS_SOUNDCARD_DOUBLE:
+    {
+      buffer = (gdouble *) g_slice_alloc0(buffer_size * sizeof(gdouble));
+      word_size = sizeof(gdouble);
+    }
+    break;
+  case AGS_SOUNDCARD_COMPLEX:
+    {
+      buffer = (AgsComplex *) g_slice_alloc0(buffer_size * sizeof(AgsComplex));
+    }
+    break;
+  default:
+    g_warning("ags_stream_slice_alloc(): unsupported word size");
+    return(NULL);
+  }
+
+  return(buffer);
+}
+
+/**
+ * ags_stream_slice_free:
+ * @buffer_size: the buffer size
+ * @format: the format
+ * @buffer: the buffer
+ *
+ * Frees an audio buffer.
+ *
+ * Since: 3.3.0
  */
 void
-ags_audio_signal_set_output_soundcard(AgsAudioSignal *audio_signal, GObject *output_soundcard)
+ags_stream_slice_free(guint buffer_size,
+		      guint format,
+		      void *buffer)
+{
+  guint word_size;
+
+  if(buffer == NULL){
+    return;
+  }
+  
+  switch(format){
+  case AGS_SOUNDCARD_SIGNED_8_BIT:
+    {
+      word_size = sizeof(gint8);
+    }
+    break;
+  case AGS_SOUNDCARD_SIGNED_16_BIT:
+    {
+      word_size = sizeof(gint16);
+    }
+    break;
+  case AGS_SOUNDCARD_SIGNED_24_BIT:
+    {
+      //NOTE:JK: The 24-bit linear samples use 32-bit physical space
+      word_size = sizeof(gint32);
+    }
+    break;
+  case AGS_SOUNDCARD_SIGNED_32_BIT:
+    {
+      word_size = sizeof(gint32);
+    }
+    break;
+  case AGS_SOUNDCARD_SIGNED_64_BIT:
+    {
+      word_size = sizeof(gint64);
+    }
+    break;
+  case AGS_SOUNDCARD_FLOAT:
+    {
+      word_size = sizeof(gfloat);
+    }
+    break;
+  case AGS_SOUNDCARD_DOUBLE:
+    {
+      word_size = sizeof(gdouble);
+    }
+    break;
+  case AGS_SOUNDCARD_COMPLEX:
+    {
+      word_size = 2 * sizeof(gdouble);
+    }
+    break;
+  default:
+    g_warning("ags_stream_slice_alloc(): unsupported word size");
+    return;
+  }
+
+  g_slice_free1(buffer_size * word_size,
+		buffer);
+}
+
+/**
+ * ags_audio_signal_get_recycling:
+ * @audio_signal: the #AgsAudioSignal
+ * 
+ * Get recycling.
+ * 
+ * Returns: (transfer full): the #AgsRecycling
+ * 
+ * Since: 3.1.0
+ */
+GObject*
+ags_audio_signal_get_recycling(AgsAudioSignal *audio_signal)
+{
+  GObject *recycling;
+
+  if(!AGS_IS_AUDIO_SIGNAL(audio_signal)){
+    return(NULL);
+  }
+
+  g_object_get(audio_signal,
+	       "recycling", &recycling,
+	       NULL);
+
+  return(recycling);
+}
+
+/**
+ * ags_audio_signal_set_recycling:
+ * @audio_signal: the #AgsAudioSignal
+ * @recycling: the #AgsRecycling
+ * 
+ * Set recycling.
+ * 
+ * Since: 3.1.0
+ */
+void
+ags_audio_signal_set_recycling(AgsAudioSignal *audio_signal, GObject *recycling)
+{
+  if(!AGS_IS_AUDIO_SIGNAL(audio_signal)){
+    return;
+  }
+
+  g_object_set(audio_signal,
+	       "recycling", recycling,
+	       NULL);
+}
+
+/**
+ * ags_audio_signal_get_output_soundcard:
+ * @audio_signal: the #AgsAudioSignal
+ *
+ * Get the output soundcard object of @audio_signal.
+ *
+ * Returns: (transfer full): the output soundcard
+ * 
+ * Since: 3.1.0
+ */
+GObject*
+ags_audio_signal_get_output_soundcard(AgsAudioSignal *audio_signal)
+{
+  GObject *output_soundcard;
+  
+  if(!AGS_IS_AUDIO_SIGNAL(audio_signal)){
+    return(NULL);
+  }
+
+  g_object_get(audio_signal,
+	       "output-soundcard", &output_soundcard,
+	       NULL);
+
+  return(output_soundcard);
+}
+
+void
+ags_audio_signal_real_set_output_soundcard(AgsAudioSignal *audio_signal, GObject *output_soundcard)
 {
   guint samplerate;
   guint buffer_size;
   guint format;
 
-  pthread_mutex_t *audio_signal_mutex;
+  GRecMutex *audio_signal_mutex;
 
   if(!AGS_IS_AUDIO_SIGNAL(audio_signal) ||
      !AGS_IS_SOUNDCARD(output_soundcard)){
@@ -2123,10 +2432,10 @@ ags_audio_signal_set_output_soundcard(AgsAudioSignal *audio_signal, GObject *out
   audio_signal_mutex = AGS_AUDIO_SIGNAL_GET_OBJ_MUTEX(audio_signal);
 
   /* set output soundcard */
-  pthread_mutex_lock(audio_signal_mutex);
+  g_rec_mutex_lock(audio_signal_mutex);
 
   if(audio_signal->output_soundcard == output_soundcard){
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
     
     return;
   }
@@ -2141,7 +2450,7 @@ ags_audio_signal_set_output_soundcard(AgsAudioSignal *audio_signal, GObject *out
       
   audio_signal->output_soundcard = output_soundcard;
 
-  pthread_mutex_unlock(audio_signal_mutex);
+  g_rec_mutex_unlock(audio_signal_mutex);
 
   /* apply presets */
   if(output_soundcard != NULL){
@@ -2160,18 +2469,56 @@ ags_audio_signal_set_output_soundcard(AgsAudioSignal *audio_signal, GObject *out
 }
 
 /**
- * ags_audio_signal_set_input_soundcard:
+ * ags_audio_signal_set_output_soundcard:
  * @audio_signal: the #AgsAudioSignal
- * @input_soundcard: the #GObject implementing #AgsSoundcard
- * 
- * Set input soundcarod of @audio_signal.
- * 
- * Since: 2.0.0
+ * @output_soundcard: the #GObject implementing #AgsSoundcard
+ *
+ * Set the output soundcard object of @audio_signal.
+ *
+ * Since: 3.0.0
  */
 void
-ags_audio_signal_set_input_soundcard(AgsAudioSignal *audio_signal, GObject *input_soundcard)
+ags_audio_signal_set_output_soundcard(AgsAudioSignal *audio_signal, GObject *output_soundcard)
 {
-  pthread_mutex_t *audio_signal_mutex;
+  if(!AGS_IS_AUDIO_SIGNAL(audio_signal)){
+    return;
+  }
+
+  g_object_set(audio_signal,
+	       "output-soundcard", output_soundcard,
+	       NULL);
+}
+
+/**
+ * ags_audio_signal_get_input_soundcard:
+ * @audio_signal: the #AgsAudioSignal
+ *
+ * Get the input soundcard object of @audio_signal.
+ *
+ * Returns: (transfer full): the input soundcard
+ * 
+ * Since: 3.1.0
+ */
+GObject*
+ags_audio_signal_get_input_soundcard(AgsAudioSignal *audio_signal)
+{
+  GObject *input_soundcard;
+  
+  if(!AGS_IS_AUDIO_SIGNAL(audio_signal)){
+    return(NULL);
+  }
+
+  g_object_get(audio_signal,
+	       "input-soundcard", &input_soundcard,
+	       NULL);
+
+  return(input_soundcard);
+}
+
+void
+ags_audio_signal_real_set_input_soundcard(AgsAudioSignal *audio_signal, GObject *input_soundcard)
+{
+  GRecMutex *audio_signal_mutex;
 
   if(!AGS_IS_AUDIO_SIGNAL(audio_signal) ||
      !AGS_IS_SOUNDCARD(input_soundcard)){
@@ -2182,10 +2529,10 @@ ags_audio_signal_set_input_soundcard(AgsAudioSignal *audio_signal, GObject *inpu
   audio_signal_mutex = AGS_AUDIO_SIGNAL_GET_OBJ_MUTEX(audio_signal);
 
   /* set input soundcard */
-  pthread_mutex_lock(audio_signal_mutex);
+  g_rec_mutex_lock(audio_signal_mutex);
 
   if(audio_signal->input_soundcard == input_soundcard){
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
     
     return;
   }
@@ -2200,7 +2547,54 @@ ags_audio_signal_set_input_soundcard(AgsAudioSignal *audio_signal, GObject *inpu
       
   audio_signal->input_soundcard = input_soundcard;
 
-  pthread_mutex_unlock(audio_signal_mutex);
+  g_rec_mutex_unlock(audio_signal_mutex);
+}
+
+/**
+ * ags_audio_signal_set_input_soundcard:
+ * @audio_signal: an #AgsAudioSignal
+ * @input_soundcard: the #GObject implementing #AgsSoundcard
+ *
+ * Set the input soundcard object of @audio_signal.
+ *
+ * Since: 3.0.0
+ */
+void
+ags_audio_signal_set_input_soundcard(AgsAudioSignal *audio_signal, GObject *input_soundcard)
+{
+  if(!AGS_IS_AUDIO_SIGNAL(audio_signal)){
+    return;
+  }
+
+  g_object_set(audio_signal,
+	       "input-soundcard", input_soundcard,
+	       NULL);
+}
+
+/**
+ * ags_audio_signal_get_samplerate:
+ * @audio_signal: the #AgsAudioSignal
+ *
+ * Gets samplerate.
+ * 
+ * Returns: the samplerate
+ * 
+ * Since: 3.1.0
+ */
+guint
+ags_audio_signal_get_samplerate(AgsAudioSignal *audio_signal)
+{
+  guint samplerate;
+  
+  if(!AGS_IS_AUDIO_SIGNAL(audio_signal)){
+    return(0);
+  }
+
+  g_object_get(audio_signal,
+	       "samplerate", &samplerate,
+	       NULL);
+
+  return(samplerate);
 }
 
 /**
@@ -2210,15 +2604,18 @@ ags_audio_signal_set_input_soundcard(AgsAudioSignal *audio_signal, GObject *inpu
  *
  * Set samplerate.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_audio_signal_set_samplerate(AgsAudioSignal *audio_signal, guint samplerate)
 {
+  AgsResampleUtil resample_util;
+
   GList *stream;
 
   void *data, *resampled_data;
 
+  guint allocated_buffer_length;
   guint stream_length;
   guint end_offset;
   guint buffer_size;
@@ -2227,8 +2624,8 @@ ags_audio_signal_set_samplerate(AgsAudioSignal *audio_signal, guint samplerate)
   guint offset;
   guint copy_mode;
   
-  pthread_mutex_t *audio_signal_mutex;
-  pthread_mutex_t *stream_mutex;
+  GRecMutex *audio_signal_mutex;
+  GRecMutex *stream_mutex;
 
   if(!AGS_IS_AUDIO_SIGNAL(audio_signal)){
     return;
@@ -2239,18 +2636,18 @@ ags_audio_signal_set_samplerate(AgsAudioSignal *audio_signal, guint samplerate)
   stream_mutex = AGS_AUDIO_SIGNAL_GET_STREAM_MUTEX(audio_signal);
 
   /* check resample */
-  pthread_mutex_lock(audio_signal_mutex);
+  g_rec_mutex_lock(audio_signal_mutex);
 
   old_samplerate = audio_signal->samplerate;
 
-  pthread_mutex_unlock(audio_signal_mutex);
+  g_rec_mutex_unlock(audio_signal_mutex);
 
   if(old_samplerate == samplerate){
     return;
   }
   
   /* set samplerate */
-  pthread_mutex_lock(audio_signal_mutex);
+  g_rec_mutex_lock(audio_signal_mutex);
 
   buffer_size = audio_signal->buffer_size;
   format = audio_signal->format;
@@ -2260,76 +2657,63 @@ ags_audio_signal_set_samplerate(AgsAudioSignal *audio_signal, guint samplerate)
   audio_signal->loop_start = (guint) floor((double) samplerate * ((double) audio_signal->loop_start / (double) old_samplerate));
   audio_signal->loop_end = (guint) floor((double) samplerate * ((double) audio_signal->loop_end / (double) old_samplerate));
 
-  pthread_mutex_unlock(audio_signal_mutex);
+  g_rec_mutex_unlock(audio_signal_mutex);
 
   /* resample buffer */
-  pthread_mutex_lock(stream_mutex);
+  g_rec_mutex_lock(stream_mutex);
 
   data = NULL;
   
   stream_length = g_list_length(audio_signal->stream);
 
-  copy_mode = G_MAXUINT;
+  copy_mode = ags_audio_buffer_util_get_copy_mode(ags_audio_buffer_util_format_from_soundcard(format),
+						  ags_audio_buffer_util_format_from_soundcard(format));
   
   switch(format){
   case AGS_SOUNDCARD_SIGNED_8_BIT:
     {
-      data = (gint8 *) malloc(stream_length * buffer_size * sizeof(gint8));
-      memset(data, 0, stream_length * buffer_size * sizeof(gint8));
-      
-      copy_mode = AGS_AUDIO_BUFFER_UTIL_COPY_S8_TO_S8;
+      data = (gint8 *) g_malloc(stream_length * buffer_size * sizeof(gint8));
+      memset(data, 0, stream_length * buffer_size * sizeof(gint8));  
     }
     break;
   case AGS_SOUNDCARD_SIGNED_16_BIT:
     {
-      data = (gint16 *) malloc(stream_length * buffer_size * sizeof(gint16));
+      data = (gint16 *) g_malloc(stream_length * buffer_size * sizeof(gint16));
       memset(data, 0, stream_length * buffer_size * sizeof(gint16));
-
-      copy_mode = AGS_AUDIO_BUFFER_UTIL_COPY_S16_TO_S16;
     }
     break;
   case AGS_SOUNDCARD_SIGNED_24_BIT:
     {
-      data = (gint32 *) malloc(stream_length * buffer_size * sizeof(gint32));
+      data = (gint32 *) g_malloc(stream_length * buffer_size * sizeof(gint32));
       memset(data, 0, stream_length * buffer_size * sizeof(gint32));
-
-      copy_mode = AGS_AUDIO_BUFFER_UTIL_COPY_S32_TO_S32;
     }
     break;
   case AGS_SOUNDCARD_SIGNED_32_BIT:
     {
-      data = (gint32 *) malloc(stream_length * buffer_size * sizeof(gint32));
+      data = (gint32 *) g_malloc(stream_length * buffer_size * sizeof(gint32));
       memset(data, 0, stream_length * buffer_size * sizeof(gint32));
-
-      copy_mode = AGS_AUDIO_BUFFER_UTIL_COPY_S32_TO_S32;
     }
     break;
   case AGS_SOUNDCARD_SIGNED_64_BIT:
     {
-      data = (gint64 *) malloc(stream_length * buffer_size * sizeof(gint64));
+      data = (gint64 *) g_malloc(stream_length * buffer_size * sizeof(gint64));
       memset(data, 0, stream_length * buffer_size * sizeof(gint64));
-
-      copy_mode = AGS_AUDIO_BUFFER_UTIL_COPY_S64_TO_S64;
     }
     break;
   case AGS_SOUNDCARD_FLOAT:
     {
-      data = (gfloat *) malloc(stream_length * buffer_size * sizeof(gfloat));
+      data = (gfloat *) g_malloc(stream_length * buffer_size * sizeof(gfloat));
       memset(data, 0, stream_length * buffer_size * sizeof(gfloat));
-
-      copy_mode = AGS_AUDIO_BUFFER_UTIL_COPY_FLOAT_TO_FLOAT;
     }
     break;
   case AGS_SOUNDCARD_DOUBLE:
     {
-      data = (gdouble *) malloc(stream_length * buffer_size * sizeof(gdouble));
+      data = (gdouble *) g_malloc(stream_length * buffer_size * sizeof(gdouble));
       memset(data, 0, stream_length * buffer_size * sizeof(gdouble));
-
-      copy_mode = AGS_AUDIO_BUFFER_UTIL_COPY_DOUBLE_TO_DOUBLE;
     }
     break;
   default:
-    g_warning("ags_audio_signal_set_samplerate() - unsupported format");
+    g_warning("ags_audio_signal_set_buffer_size() - unsupported format");
   }
 
   stream = audio_signal->stream;
@@ -2347,21 +2731,48 @@ ags_audio_signal_set_samplerate(AgsAudioSignal *audio_signal, guint samplerate)
     offset += buffer_size;
   }
   
-  pthread_mutex_unlock(stream_mutex);
+  g_rec_mutex_unlock(stream_mutex);
 
-  resampled_data = ags_audio_buffer_util_resample(data, 1,
-						  ags_audio_buffer_util_format_from_soundcard(format), old_samplerate,
-						  stream_length * buffer_size,
-						  samplerate);
+  allocated_buffer_length = stream_length * buffer_size;
 
-  if(data != NULL){
-    free(data);
+  if(allocated_buffer_length < samplerate * (stream_length * buffer_size / old_samplerate)){
+    allocated_buffer_length = samplerate * (stream_length * buffer_size / old_samplerate);
   }
+
+  resampled_data = ags_stream_alloc((guint) (samplerate * (stream_length * buffer_size / old_samplerate)),
+				    format);
+
+  resample_util.secret_rabbit.src_ratio = old_samplerate / samplerate;
+
+  resample_util.secret_rabbit.input_frames = stream_length * buffer_size;
+  resample_util.secret_rabbit.data_in = g_malloc(allocated_buffer_length * sizeof(gfloat));
+
+  resample_util.secret_rabbit.output_frames = samplerate * (stream_length * buffer_size / old_samplerate);
+  resample_util.secret_rabbit.data_out = g_malloc(allocated_buffer_length * sizeof(gfloat));
+  
+  resample_util.destination = resampled_data;
+  resample_util.destination_stride = 1;
+
+  resample_util.source = data;
+  resample_util.source_stride = 1;
+
+  resample_util.buffer_length = allocated_buffer_length;
+  resample_util.format = format;
+  resample_util.samplerate = old_samplerate;
+  
+  resample_util.target_samplerate = samplerate;
+
+  ags_resample_util_compute(&resample_util);  
+
+  g_free(resample_util.secret_rabbit.data_out);
+  g_free(resample_util.secret_rabbit.data_in);
+
+  g_free(data);
 
   ags_audio_signal_stream_resize(audio_signal,
 				 (guint) ceil((samplerate * (stream_length * buffer_size / old_samplerate)) / buffer_size));
   
-  pthread_mutex_lock(stream_mutex);
+  g_rec_mutex_lock(stream_mutex);
 
   stream = audio_signal->stream;
 
@@ -2392,11 +2803,35 @@ ags_audio_signal_set_samplerate(AgsAudioSignal *audio_signal, guint samplerate)
     offset += buffer_size;
   }
   
-  pthread_mutex_unlock(stream_mutex);
+  g_rec_mutex_unlock(stream_mutex);
 
-  if(resampled_data != NULL){
-    free(resampled_data);
+  ags_stream_free(resampled_data);
+}
+
+/**
+ * ags_audio_signal_get_buffer_size:
+ * @audio_signal: the #AgsAudioSignal
+ *
+ * Gets buffer size.
+ * 
+ * Returns: the buffer size
+ * 
+ * Since: 3.1.0
+ */
+guint
+ags_audio_signal_get_buffer_size(AgsAudioSignal *audio_signal)
+{
+  guint buffer_size;
+  
+  if(!AGS_IS_AUDIO_SIGNAL(audio_signal)){
+    return(0);
   }
+
+  g_object_get(audio_signal,
+	       "buffer-size", &buffer_size,
+	       NULL);
+
+  return(buffer_size);
 }
 
 /**
@@ -2406,7 +2841,7 @@ ags_audio_signal_set_samplerate(AgsAudioSignal *audio_signal, guint samplerate)
  *
  * Set buffer size.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_audio_signal_set_buffer_size(AgsAudioSignal *audio_signal, guint buffer_size)
@@ -2423,8 +2858,8 @@ ags_audio_signal_set_buffer_size(AgsAudioSignal *audio_signal, guint buffer_size
   guint word_size;
   guint copy_mode;
   
-  pthread_mutex_t *audio_signal_mutex;
-  pthread_mutex_t *stream_mutex;
+  GRecMutex *audio_signal_mutex;
+  GRecMutex *stream_mutex;
 
   if(!AGS_IS_AUDIO_SIGNAL(audio_signal)){
     return;
@@ -2435,96 +2870,90 @@ ags_audio_signal_set_buffer_size(AgsAudioSignal *audio_signal, guint buffer_size
   stream_mutex = AGS_AUDIO_SIGNAL_GET_STREAM_MUTEX(audio_signal);
 
   /* check buffer size */
-  pthread_mutex_lock(audio_signal_mutex);
+  g_rec_mutex_lock(audio_signal_mutex);
 
   old_buffer_size = audio_signal->buffer_size;
 
-  pthread_mutex_unlock(audio_signal_mutex);
+  g_rec_mutex_unlock(audio_signal_mutex);
 
   if(old_buffer_size == buffer_size){
     return;
   }
   
   /* get some fields and set buffer size */
-  pthread_mutex_lock(audio_signal_mutex);
+  g_rec_mutex_lock(audio_signal_mutex);
 
   format = audio_signal->format;
 
   audio_signal->buffer_size = buffer_size;
   
-  pthread_mutex_unlock(audio_signal_mutex);
+  g_rec_mutex_unlock(audio_signal_mutex);
 
   /* resize buffer */
-  pthread_mutex_lock(stream_mutex);
+  g_rec_mutex_lock(stream_mutex);
 
   data = NULL;
   
   stream_length = g_list_length(audio_signal->stream);
   word_size = 1;
 
-  copy_mode = G_MAXUINT;
+  copy_mode = ags_audio_buffer_util_get_copy_mode(ags_audio_buffer_util_format_from_soundcard(format),
+						  ags_audio_buffer_util_format_from_soundcard(format));
   
   switch(format){
   case AGS_SOUNDCARD_SIGNED_8_BIT:
     {
-      data = (gint8 *) malloc(stream_length * old_buffer_size * sizeof(gint8));
+      data = (gint8 *) g_malloc(stream_length * old_buffer_size * sizeof(gint8));
       memset(data, 0, stream_length * old_buffer_size * sizeof(gint8));
       
-      copy_mode = AGS_AUDIO_BUFFER_UTIL_COPY_S8_TO_S8;
       word_size = sizeof(gint8);
     }
     break;
   case AGS_SOUNDCARD_SIGNED_16_BIT:
     {
-      data = (gint16 *) malloc(stream_length * old_buffer_size * sizeof(gint16));
+      data = (gint16 *) g_malloc(stream_length * old_buffer_size * sizeof(gint16));
       memset(data, 0, stream_length * old_buffer_size * sizeof(gint16));
 
-      copy_mode = AGS_AUDIO_BUFFER_UTIL_COPY_S16_TO_S16;
       word_size = sizeof(gint16);
     }
     break;
   case AGS_SOUNDCARD_SIGNED_24_BIT:
     {
-      data = (gint32 *) malloc(stream_length * old_buffer_size * sizeof(gint32));
+      data = (gint32 *) g_malloc(stream_length * old_buffer_size * sizeof(gint32));
       memset(data, 0, stream_length * old_buffer_size * sizeof(gint32));
 
-      copy_mode = AGS_AUDIO_BUFFER_UTIL_COPY_S32_TO_S32;
       word_size = sizeof(gint32);
     }
     break;
   case AGS_SOUNDCARD_SIGNED_32_BIT:
     {
-      data = (gint32 *) malloc(stream_length * old_buffer_size * sizeof(gint32));
+      data = (gint32 *) g_malloc(stream_length * old_buffer_size * sizeof(gint32));
       memset(data, 0, stream_length * old_buffer_size * sizeof(gint32));
 
-      copy_mode = AGS_AUDIO_BUFFER_UTIL_COPY_S32_TO_S32;
       word_size = sizeof(gint32);
     }
     break;
   case AGS_SOUNDCARD_SIGNED_64_BIT:
     {
-      data = (gint64 *) malloc(stream_length * old_buffer_size * sizeof(gint64));
+      data = (gint64 *) g_malloc(stream_length * old_buffer_size * sizeof(gint64));
       memset(data, 0, stream_length * old_buffer_size * sizeof(gint64));
 
-      copy_mode = AGS_AUDIO_BUFFER_UTIL_COPY_S64_TO_S64;
       word_size = sizeof(gint64);
     }
     break;
   case AGS_SOUNDCARD_FLOAT:
     {
-      data = (gfloat *) malloc(stream_length * old_buffer_size * sizeof(gfloat));
+      data = (gfloat *) g_malloc(stream_length * old_buffer_size * sizeof(gfloat));
       memset(data, 0, stream_length * old_buffer_size * sizeof(gfloat));
 
-      copy_mode = AGS_AUDIO_BUFFER_UTIL_COPY_FLOAT_TO_FLOAT;
       word_size = sizeof(gfloat);
     }
     break;
   case AGS_SOUNDCARD_DOUBLE:
     {
-      data = (gdouble *) malloc(stream_length * old_buffer_size * sizeof(gdouble));
+      data = (gdouble *) g_malloc(stream_length * old_buffer_size * sizeof(gdouble));
       memset(data, 0, stream_length * old_buffer_size * sizeof(gdouble));
 
-      copy_mode = AGS_AUDIO_BUFFER_UTIL_COPY_DOUBLE_TO_DOUBLE;
       word_size = sizeof(gdouble);
     }
     break;
@@ -2547,12 +2976,12 @@ ags_audio_signal_set_buffer_size(AgsAudioSignal *audio_signal, guint buffer_size
     offset += old_buffer_size;
   }
 
-  pthread_mutex_unlock(stream_mutex);
+  g_rec_mutex_unlock(stream_mutex);
   
   ags_audio_signal_stream_resize(audio_signal,
 				 (guint) ceil(((double) stream_length * (double) old_buffer_size) / buffer_size));
 
-  pthread_mutex_lock(stream_mutex);
+  g_rec_mutex_lock(stream_mutex);
 
   stream = audio_signal->stream;
 
@@ -2562,53 +2991,53 @@ ags_audio_signal_set_buffer_size(AgsAudioSignal *audio_signal, guint buffer_size
   offset = 0;
   
   while(stream != NULL && offset < stream_length * buffer_size){
+    if(ags_audio_signal_test_flags(audio_signal, AGS_AUDIO_SIGNAL_SLICE_ALLOC)){
+      ags_stream_slice_free(old_buffer_size,
+			    format,
+			    stream->data);
+      
+      stream->data = ags_stream_slice_alloc(buffer_size,
+					    format);
+    }else{
+      ags_stream_free(stream->data);
+      
+      stream->data = ags_stream_alloc(buffer_size,
+				      format);
+    }
+    
     switch(format){
     case AGS_SOUNDCARD_SIGNED_8_BIT:
       {
-	stream->data = (gint8 *) realloc(stream->data,
-					 buffer_size * sizeof(gint8));
 	memset(stream->data, 0, buffer_size * sizeof(gint8));
       }
       break;
     case AGS_SOUNDCARD_SIGNED_16_BIT:
       {
-	stream->data = (gint16 *) realloc(stream->data,
-					  buffer_size * sizeof(gint16));
 	memset(stream->data, 0, buffer_size * sizeof(gint16));
       }
       break;
     case AGS_SOUNDCARD_SIGNED_24_BIT:
       {
-	stream->data = (gint32 *) realloc(stream->data,
-					  buffer_size * sizeof(gint32));
 	memset(stream->data, 0, buffer_size * sizeof(gint32));
       }
       break;
     case AGS_SOUNDCARD_SIGNED_32_BIT:
       {
-	stream->data = (gint32 *) realloc(stream->data,
-					  buffer_size * sizeof(gint32));
 	memset(stream->data, 0, buffer_size * sizeof(gint32));
       }
       break;
     case AGS_SOUNDCARD_SIGNED_64_BIT:
       {
-	stream->data = (gint64 *) realloc(stream->data,
-					  buffer_size * sizeof(gint64));
 	memset(stream->data, 0, buffer_size * sizeof(gint64));
       }
       break;
     case AGS_SOUNDCARD_FLOAT:
       {
-	stream->data = (gfloat *) realloc(stream->data,
-					  buffer_size * sizeof(gfloat));
 	memset(stream->data, 0, buffer_size * sizeof(gfloat));
       }
       break;
     case AGS_SOUNDCARD_DOUBLE:
       {
-	stream->data = (gdouble *) realloc(stream->data,
-					   buffer_size * sizeof(gdouble));
 	memset(stream->data, 0, buffer_size * sizeof(gdouble));
       }
       break;
@@ -2637,11 +3066,35 @@ ags_audio_signal_set_buffer_size(AgsAudioSignal *audio_signal, guint buffer_size
     offset += buffer_size;
   }
 
-  pthread_mutex_unlock(stream_mutex);
+  g_rec_mutex_unlock(stream_mutex);
 
-  if(data != NULL){
-    free(data);
+  g_free(data);
+}
+
+/**
+ * ags_audio_signal_get_format:
+ * @audio_signal: the #AgsAudioSignal
+ *
+ * Gets format.
+ * 
+ * Returns: the format
+ * 
+ * Since: 3.1.0
+ */
+guint
+ags_audio_signal_get_format(AgsAudioSignal *audio_signal)
+{
+  guint format;
+  
+  if(!AGS_IS_AUDIO_SIGNAL(audio_signal)){
+    return(0);
   }
+
+  g_object_get(audio_signal,
+	       "format", &format,
+	       NULL);
+
+  return(format);
 }
 
 /**
@@ -2651,7 +3104,7 @@ ags_audio_signal_set_buffer_size(AgsAudioSignal *audio_signal, guint buffer_size
  *
  * Set format.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_audio_signal_set_format(AgsAudioSignal *audio_signal, guint format)
@@ -2664,8 +3117,8 @@ ags_audio_signal_set_format(AgsAudioSignal *audio_signal, guint format)
   guint old_format;
   guint copy_mode;
 
-  pthread_mutex_t *audio_signal_mutex;
-  pthread_mutex_t *stream_mutex;
+  GRecMutex *audio_signal_mutex;
+  GRecMutex *stream_mutex;
 
   if(!AGS_IS_AUDIO_SIGNAL(audio_signal)){
     return;
@@ -2676,7 +3129,7 @@ ags_audio_signal_set_format(AgsAudioSignal *audio_signal, guint format)
   stream_mutex = AGS_AUDIO_SIGNAL_GET_STREAM_MUTEX(audio_signal);
 
   /* get some fields and set format */
-  pthread_mutex_lock(audio_signal_mutex);
+  g_rec_mutex_lock(audio_signal_mutex);
 
   buffer_size = audio_signal->buffer_size;
   old_format = audio_signal->format;
@@ -2722,14 +3175,14 @@ ags_audio_signal_set_format(AgsAudioSignal *audio_signal, guint format)
     break;
   }
 
-  pthread_mutex_unlock(audio_signal_mutex);
+  g_rec_mutex_unlock(audio_signal_mutex);
 
   if(old_format == 0){
     return;
   }
   
   /* resize buffer */
-  pthread_mutex_lock(stream_mutex);
+  g_rec_mutex_lock(stream_mutex);
 
   stream = audio_signal->stream;
     
@@ -2737,14 +3190,25 @@ ags_audio_signal_set_format(AgsAudioSignal *audio_signal, guint format)
 						  ags_audio_buffer_util_format_from_soundcard(old_format));
 
   while(stream != NULL){
-    data = ags_stream_alloc(audio_signal->buffer_size,
-			    format);
+    if(ags_audio_signal_test_flags(audio_signal, AGS_AUDIO_SIGNAL_SLICE_ALLOC)){
+      data = ags_stream_slice_alloc(buffer_size,
+				    format);
+    }else{
+      data = ags_stream_alloc(buffer_size,
+			      format);
+    }
     
     ags_audio_buffer_util_copy_buffer_to_buffer(data, 1, 0,
 						stream->data, 1, 0,
 						buffer_size, copy_mode);
 
-    free(stream->data);
+    if(ags_audio_signal_test_flags(audio_signal, AGS_AUDIO_SIGNAL_SLICE_ALLOC)){
+      ags_stream_slice_free(buffer_size,
+			    old_format,
+			    stream->data);
+    }else{
+      ags_stream_free(stream->data);
+    }
     
     stream->data = data;
 
@@ -2752,7 +3216,7 @@ ags_audio_signal_set_format(AgsAudioSignal *audio_signal, guint format)
     stream = stream->next;
   }
 
-  pthread_mutex_unlock(stream_mutex);
+  g_rec_mutex_unlock(stream_mutex);
 }
 
 /**
@@ -2763,7 +3227,7 @@ ags_audio_signal_set_format(AgsAudioSignal *audio_signal, guint format)
  *
  * Returns: the counted length.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 guint
 ags_audio_signal_get_length_till_current(AgsAudioSignal *audio_signal)
@@ -2772,7 +3236,7 @@ ags_audio_signal_get_length_till_current(AgsAudioSignal *audio_signal)
 
   guint length;
 
-  pthread_mutex_t *stream_mutex;
+  GRecMutex *stream_mutex;
 
   if(!AGS_IS_AUDIO_SIGNAL(audio_signal)){
     return(0);
@@ -2782,7 +3246,7 @@ ags_audio_signal_get_length_till_current(AgsAudioSignal *audio_signal)
   stream_mutex = AGS_AUDIO_SIGNAL_GET_STREAM_MUTEX(audio_signal);
 
   /* count entries */
-  pthread_mutex_lock(stream_mutex);
+  g_rec_mutex_lock(stream_mutex);
 
   list = audio_signal->stream;
   length = 0;
@@ -2796,9 +3260,47 @@ ags_audio_signal_get_length_till_current(AgsAudioSignal *audio_signal)
     }
   }
   
-  pthread_mutex_unlock(stream_mutex);
+  g_rec_mutex_unlock(stream_mutex);
 
   return(length);
+}
+
+/**
+ * ags_audio_signal_contains_note:
+ * @audio_signal: the #AgsAudioSignal
+ * @note: the #AgsNote
+ *
+ * Check if @audio_signal contains @note.
+ *
+ * Returns: %TRUE on success, otherwise %FALSE
+ *
+ * Since: 3.3.0
+ */
+gboolean
+ags_audio_signal_contains_note(AgsAudioSignal *audio_signal,
+			       AgsNote *note)
+{
+  gboolean success;
+
+  GRecMutex *audio_signal_mutex;
+
+  if(!AGS_IS_AUDIO_SIGNAL(audio_signal)){
+    return(FALSE);
+  }
+
+  /* get audio signal mutex */
+  audio_signal_mutex = AGS_AUDIO_SIGNAL_GET_OBJ_MUTEX(audio_signal);
+
+  success = FALSE;
+  
+  /* check note */
+  g_rec_mutex_lock(audio_signal_mutex);
+
+  success = (g_list_find(audio_signal->note, note) != NULL) ? TRUE: FALSE;
+  
+  g_rec_mutex_unlock(audio_signal_mutex);
+
+  return(success);
 }
 
 /**
@@ -2807,7 +3309,7 @@ ags_audio_signal_get_length_till_current(AgsAudioSignal *audio_signal)
  *
  * Adds a buffer at the end of the stream.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_audio_signal_add_stream(AgsAudioSignal *audio_signal)
@@ -2816,11 +3318,12 @@ ags_audio_signal_add_stream(AgsAudioSignal *audio_signal)
 
   void *buffer;
 
+  gboolean use_slice;
   guint buffer_size;
   guint format;
   
-  pthread_mutex_t *audio_signal_mutex;
-  pthread_mutex_t *stream_mutex;
+  GRecMutex *audio_signal_mutex;
+  GRecMutex *stream_mutex;
 
   if(!AGS_IS_AUDIO_SIGNAL(audio_signal)){
     return;
@@ -2831,21 +3334,30 @@ ags_audio_signal_add_stream(AgsAudioSignal *audio_signal)
   stream_mutex = AGS_AUDIO_SIGNAL_GET_STREAM_MUTEX(audio_signal);
 
   /* get some fields and increment length */
-  pthread_mutex_lock(audio_signal_mutex);
+  g_rec_mutex_lock(audio_signal_mutex);
 
   buffer_size = audio_signal->buffer_size;
   format = audio_signal->format;
 
   audio_signal->length += 1;
 
-  pthread_mutex_unlock(audio_signal_mutex);
+  use_slice = ((AGS_AUDIO_SIGNAL_SLICE_ALLOC & (audio_signal->flags)) != 0) ? TRUE: FALSE;
+  
+  g_rec_mutex_unlock(audio_signal_mutex);
 
   /* allocate stream and buffer */
-  pthread_mutex_lock(stream_mutex);
+  g_rec_mutex_lock(stream_mutex);
 
   stream = g_list_alloc();
-  buffer = ags_stream_alloc(buffer_size,
-			    format);
+
+  if(!use_slice){
+    buffer = ags_stream_alloc(buffer_size,
+			      format);
+  }else{
+    buffer = ags_stream_slice_alloc(buffer_size,
+				    format);
+  }
+  
   stream->data = buffer;
 
   if(audio_signal->stream_end != NULL){
@@ -2860,7 +3372,7 @@ ags_audio_signal_add_stream(AgsAudioSignal *audio_signal)
 
   audio_signal->stream_end = stream;
 
-  pthread_mutex_unlock(stream_mutex);
+  g_rec_mutex_unlock(stream_mutex);
 }
 
 /**
@@ -2870,18 +3382,19 @@ ags_audio_signal_add_stream(AgsAudioSignal *audio_signal)
  *
  * Resize stream of @audio_signal to @length number of buffers.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_audio_signal_stream_resize(AgsAudioSignal *audio_signal, guint length)
 {
+  gboolean use_slice;
   guint buffer_size;
   guint format;
   guint old_length;
   guint i;
 
-  pthread_mutex_t *audio_signal_mutex;
-  pthread_mutex_t *stream_mutex;
+  GRecMutex *audio_signal_mutex;
+  GRecMutex *stream_mutex;
 
   if(!AGS_IS_AUDIO_SIGNAL(audio_signal)){
     return;
@@ -2892,7 +3405,7 @@ ags_audio_signal_stream_resize(AgsAudioSignal *audio_signal, guint length)
   stream_mutex = AGS_AUDIO_SIGNAL_GET_STREAM_MUTEX(audio_signal);
 
   /* get some fields and set length */
-  pthread_mutex_lock(audio_signal_mutex);
+  g_rec_mutex_lock(audio_signal_mutex);
 
   buffer_size = audio_signal->buffer_size;
   format = audio_signal->format;
@@ -2901,7 +3414,9 @@ ags_audio_signal_stream_resize(AgsAudioSignal *audio_signal, guint length)
 
   audio_signal->length = length;
 
-  pthread_mutex_unlock(audio_signal_mutex);
+  use_slice = ((AGS_AUDIO_SIGNAL_SLICE_ALLOC & (audio_signal->flags)) != 0) ? TRUE: FALSE;  
+
+  g_rec_mutex_unlock(audio_signal_mutex);
 
   /* resize stream */
   if(old_length < length){
@@ -2912,9 +3427,14 @@ ags_audio_signal_stream_resize(AgsAudioSignal *audio_signal, guint length)
     stream = NULL;
 
     for(i = old_length; i < length; i++){
-      buffer = ags_stream_alloc(buffer_size,
-				format);
-
+      if(!use_slice){
+	buffer = ags_stream_alloc(buffer_size,
+				  format);
+      }else{
+	buffer = ags_stream_slice_alloc(buffer_size,
+					format);
+      }
+	
       stream = g_list_prepend(stream,
 			      buffer);
     }
@@ -2922,7 +3442,7 @@ ags_audio_signal_stream_resize(AgsAudioSignal *audio_signal, guint length)
     stream = g_list_reverse(stream);
 
     /* concat */
-    pthread_mutex_lock(stream_mutex);
+    g_rec_mutex_lock(stream_mutex);
     
     if(audio_signal->stream_end != NULL){
       end_old = audio_signal->stream_end;
@@ -2936,13 +3456,13 @@ ags_audio_signal_stream_resize(AgsAudioSignal *audio_signal, guint length)
       audio_signal->stream_current = stream;
     }
 
-    pthread_mutex_unlock(stream_mutex);
+    g_rec_mutex_unlock(stream_mutex);
   }else if(old_length > length){
     GList *stream, *stream_end, *stream_next;
 
     gboolean check_current;
 
-    pthread_mutex_lock(stream_mutex);
+    g_rec_mutex_lock(stream_mutex);
     
     stream = audio_signal->stream;
     check_current = TRUE;
@@ -2966,7 +3486,7 @@ ags_audio_signal_stream_resize(AgsAudioSignal *audio_signal, guint length)
       audio_signal->stream_end = NULL;
     }
 
-    pthread_mutex_unlock(stream_mutex);
+    g_rec_mutex_unlock(stream_mutex);
     
     stream->prev = NULL;
     g_list_free_full(stream,
@@ -2982,7 +3502,7 @@ ags_audio_signal_stream_resize(AgsAudioSignal *audio_signal, guint length)
  * Resize stream of @audio_signal to @length number of buffers. But doesn't shrink
  * more than the current stream position.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_audio_signal_stream_safe_resize(AgsAudioSignal *audio_signal, guint length)
@@ -3005,6 +3525,51 @@ ags_audio_signal_stream_safe_resize(AgsAudioSignal *audio_signal, guint length)
 }
 
 /**
+ * ags_audio_signal_clear:
+ * @audio_signal: the #AgsAudioSignal
+ * 
+ * Clear @audio_signal. 
+ *
+ * Since: 3.4.1
+ */
+void
+ags_audio_signal_clear(AgsAudioSignal *audio_signal)
+{
+  GList *stream;
+
+  guint buffer_size;
+  guint format;
+  
+  GRecMutex *audio_signal_stream_mutex;
+
+  if(!AGS_IS_AUDIO_SIGNAL(audio_signal)){
+    return;
+  }
+
+  /* get audio signal mutex */
+  audio_signal_stream_mutex = AGS_AUDIO_SIGNAL_GET_STREAM_MUTEX(audio_signal);
+
+  g_object_get(audio_signal,
+	       "buffer-size", &buffer_size,
+	       "format", &format,
+	       NULL);
+
+  g_rec_mutex_lock(audio_signal_stream_mutex);
+
+  stream = audio_signal->stream;
+    
+  while(stream != NULL){
+    ags_audio_buffer_util_clear_buffer(stream->data, 1,
+				       buffer_size, ags_audio_buffer_util_format_from_soundcard(format));
+
+    /* iterate */
+    stream = stream->next;
+  }
+
+  g_rec_mutex_unlock(audio_signal_stream_mutex);
+}
+
+/**
  * ags_audio_signal_duplicate_stream:
  * @audio_signal: the #AgsAudioSignal
  * @template: the template #AgsAudioSignal
@@ -3012,7 +3577,7 @@ ags_audio_signal_stream_safe_resize(AgsAudioSignal *audio_signal, guint length)
  * Apply @template audio data to @audio_signal. Note should only be invoked
  * by proper recall context because only the stream of @template is locked.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_audio_signal_duplicate_stream(AgsAudioSignal *audio_signal,
@@ -3026,9 +3591,9 @@ ags_audio_signal_duplicate_stream(AgsAudioSignal *audio_signal,
   guint length;
   guint copy_mode;
 
-  pthread_mutex_t *template_mutex;
-  pthread_mutex_t *audio_signal_mutex;
-  pthread_mutex_t *template_stream_mutex;
+  GRecMutex *template_mutex;
+  GRecMutex *audio_signal_mutex;
+  GRecMutex *template_stream_mutex;
 
   if(!AGS_IS_AUDIO_SIGNAL(template)){
     if(!AGS_IS_AUDIO_SIGNAL(audio_signal)){
@@ -3047,10 +3612,10 @@ ags_audio_signal_duplicate_stream(AgsAudioSignal *audio_signal,
   template_stream_mutex = AGS_AUDIO_SIGNAL_GET_STREAM_MUTEX(template);
 
   /* check stream presence */
-  pthread_mutex_lock(template_stream_mutex);
+  g_rec_mutex_lock(template_stream_mutex);
 
   if(template->stream == NULL){
-    pthread_mutex_unlock(template_stream_mutex);
+    g_rec_mutex_unlock(template_stream_mutex);
     
     ags_audio_signal_stream_resize(audio_signal,
 				   0);
@@ -3058,10 +3623,10 @@ ags_audio_signal_duplicate_stream(AgsAudioSignal *audio_signal,
     return;
   }
   
-  pthread_mutex_unlock(template_stream_mutex);
+  g_rec_mutex_unlock(template_stream_mutex);
   
   /* get some fields */
-  pthread_mutex_lock(template_mutex);
+  g_rec_mutex_lock(template_mutex);
 
   samplerate = template->samplerate;
   buffer_size = template->buffer_size;
@@ -3069,14 +3634,14 @@ ags_audio_signal_duplicate_stream(AgsAudioSignal *audio_signal,
 
   length = template->length;
   
-  pthread_mutex_unlock(template_mutex);
+  g_rec_mutex_unlock(template_mutex);
 
   /* get some fields */
-  pthread_mutex_lock(audio_signal_mutex);
+  g_rec_mutex_lock(audio_signal_mutex);
 
   format = audio_signal->format;
   
-  pthread_mutex_unlock(audio_signal_mutex);
+  g_rec_mutex_unlock(audio_signal_mutex);
 
   /*  */
   g_object_set(audio_signal,
@@ -3084,14 +3649,14 @@ ags_audio_signal_duplicate_stream(AgsAudioSignal *audio_signal,
 	       "buffer-size", buffer_size,
 	       NULL);
   ags_audio_signal_stream_resize(audio_signal,
-				 length);
+				 g_list_length(template->stream));
 
   copy_mode = ags_audio_buffer_util_get_copy_mode(ags_audio_buffer_util_format_from_soundcard(format),
 						  ags_audio_buffer_util_format_from_soundcard(template_format));
 
 
   //NOTE:JK: lock only template
-  pthread_mutex_lock(template_stream_mutex);
+  g_rec_mutex_lock(template_stream_mutex);
 
   template_stream = template->stream;
   stream = audio_signal->stream;
@@ -3106,7 +3671,7 @@ ags_audio_signal_duplicate_stream(AgsAudioSignal *audio_signal,
     template_stream = template_stream->next;
   }
 
-  pthread_mutex_unlock(template_stream_mutex);
+  g_rec_mutex_unlock(template_stream_mutex);
 }
 
 /**
@@ -3117,105 +3682,130 @@ ags_audio_signal_duplicate_stream(AgsAudioSignal *audio_signal,
  * 
  * Feed audio signal to grow upto frame count.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_audio_signal_feed(AgsAudioSignal *audio_signal,
 		      AgsAudioSignal *template,
 		      guint frame_count)
 {
-  GObject *output_soundcard;
-  
-  GList *list_start, *list;
-  GList *stream, *template_stream;
+  ags_audio_signal_feed_extended(audio_signal,
+				 template,
+				 frame_count, 0,
+				 TRUE, TRUE);
+}
 
-  guint template_samplerate, samplerate;
-  guint template_buffer_size, buffer_size;
-  guint template_format, format;
+/**
+ * ags_audio_signal_feed_extended:
+ * @audio_signal: the #AgsAudioSignal
+ * @template: the template #AgsAudioSignal
+ * @frame_count: the new frame count
+ * @old_frame_count: the old frame count
+ * @do_open: open feed
+ * @do_close: close feed
+ * 
+ * Feed audio signal to grow upto frame count.
+ * 
+ * Since: 3.3.0
+ */
+void
+ags_audio_signal_feed_extended(AgsAudioSignal *audio_signal,
+			       AgsAudioSignal *template,
+			       guint frame_count, guint old_frame_count,
+			       gboolean do_open, gboolean do_close)
+{
+  GList *stream, *template_stream;
+  
   gdouble delay;
   guint attack;
   guint old_length;
-  guint old_frame_count;
-  guint last_frame, old_last_frame;
+  guint old_last_frame;
+  guint last_frame;
   guint loop_start, loop_end;
-  guint new_last_frame;
-  guint new_loop_start, new_loop_end;
   guint template_length;
-  guint loop_length;
-  guint loop_frame_count;
+  guint template_last_frame;
+  guint template_loop_start, template_loop_end;
+  guint template_loop_length;
+  guint template_loop_frame_count;
+  guint template_samplerate, samplerate;
+  guint template_buffer_size, buffer_size;
+  guint template_format, format;
+  guint copy_mode;
   guint n_frames;
   guint copy_n_frames;
-  guint nth_loop;
   guint i, j;
-  guint copy_mode;
   gboolean initial_reset;
-  
-  pthread_mutex_t *audio_signal_mutex;
-  pthread_mutex_t *template_mutex;
-  pthread_mutex_t *template_stream_mutex;
+
+  GRecMutex *audio_signal_mutex;
+  GRecMutex *audio_signal_stream_mutex;
+  GRecMutex *template_mutex;
+  GRecMutex *template_stream_mutex;
 
   if(!AGS_IS_AUDIO_SIGNAL(audio_signal) ||
      !AGS_IS_AUDIO_SIGNAL(template)){
     return;
   }
-  
+
   /* get audio signal mutex */  
-  template_mutex = AGS_AUDIO_SIGNAL_GET_OBJ_MUTEX(template);
   audio_signal_mutex = AGS_AUDIO_SIGNAL_GET_OBJ_MUTEX(audio_signal);
+  audio_signal_stream_mutex = AGS_AUDIO_SIGNAL_GET_STREAM_MUTEX(audio_signal);
   
+  template_mutex = AGS_AUDIO_SIGNAL_GET_OBJ_MUTEX(template);
   template_stream_mutex = AGS_AUDIO_SIGNAL_GET_STREAM_MUTEX(template);
 
-  /* get some fields */
-  pthread_mutex_lock(template_mutex);
-
-  output_soundcard = template->output_soundcard;
-  
-  template_samplerate = template->samplerate;
-  template_buffer_size = template->buffer_size;
-  template_format = template->format;
-
-  last_frame = template->last_frame;
-  loop_start = template->loop_start;
-  loop_end = template->loop_end;
-
-  template_length = template->length;
-  
-  pthread_mutex_unlock(template_mutex);
-
-  /* get some fields */
-  pthread_mutex_lock(audio_signal_mutex);
+  /* audio signal - get some fields */
+  g_rec_mutex_lock(audio_signal_mutex);
 
   buffer_size = audio_signal->buffer_size;
   format = audio_signal->format;
 
   samplerate = audio_signal->samplerate;
-  delay = audio_signal->delay;
-  attack = audio_signal->attack;
+  delay = 0.0; // audio_signal->delay;
+  attack = 0; // audio_signal->attack; is for parent
   
   old_length = audio_signal->length;
   old_last_frame = audio_signal->last_frame;
-  old_frame_count = old_last_frame + (old_length * audio_signal->buffer_size) - audio_signal->first_frame;
 
-  pthread_mutex_unlock(audio_signal_mutex);
+  g_rec_mutex_unlock(audio_signal_mutex);
+
+  /* template - get some fields */
+  g_rec_mutex_lock(template_mutex);
   
+  template_samplerate = template->samplerate;
+  template_buffer_size = template->buffer_size;
+  template_format = template->format;
+
+  template_last_frame = template->last_frame;
+  template_loop_start = template->loop_start;
+  template_loop_end = template->loop_end;
+
+  template_length = template->length;
+  
+  g_rec_mutex_unlock(template_mutex);
+
   /* resize */
-  if(loop_end > loop_start){
-    loop_length = loop_end - loop_start;
+  template_loop_length = 0;
+  template_loop_frame_count = 0;
+
+  if(template_loop_end > template_loop_start){
+    template_loop_length = template_loop_end - template_loop_start;
     
-    if((frame_count - loop_start) > (last_frame - loop_end) &&
-       last_frame >= loop_end){
-      loop_frame_count = (frame_count - loop_start) - (last_frame - loop_end);
+    if((frame_count - template_loop_start) > (template_last_frame - template_loop_end) &&
+       template_last_frame >= template_loop_end){
+      template_loop_frame_count = (frame_count - template_loop_start) - (template_last_frame - template_loop_end);
     }else{
-      loop_frame_count = loop_length;
+      template_loop_frame_count = template_loop_length;
     }
-    
-    ags_audio_signal_stream_safe_resize(audio_signal,
-					(guint) ceil(frame_count / buffer_size));
+
+    if(old_length < (guint) floor((attack + frame_count) / buffer_size) + 1){
+      ags_audio_signal_stream_safe_resize(audio_signal,
+					  (guint) floor((attack + frame_count) / buffer_size) + 1);
+    }
   }else{
-    ags_audio_signal_stream_safe_resize(audio_signal,
-					(guint) ceil(frame_count / buffer_size));
-    
-    return;
+    if(old_length < (guint) floor((attack + frame_count) / buffer_size) + 1){
+      ags_audio_signal_stream_safe_resize(audio_signal,
+					  (guint) floor((attack + frame_count) / buffer_size) + 1);
+    }
   }
   
   if(template_buffer_size != buffer_size ||
@@ -3226,50 +3816,41 @@ ags_audio_signal_feed(AgsAudioSignal *audio_signal,
   }
 
   /* apply delay and attack */
-  new_last_frame = (((guint)(delay *
-			     buffer_size) +
-		     attack +
-		     last_frame) %
-		    buffer_size);
-  new_loop_start = ((guint) (delay *
-			     buffer_size) +
-		    attack +
-		    loop_start);
-  new_loop_end = ((guint)(delay *
-			  buffer_size) +
-		  attack +
-		  loop_end);
+  loop_start = ((guint) (delay * (gdouble) buffer_size) + attack + template_loop_start);
+  loop_end = ((guint) (delay * (gdouble) buffer_size) + attack + template_loop_end);
 
-  new_last_frame = ((guint) (delay * buffer_size) + frame_count + attack) % buffer_size;
+  last_frame = ((guint) (delay * buffer_size) + attack + frame_count) % buffer_size;
 
   g_object_set(audio_signal,
-	       "last-frame", new_last_frame,
+	       "last-frame", last_frame,
 	       NULL);
   
   if(template_length == 0){
+//    g_warning("empty template");
+
     return;
   }
   
-  /* loop related copying */
+  /* copy mode */
   copy_mode = ags_audio_buffer_util_get_copy_mode(ags_audio_buffer_util_format_from_soundcard(format),
  						  ags_audio_buffer_util_format_from_soundcard(template_format));
 
   /* generic copying */
+  g_rec_mutex_lock(template_stream_mutex);
+  g_rec_mutex_lock(audio_signal_stream_mutex);
+
   stream = g_list_nth(audio_signal->stream,
 		      (guint) ((delay * buffer_size) + attack) / buffer_size);
-  
-  pthread_mutex_lock(template_stream_mutex);
-  
   template_stream = template->stream;
-
+  
   initial_reset = TRUE;
   
-  for(i = 0, j = attack, nth_loop = 0; i < frame_count && stream != NULL && template_stream != NULL;){    
+  for(i = 0, j = attack; i < frame_count && stream != NULL && template_stream != NULL;){    
     /* compute count of frames to copy */
     copy_n_frames = buffer_size;
 
     if(loop_start < loop_end &&
-       i + copy_n_frames < loop_start + loop_frame_count){
+       i + copy_n_frames < loop_start + template_loop_frame_count){
       if(j + copy_n_frames > loop_end){
 	copy_n_frames = loop_end - j;
       }
@@ -3287,15 +3868,18 @@ ags_audio_signal_feed(AgsAudioSignal *audio_signal,
       copy_n_frames = frame_count - i;
     }
 
+    //NOTE:JK: caused some data not present
+#if 0
     if(initial_reset &&
        i + copy_n_frames >= old_frame_count){
       copy_n_frames = old_frame_count - i;
       
       initial_reset = FALSE;
     }
+#endif
     
     /* copy */
-    if(i >= old_frame_count){
+    if(i + copy_n_frames >= old_frame_count){
       ags_audio_buffer_util_copy_buffer_to_buffer(stream->data, 1, i % buffer_size,
 						  template_stream->data, 1, j % buffer_size,
 						  copy_n_frames, copy_mode);
@@ -3313,13 +3897,11 @@ ags_audio_signal_feed(AgsAudioSignal *audio_signal,
 
     if(loop_start < loop_end){
       if(j + copy_n_frames == loop_end &&
-	 i + copy_n_frames < loop_start + loop_frame_count){
+	 (!do_close || i + copy_n_frames < loop_start + template_loop_frame_count)){
 	template_stream = g_list_nth(template->stream,
 				     floor(loop_start / buffer_size));
 	
 	j = loop_start;
-	
-	nth_loop++;
       }else{
 	j += copy_n_frames;
       }
@@ -3327,8 +3909,135 @@ ags_audio_signal_feed(AgsAudioSignal *audio_signal,
       j += copy_n_frames;
     }
   }
+  
+  g_rec_mutex_unlock(audio_signal_stream_mutex);
+  g_rec_mutex_unlock(template_stream_mutex);
+}
 
-  pthread_mutex_unlock(template_stream_mutex);
+/**
+ * ags_audio_signal_open_feed:
+ * @audio_signal: the #AgsAudioSignal
+ * @template: the template #AgsAudioSignal
+ * @frame_count: the new frame count
+ * @old_frame_count: the old frame count
+ * 
+ * Feed audio signal to grow upto frame count.
+ * 
+ * Since: 3.3.0
+ */
+void
+ags_audio_signal_open_feed(AgsAudioSignal *audio_signal,
+			   AgsAudioSignal *template,
+			   guint frame_count, guint old_frame_count)
+{
+  ags_audio_signal_feed_extended(audio_signal,
+				 template,
+				 frame_count, old_frame_count,
+				 TRUE, FALSE);
+}
+
+/**
+ * ags_audio_signal_continue_feed:
+ * @audio_signal: the #AgsAudioSignal
+ * @template: the template #AgsAudioSignal
+ * @frame_count: the new frame count
+ * @old_frame_count: the old frame count
+ * 
+ * Feed audio signal to grow upto frame count.
+ * 
+ * Since: 3.3.0
+ */
+void
+ags_audio_signal_continue_feed(AgsAudioSignal *audio_signal,
+			       AgsAudioSignal *template,
+			       guint frame_count, guint old_frame_count)
+{
+  ags_audio_signal_feed_extended(audio_signal,
+				 template,
+				 frame_count, old_frame_count,
+				 FALSE, FALSE);
+}
+
+/**
+ * ags_audio_signal_close_feed:
+ * @audio_signal: the #AgsAudioSignal
+ * @template: the template #AgsAudioSignal
+ * @frame_count: the new frame count
+ * @old_frame_count: the old frame count
+ * 
+ * Feed audio signal to grow upto frame count.
+ * 
+ * Since: 3.3.0
+ */
+void
+ags_audio_signal_close_feed(AgsAudioSignal *audio_signal,
+			    AgsAudioSignal *template,
+			    guint frame_count, guint old_frame_count)
+{
+  ags_audio_signal_feed_extended(audio_signal,
+				 template,
+				 frame_count, old_frame_count,
+				 FALSE, TRUE);
+}
+
+/**
+ * ags_audio_signal_get_note:
+ * @audio_signal: the #AgsAudioSignal
+ * 
+ * Get note.
+ * 
+ * Returns: (element-type AgsAudio.Note) (transfer full): the #GList-struct containig #AgsNote
+ * 
+ * Since: 3.1.0
+ */
+GList*
+ags_audio_signal_get_note(AgsAudioSignal *audio_signal)
+{
+  GList *note;
+
+  if(!AGS_IS_AUDIO_SIGNAL(audio_signal)){
+    return(NULL);
+  }
+
+  g_object_get(audio_signal,
+	       "note", &note,
+	       NULL);
+
+  return(note);
+}
+
+/**
+ * ags_audio_signal_set_note:
+ * @audio_signal: the #AgsAudioSignal
+ * @note: (element-type AgsAudio.Note) (transfer full): the #GList-struct containing #AgsNote
+ * 
+ * Set note by replacing existing.
+ * 
+ * Since: 3.1.0
+ */
+void
+ags_audio_signal_set_note(AgsAudioSignal *audio_signal, GList *note)
+{
+  GList *start_note;
+  
+  GRecMutex *audio_signal_mutex;
+
+  if(!AGS_IS_AUDIO_SIGNAL(audio_signal)){
+    return;
+  }
+
+  /* get audio signal mutex */
+  audio_signal_mutex = AGS_AUDIO_SIGNAL_GET_OBJ_MUTEX(audio_signal);
+    
+  g_rec_mutex_lock(audio_signal_mutex);
+
+  start_note = audio_signal->note;
+  audio_signal->note = note;
+  
+  g_rec_mutex_unlock(audio_signal_mutex);
+
+  g_list_free_full(start_note,
+		   (GDestroyNotify) g_object_unref);
 }
 
 void
@@ -3349,7 +4058,7 @@ ags_audio_signal_real_add_note(AgsAudioSignal *audio_signal,
  * 
  * Add note to @audio_signal.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_audio_signal_add_note(AgsAudioSignal *audio_signal,
@@ -3381,7 +4090,7 @@ ags_audio_signal_real_remove_note(AgsAudioSignal *audio_signal,
  * 
  * Remove note from @audio_signal.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_audio_signal_remove_note(AgsAudioSignal *audio_signal,
@@ -3396,14 +4105,95 @@ ags_audio_signal_remove_note(AgsAudioSignal *audio_signal,
 }
 
 /**
+ * ags_audio_signal_get_stream:
+ * @audio_signal: the #AgsAudioSignal
+ * 
+ * Get stream.
+ * 
+ * Returns: (element-type guint8) (transfer none): the #GList-struct containig audio data
+ * 
+ * Since: 3.8.11
+ */
+GList*
+ags_audio_signal_get_stream(AgsAudioSignal *audio_signal)
+{
+  GList *start_stream;
+  
+  GRecMutex *stream_mutex;
+
+  if(!AGS_IS_AUDIO_SIGNAL(audio_signal)){
+    return(NULL);
+  }
+
+  /* get stream mutex */
+  stream_mutex = AGS_AUDIO_SIGNAL_GET_STREAM_MUTEX(audio_signal);
+    
+  g_rec_mutex_lock(stream_mutex);
+
+  start_stream = audio_signal->stream;
+  
+  g_rec_mutex_unlock(stream_mutex);
+
+  return(start_stream);
+}
+
+/**
+ * ags_audio_signal_set_stream:
+ * @audio_signal: the #AgsAudioSignal
+ * @stream: (element-type guint8) (transfer full): the #GList-struct containing audio data
+ * 
+ * Set stream by replacing existing.
+ * 
+ * Since: 3.8.11
+ */
+void
+ags_audio_signal_set_stream(AgsAudioSignal *audio_signal, GList *stream)
+{
+  GList *start_stream;
+  
+  GRecMutex *stream_mutex;
+
+  if(!AGS_IS_AUDIO_SIGNAL(audio_signal)){
+    return;
+  }
+
+  /* get stream mutex */
+  stream_mutex = AGS_AUDIO_SIGNAL_GET_STREAM_MUTEX(audio_signal);
+    
+  g_rec_mutex_lock(stream_mutex);
+
+  start_stream = audio_signal->stream;
+  audio_signal->stream = stream;
+  
+  g_rec_mutex_unlock(stream_mutex);
+
+  if(!ags_audio_signal_test_flags(audio_signal,
+				  AGS_AUDIO_SIGNAL_SLICE_ALLOC)){
+    g_list_free_full(start_stream,
+		     (GDestroyNotify) ags_stream_free);
+  }else{
+    guint buffer_size;
+
+    buffer_size = AGS_SOUNDCARD_DEFAULT_BUFFER_SIZE;
+    
+    g_object_get(audio_signal,
+		 "buffer-size", &buffer_size,
+		 NULL);
+    
+    g_list_free_full(start_stream,
+		     (GDestroyNotify) ags_stream_slice_free);
+  }
+}
+
+/**
  * ags_audio_signal_get_template:
- * @audio_signal: the #GList-struct containing #AgsAudioSignal
+ * @audio_signal: (element-type AgsAudio.AudioSignal) (transfer none): the #GList-struct containing #AgsAudioSignal
  *
  * Retrieve the template audio signal.
  *
- * Returns: the template #AgsAudioSignal or %NULL if not found
+ * Returns: (transfer full): the template #AgsAudioSignal or %NULL if not found
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 AgsAudioSignal*
 ags_audio_signal_get_template(GList *audio_signal)
@@ -3425,13 +4215,13 @@ ags_audio_signal_get_template(GList *audio_signal)
 
 /**
  * ags_audio_signal_get_rt_template:
- * @audio_signal: a #GList-struct containing #AgsAudioSignal
+ * @audio_signal: (element-type AgsAudio.AudioSignal) (transfer none): a #GList-struct containing #AgsAudioSignal
  *
  * Retrieve the realtime template audio signal.
  *
- * Returns: the rt-templates as #GList-struct containing #AgsAudioSignal
+ * Returns: (element-type AgsAudio.AudioSignal) (transfer full): the rt-templates as #GList-struct containing #AgsAudioSignal
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 GList*
 ags_audio_signal_get_rt_template(GList *audio_signal)
@@ -3460,14 +4250,14 @@ ags_audio_signal_get_rt_template(GList *audio_signal)
 
 /**
  * ags_audio_signal_find_by_recall_id:
- * @audio_signal: a #GList-struct containing #AgsAudioSignal
+ * @audio_signal: (element-type AgsAudio.AudioSignal) (transfer none): a #GList-struct containing #AgsAudioSignal
  * @recall_id: matching #AgsRecallID
  *
  * Retrieve next audio signal refering to @recall_id
  *
- * Returns: matching #AgsAudioSignal
+ * Returns: (element-type AgsAudio.AudioSignal) (transfer none): matching #GList-struct containing #AgsAudioSignal
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 GList*
 ags_audio_signal_find_by_recall_id(GList *audio_signal,
@@ -3476,7 +4266,7 @@ ags_audio_signal_find_by_recall_id(GList *audio_signal,
   AgsAudioSignal *current_audio_signal;
   AgsRecallID *current_recall_id;
 
-  pthread_mutex_t *audio_signal_mutex;
+  GRecMutex *audio_signal_mutex;
 
   while(audio_signal != NULL){
     current_audio_signal = audio_signal->data;
@@ -3485,11 +4275,11 @@ ags_audio_signal_find_by_recall_id(GList *audio_signal,
     audio_signal_mutex = AGS_AUDIO_SIGNAL_GET_OBJ_MUTEX(current_audio_signal);
 
     /* get some fields */
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     current_recall_id = (AgsRecallID *) current_audio_signal->recall_id;
   
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
 
     /* check recall id */
     if(current_recall_id == (AgsRecallID *) recall_id){
@@ -3505,15 +4295,15 @@ ags_audio_signal_find_by_recall_id(GList *audio_signal,
 
 /**
  * ags_audio_signal_find_stream_current:
- * @audio_signal: the #GList-struct containing #AgsAudioSignal
+ * @audio_signal: (element-type AgsAudio.AudioSignal) (transfer none): the #GList-struct containing #AgsAudioSignal
  * @recall_id: the matching #AgsRecallID
  * 
  * Retrieve next current stream of #AgsAudioSignal list. Warning this function does not
  * lock the stream mutex.
  *
- * Returns: next #GList-struct matching #AgsRecallID
+ * Returns: (element-type AgsAudio.AudioSignal) (transfer none): next #GList-struct matching #AgsRecallID
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 GList*
 ags_audio_signal_find_stream_current(GList *audio_signal,
@@ -3543,14 +4333,14 @@ ags_audio_signal_find_stream_current(GList *audio_signal,
 
 /**
  * ags_audio_signal_is_active:
- * @audio_signal: the #GList-struct containing #AgsAudioSignal
+ * @audio_signal: (element-type AgsAudio.AudioSignal) (transfer none): the #GList-struct containing #AgsAudioSignal
  * @recall_id: the #AgsRecallID
  * 
  * Check if is active.
  * 
  * Returns: %TRUE if related audio signal to recall id is available, otherwise %FALSE
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gboolean
 ags_audio_signal_is_active(GList *audio_signal,
@@ -3560,8 +4350,8 @@ ags_audio_signal_is_active(GList *audio_signal,
   AgsRecallID *current_recall_id;
   AgsRecyclingContext *current_recycling_context, *recycling_context;
   
-  pthread_mutex_t *audio_signal_mutex;
-  pthread_mutex_t *recall_id_mutex;
+  GRecMutex *audio_signal_mutex;
+  GRecMutex *recall_id_mutex;
 
   if(!AGS_IS_RECALL_ID(recall_id)){
     return(FALSE);
@@ -3571,11 +4361,11 @@ ags_audio_signal_is_active(GList *audio_signal,
   recall_id_mutex = AGS_RECALL_ID_GET_OBJ_MUTEX(recall_id);
 
   /* get recycling context */
-  pthread_mutex_lock(recall_id_mutex);
+  g_rec_mutex_lock(recall_id_mutex);
   
   recycling_context = AGS_RECALL_ID(recall_id)->recycling_context;
 
-  pthread_mutex_unlock(recall_id_mutex);
+  g_rec_mutex_unlock(recall_id_mutex);
   
   while(audio_signal != NULL){
     current_audio_signal = audio_signal->data;
@@ -3584,11 +4374,11 @@ ags_audio_signal_is_active(GList *audio_signal,
     audio_signal_mutex = AGS_AUDIO_SIGNAL_GET_OBJ_MUTEX(current_audio_signal);
 
     /* get some fields */
-    pthread_mutex_lock(audio_signal_mutex);
+    g_rec_mutex_lock(audio_signal_mutex);
 
     current_recall_id = (AgsRecallID *) current_audio_signal->recall_id;
 
-    pthread_mutex_unlock(audio_signal_mutex);
+    g_rec_mutex_unlock(audio_signal_mutex);
 
     /* get current recycling context */
     current_recycling_context = NULL;
@@ -3598,11 +4388,11 @@ ags_audio_signal_is_active(GList *audio_signal,
       recall_id_mutex = AGS_RECALL_ID_GET_OBJ_MUTEX(current_recall_id);
 
       /* get some fields */
-      pthread_mutex_lock(recall_id_mutex);
+      g_rec_mutex_lock(recall_id_mutex);
       
       current_recycling_context = current_recall_id->recycling_context;
 
-      pthread_mutex_unlock(recall_id_mutex);
+      g_rec_mutex_unlock(recall_id_mutex);
     }
     
     if(current_recycling_context == recycling_context){
@@ -3627,7 +4417,7 @@ ags_audio_signal_is_active(GList *audio_signal,
  *
  * Returns: a new #AgsAudioSignal
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 AgsAudioSignal*
 ags_audio_signal_new(GObject *output_soundcard,
@@ -3658,7 +4448,7 @@ ags_audio_signal_new(GObject *output_soundcard,
  *
  * Returns: a new #AgsAudioSignal
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 AgsAudioSignal*
 ags_audio_signal_new_with_length(GObject *output_soundcard,

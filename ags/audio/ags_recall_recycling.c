@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -19,8 +19,6 @@
 
 #include <ags/audio/ags_recall_recycling.h>
 
-#include <ags/libags.h>
-
 #include <ags/audio/ags_audio.h>
 #include <ags/audio/ags_channel.h>
 #include <ags/audio/ags_output.h>
@@ -31,8 +29,6 @@
 #include <ags/audio/ags_recall_audio_signal.h>
 
 #include <ags/audio/thread/ags_audio_loop.h>
-
-#include <ags/audio/recall/ags_stream_recycling.h>
 
 #include <ags/i18n.h>
 
@@ -70,12 +66,13 @@ void ags_recall_recycling_source_remove_audio_signal_callback(AgsRecycling *sour
 
 /**
  * SECTION:ags_recall_recycling
- * @short_description: recycling context of recall
+ * @short_description: The recall base class of recycling context
  * @title: AgsRecallRecycling
  * @section_id:
  * @include: ags/audio/ags_recall_recycling.h
  *
- * #AgsRecallRecycling acts as recycling recall.
+ * #AgsRecallRecycling acts as dynamic recycling recall. It usually does not do any audio processing
+ * but providing #AgsRecallAudioSignal child recalls.
  */
 
 enum{
@@ -155,7 +152,7 @@ ags_recall_recycling_class_init(AgsRecallRecyclingClass *recall_recycling)
    *
    * The assigned destination recycling.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("audio-channel",
 				 i18n_pspec("assigned audio channel"),
@@ -173,7 +170,7 @@ ags_recall_recycling_class_init(AgsRecallRecyclingClass *recall_recycling)
    *
    * The assigned destination recycling.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_object("destination",
 				   i18n_pspec("AgsRecycling destination of this recall"),
@@ -189,7 +186,7 @@ ags_recall_recycling_class_init(AgsRecallRecyclingClass *recall_recycling)
    *
    * The assigned source recycling.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_object("source",
 				   i18n_pspec("AgsRecycling source of this recall"),
@@ -205,7 +202,7 @@ ags_recall_recycling_class_init(AgsRecallRecyclingClass *recall_recycling)
    *
    * The assigned destination audio signal.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_object("child-destination",
 				   i18n_pspec("AgsAudioSignal of this recall"),
@@ -217,11 +214,11 @@ ags_recall_recycling_class_init(AgsRecallRecyclingClass *recall_recycling)
 				  param_spec);
 
   /**
-   * AgsRecallRecycling:child-source:
+   * AgsRecallRecycling:child-source: (type GList(AgsAudioSignal)) (transfer full)
    *
    * The assigned source audio signal.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_pointer("child-source",
 				    i18n_pspec("AgsAudioSignal of this recall"),
@@ -276,7 +273,7 @@ ags_recall_recycling_set_property(GObject *gobject,
 {
   AgsRecallRecycling *recall_recycling;
 
-  pthread_mutex_t *recall_mutex;
+  GRecMutex *recall_mutex;
 
   recall_recycling = AGS_RECALL_RECYCLING(gobject);
 
@@ -286,11 +283,11 @@ ags_recall_recycling_set_property(GObject *gobject,
   switch(prop_id){
   case PROP_AUDIO_CHANNEL:
     {
-      pthread_mutex_lock(recall_mutex);
+      g_rec_mutex_lock(recall_mutex);
 
       recall_recycling->audio_channel = g_value_get_uint(value);
 
-      pthread_mutex_unlock(recall_mutex);
+      g_rec_mutex_unlock(recall_mutex);
     }
     break;
   case PROP_DESTINATION:
@@ -299,10 +296,10 @@ ags_recall_recycling_set_property(GObject *gobject,
 
       destination = (AgsRecycling *) g_value_get_object(value);
 
-      pthread_mutex_lock(recall_mutex);
+      g_rec_mutex_lock(recall_mutex);
 
       if(recall_recycling->destination == destination){
-	pthread_mutex_unlock(recall_mutex);
+	g_rec_mutex_unlock(recall_mutex);
 	
 	return;
       }
@@ -317,7 +314,7 @@ ags_recall_recycling_set_property(GObject *gobject,
 
       recall_recycling->destination = destination;
 
-      pthread_mutex_unlock(recall_mutex);
+      g_rec_mutex_unlock(recall_mutex);
     }
     break;
   case PROP_SOURCE:
@@ -326,10 +323,10 @@ ags_recall_recycling_set_property(GObject *gobject,
 
       source = (AgsRecycling *) g_value_get_object(value);
 
-      pthread_mutex_lock(recall_mutex);
+      g_rec_mutex_lock(recall_mutex);
 
       if(recall_recycling->source == source){
-	pthread_mutex_unlock(recall_mutex);
+	g_rec_mutex_unlock(recall_mutex);
 	
 	return;
       }
@@ -358,7 +355,7 @@ ags_recall_recycling_set_property(GObject *gobject,
 	}
       }
 
-      pthread_mutex_unlock(recall_mutex);
+      g_rec_mutex_unlock(recall_mutex);
     }
     break;
   case PROP_CHILD_DESTINATION:
@@ -367,10 +364,10 @@ ags_recall_recycling_set_property(GObject *gobject,
 
       child_destination = (AgsAudioSignal *) g_value_get_object(value);
 
-      pthread_mutex_lock(recall_mutex);
+      g_rec_mutex_lock(recall_mutex);
 
       if(recall_recycling->child_destination == child_destination){
-	pthread_mutex_unlock(recall_mutex);
+	g_rec_mutex_unlock(recall_mutex);
 	
 	return;
       }
@@ -385,7 +382,7 @@ ags_recall_recycling_set_property(GObject *gobject,
 
       recall_recycling->child_destination = child_destination;
 
-      pthread_mutex_unlock(recall_mutex);
+      g_rec_mutex_unlock(recall_mutex);
     }
     break;
   case PROP_CHILD_SOURCE:
@@ -394,11 +391,11 @@ ags_recall_recycling_set_property(GObject *gobject,
 
       child_source = (AgsAudioSignal *) g_value_get_pointer(value);
 
-      pthread_mutex_lock(recall_mutex);
+      g_rec_mutex_lock(recall_mutex);
 
       if(!AGS_IS_AUDIO_SIGNAL(child_source) ||
 	 g_list_find(recall_recycling->child_source, child_source) != NULL){
-	pthread_mutex_unlock(recall_mutex);
+	g_rec_mutex_unlock(recall_mutex);
 	
 	return;
       }
@@ -407,7 +404,7 @@ ags_recall_recycling_set_property(GObject *gobject,
       recall_recycling->child_source = g_list_prepend(recall_recycling->child_source,
 						      child_source);
 
-      pthread_mutex_unlock(recall_mutex);
+      g_rec_mutex_unlock(recall_mutex);
     }
     break;
   default:
@@ -424,7 +421,7 @@ ags_recall_recycling_get_property(GObject *gobject,
 {
   AgsRecallRecycling *recall_recycling;
 
-  pthread_mutex_t *recall_mutex;
+  GRecMutex *recall_mutex;
 
   recall_recycling = AGS_RECALL_RECYCLING(gobject);
 
@@ -434,49 +431,49 @@ ags_recall_recycling_get_property(GObject *gobject,
   switch(prop_id){
   case PROP_AUDIO_CHANNEL:
     {
-      pthread_mutex_lock(recall_mutex);
+      g_rec_mutex_lock(recall_mutex);
 
       g_value_set_uint(value, recall_recycling->audio_channel);
 
-      pthread_mutex_unlock(recall_mutex);
+      g_rec_mutex_unlock(recall_mutex);
     }
     break;
   case PROP_DESTINATION:
     {
-      pthread_mutex_lock(recall_mutex);
+      g_rec_mutex_lock(recall_mutex);
 
       g_value_set_object(value, recall_recycling->destination);
 
-      pthread_mutex_unlock(recall_mutex);
+      g_rec_mutex_unlock(recall_mutex);
     }
     break;
   case PROP_SOURCE:
     {
-      pthread_mutex_lock(recall_mutex);
+      g_rec_mutex_lock(recall_mutex);
 
       g_value_set_object(value, recall_recycling->source);
 
-      pthread_mutex_unlock(recall_mutex);
+      g_rec_mutex_unlock(recall_mutex);
     }
     break;
   case PROP_CHILD_DESTINATION:
     {
-      pthread_mutex_lock(recall_mutex);
+      g_rec_mutex_lock(recall_mutex);
 
       g_value_set_object(value, recall_recycling->child_destination);
 
-      pthread_mutex_unlock(recall_mutex);
+      g_rec_mutex_unlock(recall_mutex);
     }
     break;
   case PROP_CHILD_SOURCE:
     {
-      pthread_mutex_lock(recall_mutex);
+      g_rec_mutex_lock(recall_mutex);
 
       g_value_set_pointer(value, g_list_copy_deep(recall_recycling->child_source,
 						  (GCopyFunc) g_object_ref,
 						  NULL));
 
-      pthread_mutex_unlock(recall_mutex);
+      g_rec_mutex_unlock(recall_mutex);
     }
     break;
   };
@@ -608,15 +605,26 @@ ags_recall_recycling_connect_connection(AgsConnectable *connectable,
 
   recall_recycling = AGS_RECALL_RECYCLING(connectable);
 
+  if(connection == NULL){
+    return;
+  }
+  
   if((GObject *) recall_recycling->destination == connection){
     //empty
   }else if((GObject *) recall_recycling->source == connection){
-    g_signal_connect_after(connection, "add-audio-signal",
-			   G_CALLBACK(ags_recall_recycling_source_add_audio_signal_callback), recall_recycling);
+    if(g_signal_handler_find(connection,
+			     (G_SIGNAL_MATCH_FUNC | G_SIGNAL_MATCH_DATA),
+			     0,
+			     0,
+			     NULL,
+			     G_CALLBACK(ags_recall_recycling_source_add_audio_signal_callback),
+			     recall_recycling) == 0){
+      g_signal_connect_after(connection, "add-audio-signal",
+			     G_CALLBACK(ags_recall_recycling_source_add_audio_signal_callback), recall_recycling);
 
-    g_signal_connect(connection, "remove-audio-signal",
-  		     G_CALLBACK(ags_recall_recycling_source_remove_audio_signal_callback), recall_recycling);
-    
+      g_signal_connect(connection, "remove-audio-signal",
+		       G_CALLBACK(ags_recall_recycling_source_remove_audio_signal_callback), recall_recycling);
+    }
   }
 }
 
@@ -627,6 +635,10 @@ ags_recall_recycling_disconnect_connection(AgsConnectable *connectable,
   AgsRecallRecycling *recall_recycling;
 
   recall_recycling = AGS_RECALL_RECYCLING(connectable);
+
+  if(connection == NULL){
+    return;
+  }
 
   if((GObject *) recall_recycling->destination == connection){
     //empty
@@ -655,22 +667,14 @@ ags_recall_recycling_duplicate(AgsRecall *recall,
 
   guint audio_channel;
   
-  pthread_mutex_t *recall_mutex;
-
   recall_recycling = AGS_RECALL_RECYCLING(recall);
-
-  /* get recall mutex */
-  recall_mutex = AGS_RECALL_GET_OBJ_MUTEX(recall);
   
   /* get some fields */
-  pthread_mutex_lock(recall_mutex);
-
-  audio_channel = recall_recycling->audio_channel;
-    
-  destination = recall_recycling->destination;
-  source = recall_recycling->source;
-  
-  pthread_mutex_unlock(recall_mutex);
+  g_object_get(recall_recycling,
+	       "audio-channel", &audio_channel,
+	       "destination", &destination,
+	       "source", &source,
+	       NULL);
 
   copy_recall_recycling = AGS_RECALL_RECYCLING(AGS_RECALL_CLASS(ags_recall_recycling_parent_class)->duplicate(recall,
 													      recall_id,
@@ -680,6 +684,14 @@ ags_recall_recycling_duplicate(AgsRecall *recall,
 	       "destination", destination,
 	       "source", source,
 	       NULL);
+
+  if(destination != NULL){
+    g_object_unref(destination);
+  }
+
+  if(source != NULL){
+    g_object_unref(source);
+  }
   
   return((AgsRecall *) copy_recall_recycling);
 }
@@ -706,7 +718,7 @@ ags_recall_recycling_source_add_audio_signal_callback(AgsRecycling *source,
   guint audio_channel;
   gboolean success;
   
-  pthread_mutex_t *recall_mutex;
+  GRecMutex *recall_mutex;
 
   if(ags_audio_signal_test_flags(audio_signal, AGS_AUDIO_SIGNAL_TEMPLATE) ||
      ags_audio_signal_test_flags(audio_signal, AGS_AUDIO_SIGNAL_RT_TEMPLATE)){
@@ -717,17 +729,19 @@ ags_recall_recycling_source_add_audio_signal_callback(AgsRecycling *source,
   recall_mutex = AGS_RECALL_GET_OBJ_MUTEX(recall_recycling);
 
   /* get some fields */
-  pthread_mutex_lock(recall_mutex);
+  g_object_get(recall_recycling,
+	       "output-soundcard", &output_soundcard,
+	       NULL);
+  
+  g_rec_mutex_lock(recall_mutex);
 
   sound_scope = AGS_RECALL(recall_recycling)->sound_scope;
-
-  output_soundcard = AGS_RECALL(recall_recycling)->output_soundcard;
   
   child_type = AGS_RECALL(recall_recycling)->child_type;
 
   audio_channel = recall_recycling->audio_channel;
   
-  pthread_mutex_unlock(recall_mutex);
+  g_rec_mutex_unlock(recall_mutex);
 
   g_object_get(recall_recycling,
 	       "parent", &recall_channel_run,
@@ -742,10 +756,14 @@ ags_recall_recycling_source_add_audio_signal_callback(AgsRecycling *source,
 	       NULL);
   
   if(recall_id == NULL){
+    if(output_soundcard != NULL){
+      g_object_unref(output_soundcard);
+    }
+
     g_object_unref(recall_channel_run);
     
     g_object_unref(channel);
-
+    
     return;
   }
 
@@ -754,6 +772,10 @@ ags_recall_recycling_source_add_audio_signal_callback(AgsRecycling *source,
 	       NULL);
 
   if(source_recall_id == NULL){
+    if(output_soundcard != NULL){
+      g_object_unref(output_soundcard);
+    }
+
     g_object_unref(recall_channel_run);
     
     g_object_unref(channel);
@@ -768,6 +790,10 @@ ags_recall_recycling_source_add_audio_signal_callback(AgsRecycling *source,
 	       NULL);
   
   if(recycling_context == NULL){
+    if(output_soundcard != NULL){
+      g_object_unref(output_soundcard);
+    }
+
     g_object_unref(recall_channel_run);
     
     g_object_unref(channel);
@@ -784,6 +810,10 @@ ags_recall_recycling_source_add_audio_signal_callback(AgsRecycling *source,
 	       NULL);
 
   if(source_recycling_context == NULL){
+    if(output_soundcard != NULL){
+      g_object_unref(output_soundcard);
+    }
+
     g_object_unref(recall_channel_run);
     
     g_object_unref(channel);
@@ -798,6 +828,10 @@ ags_recall_recycling_source_add_audio_signal_callback(AgsRecycling *source,
   }
   
   if(recycling_context != source_recycling_context){
+    if(output_soundcard != NULL){
+      g_object_unref(output_soundcard);
+    }
+
     g_object_unref(recall_channel_run);
     
     g_object_unref(channel);
@@ -845,11 +879,11 @@ ags_recall_recycling_source_add_audio_signal_callback(AgsRecycling *source,
   if(!ags_recall_id_check_sound_scope(recall_id, sound_scope)){
     goto ags_recall_recycling_source_add_audio_signal_callback_END;
   }
-
-#ifdef AGS_DEBUG
+  
+#ifdef AGS_DEBUG  
   g_message("add %s",
 	    G_OBJECT_TYPE_NAME(recall_recycling));
-  
+
   g_message("ags_recall_recycling_source_add_audio_signal_callback %s[%llx]",
 	    G_OBJECT_TYPE_NAME(recall_recycling), (long long unsigned int) recall_recycling);
 
@@ -870,6 +904,8 @@ ags_recall_recycling_source_add_audio_signal_callback(AgsRecycling *source,
 				       "source", audio_signal,
 				       NULL);
 
+    AGS_RECALL(recall_audio_signal)->sound_scope = sound_scope;
+    
 #ifdef AGS_DEBUG
     g_message(" + recall recycling %s", G_OBJECT_TYPE_NAME(recall_audio_signal));
 #endif
@@ -879,6 +915,10 @@ ags_recall_recycling_source_add_audio_signal_callback(AgsRecycling *source,
 
 ags_recall_recycling_source_add_audio_signal_callback_END:
   
+  if(output_soundcard != NULL){
+    g_object_unref(output_soundcard);
+  }
+
   g_object_unref(recall_channel_run);
     
   g_object_unref(channel);
@@ -1072,7 +1112,7 @@ ags_recall_recycling_source_remove_audio_signal_callback_END:
  *
  * Returns: the new #AgsRecallRecycling
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 AgsRecallRecycling*
 ags_recall_recycling_new()

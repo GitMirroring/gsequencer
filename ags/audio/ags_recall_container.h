@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -27,6 +27,8 @@
 
 #include <ags/audio/ags_recall.h>
 
+G_BEGIN_DECLS
+
 #define AGS_TYPE_RECALL_CONTAINER                (ags_recall_container_get_type())
 #define AGS_RECALL_CONTAINER(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_RECALL_CONTAINER, AgsRecallContainer))
 #define AGS_RECALL_CONTAINER_CLASS(class)        (G_TYPE_CHECK_CLASS_CAST((class), AGS_TYPE_RECALL_CONTAINER, AgsRecallContainerClass))
@@ -34,24 +36,20 @@
 #define AGS_IS_RECALL_CONTAINER_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE((class), AGS_TYPE_RECALL_CONTAINER))
 #define AGS_RECALL_CONTAINER_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS((obj), AGS_TYPE_RECALL_CONTAINER, AgsRecallContainerClass))
 
-#define AGS_RECALL_CONTAINER_GET_OBJ_MUTEX(obj) (((AgsRecallContainer *) obj)->obj_mutex)
+#define AGS_RECALL_CONTAINER_GET_OBJ_MUTEX(obj) (&(((AgsRecallContainer *) obj)->obj_mutex))
 
 typedef struct _AgsRecallContainer AgsRecallContainer;
 typedef struct _AgsRecallContainerClass AgsRecallContainerClass;
 
 /**
  * AgsRecallContainerFlags:
- * @AGS_RECALL_CONTAINER_ADDED_TO_REGISTRY: add to registry
- * @AGS_RECALL_CONTAINER_CONNECTED: indicates the recall container was connected by calling #AgsConnectable::connect()
  * @AGS_RECALL_CONTAINER_PLAY: bound to play context
  * 
  * Enum values to control the behavior or indicate internal state of #AgsRecallContainer by
  * enable/disable as flags.
  */
 typedef enum{
-  AGS_RECALL_CONTAINER_ADDED_TO_REGISTRY   = 1,
-  AGS_RECALL_CONTAINER_CONNECTED           = 1 <<  1,
-  AGS_RECALL_CONTAINER_PLAY                = 1 <<  2,
+  AGS_RECALL_CONTAINER_PLAY                = 1,
 }AgsRecallContainerFlags;
 
 /**
@@ -73,9 +71,9 @@ struct _AgsRecallContainer
   GObject gobject;
   
   guint flags;
-
-  pthread_mutex_t *obj_mutex;
-  pthread_mutexattr_t *obj_mutexattr;
+  guint connectable_flags;
+  
+  GRecMutex obj_mutex;
 
   AgsUUID *uuid;
 
@@ -98,8 +96,7 @@ struct _AgsRecallContainerClass
 };
 
 GType ags_recall_container_get_type();
-
-pthread_mutex_t* ags_recall_container_get_class_mutex();
+GType ags_recall_container_flags_get_type();
 
 gboolean ags_recall_container_test_flags(AgsRecallContainer *recall_container, guint flags);
 void ags_recall_container_set_flags(AgsRecallContainer *recall_container, guint flags);
@@ -124,5 +121,7 @@ GList* ags_recall_container_find(GList *recall_container,
 
 /* instantiate */
 AgsRecallContainer* ags_recall_container_new();
+
+G_END_DECLS
 
 #endif /*__AGS_RECALL_CONTAINER_H__*/

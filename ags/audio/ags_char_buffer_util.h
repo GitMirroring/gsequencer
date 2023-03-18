@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2018 Joël Krähemann
+ * Copyright (C) 2005-2021 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -23,8 +23,40 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include <ags/lib/ags_endian.h>
+#include <ags/libags.h>
 
+G_BEGIN_DECLS
+
+#define AGS_TYPE_CHAR_BUFFER_UTIL         (ags_char_buffer_util_get_type())
+
+typedef struct _AgsCharBufferUtil AgsCharBufferUtil;
+
+struct _AgsCharBufferUtil
+{
+  //empty
+};
+
+GType ags_char_buffer_util_get_type(void);
+
+/**
+ * AgsCharBufferUtilCopyMode:
+ * @AGS_CHAR_BUFFER_UTIL_COPY_S8_TO_CBUFFER: copy signed 8 bit to char buffer
+ * @AGS_CHAR_BUFFER_UTIL_COPY_S16_TO_CBUFFER: copy signed 16 bit to char buffer
+ * @AGS_CHAR_BUFFER_UTIL_COPY_S24_TO_CBUFFER: copy signed 24 bit to char buffer
+ * @AGS_CHAR_BUFFER_UTIL_COPY_S32_TO_CBUFFER: copy signed 32 bit to char buffer
+ * @AGS_CHAR_BUFFER_UTIL_COPY_S64_TO_CBUFFER: copy signed 64 bit to char buffer
+ * @AGS_CHAR_BUFFER_UTIL_COPY_FLOAT_TO_CBUFFER: copy float to char buffer
+ * @AGS_CHAR_BUFFER_UTIL_COPY_DOUBLE_TO_CBUFFER: copy double to char buffer
+ * @AGS_CHAR_BUFFER_UTIL_COPY_CBUFFER_TO_S8: copy char buffer to signed 8 bit
+ * @AGS_CHAR_BUFFER_UTIL_COPY_CBUFFER_TO_S16: copy char buffer to signed 16 bit
+ * @AGS_CHAR_BUFFER_UTIL_COPY_CBUFFER_TO_S24: copy char buffer to signed 24 bit
+ * @AGS_CHAR_BUFFER_UTIL_COPY_CBUFFER_TO_S32: copy char buffer to signed 32 bit
+ * @AGS_CHAR_BUFFER_UTIL_COPY_CBUFFER_TO_S64: copy char buffer to signed 64 bit
+ * @AGS_CHAR_BUFFER_UTIL_COPY_CBUFFER_TO_FLOAT: copy char buffer to float
+ * @AGS_CHAR_BUFFER_UTIL_COPY_CBUFFER_TO_DOUBLE: copy char buffer to double
+ * 
+ * Copy modes.
+ */
 typedef enum{
   AGS_CHAR_BUFFER_UTIL_COPY_S8_TO_CBUFFER,
   AGS_CHAR_BUFFER_UTIL_COPY_S16_TO_CBUFFER,
@@ -59,10 +91,10 @@ void ags_char_buffer_util_copy_s64_to_cbuffer(guchar *destination, guint word_si
 					      gint64 *source, guint schannels,
 					      guint frame_count, guint byte_order);
 void ags_char_buffer_util_copy_float_to_cbuffer(guchar *destination, guint word_size, guint dchannels,
-						float *source, guint schannels,
+						gfloat *source, guint schannels,
 						guint frame_count, guint byte_order);
 void ags_char_buffer_util_copy_double_to_cbuffer(guchar *destination, guint word_size, guint dchannels,
-						 double *source, guint schannels,
+						 gdouble *source, guint schannels,
 						 guint frame_count, guint byte_order);
 
 /* copy from cbuffer */
@@ -81,10 +113,10 @@ void ags_char_buffer_util_copy_cbuffer_to_s32(gint32 *destination, guint dchanne
 void ags_char_buffer_util_copy_cbuffer_to_s64(gint64 *destination, guint dchannels,
 					      guchar *source, guint word_size, guint schannels,
 					      guint frame_count, guint byte_order);
-void ags_char_buffer_util_copy_cbuffer_to_float(float *destination, guint dchannels,
+void ags_char_buffer_util_copy_cbuffer_to_float(gfloat *destination, guint dchannels,
 						gint8 *source, guint word_size, guint schannels,
 						guint frame_count, guint byte_order);
-void ags_char_buffer_util_copy_cbuffer_to_double(double *destination, guint dchannels,
+void ags_char_buffer_util_copy_cbuffer_to_double(gdouble *destination, guint dchannels,
 						 guchar *source, guint word_size, guint schannels,
 						 guint frame_count, guint byte_order);
 
@@ -93,5 +125,7 @@ void ags_char_buffer_util_copy_buffer_to_buffer(void *destination, guint dchanne
 						void *source, guint schannels, guint soffset,
 						guint frame_count, guint byte_order,
 						guint word_size, guint mode);
+
+G_END_DECLS
 
 #endif /*__AGS_CHAR_BUFFER_UTIL_H__*/

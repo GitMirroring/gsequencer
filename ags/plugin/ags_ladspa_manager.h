@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2020 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -27,6 +27,8 @@
 
 #include <ags/plugin/ags_ladspa_plugin.h>
 
+G_BEGIN_DECLS
+
 #define AGS_TYPE_LADSPA_MANAGER                (ags_ladspa_manager_get_type())
 #define AGS_LADSPA_MANAGER(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_LADSPA_MANAGER, AgsLadspaManager))
 #define AGS_LADSPA_MANAGER_CLASS(class)        (G_TYPE_CHECK_CLASS_CAST((class), AGS_TYPE_LADSPA_MANAGER, AgsLadspaManagerClass))
@@ -34,7 +36,7 @@
 #define AGS_IS_LADSPA_MANAGER_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE ((class), AGS_TYPE_LADSPA_MANAGER))
 #define AGS_LADSPA_MANAGER_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS ((obj), AGS_TYPE_LADSPA_MANAGER, AgsLadspaManagerClass))
 
-#define AGS_LADSPA_MANAGER_GET_OBJ_MUTEX(obj) (((AgsLadspaManager *) obj)->obj_mutex)
+#define AGS_LADSPA_MANAGER_GET_OBJ_MUTEX(obj) (&(((AgsLadspaManager *) obj)->obj_mutex))
 
 typedef struct _AgsLadspaManager AgsLadspaManager;
 typedef struct _AgsLadspaManagerClass AgsLadspaManagerClass;
@@ -43,8 +45,7 @@ struct _AgsLadspaManager
 {
   GObject gobject;
 
-  pthread_mutex_t *obj_mutex;
-  pthread_mutexattr_t *obj_mutexattr;
+  GRecMutex obj_mutex;
 
   GList *ladspa_plugin_blacklist;
   GList *ladspa_plugin;
@@ -57,14 +58,15 @@ struct _AgsLadspaManagerClass
 
 GType ags_ladspa_manager_get_type(void);
 
-pthread_mutex_t* ags_ladspa_manager_get_class_mutex();
-
 gchar** ags_ladspa_manager_get_default_path();
 void ags_ladspa_manager_set_default_path(gchar** default_path);
 
 gchar** ags_ladspa_manager_get_filenames(AgsLadspaManager *ladspa_manager);
 AgsLadspaPlugin* ags_ladspa_manager_find_ladspa_plugin(AgsLadspaManager *ladspa_manager,
 						       gchar *filename, gchar *effect);
+AgsLadspaPlugin* ags_ladspa_manager_find_ladspa_plugin_with_fallback(AgsLadspaManager *ladspa_manager,
+								     gchar *filename, gchar *effect);
+
 
 void ags_ladspa_manager_load_blacklist(AgsLadspaManager *ladspa_manager,
 				       gchar *blacklist_filename);
@@ -74,9 +76,13 @@ void ags_ladspa_manager_load_file(AgsLadspaManager *ladspa_manager,
 				  gchar *filename);
 void ags_ladspa_manager_load_default_directory(AgsLadspaManager *ladspa_manager);
 
+GList* ags_ladspa_manager_get_ladspa_plugin(AgsLadspaManager *ladspa_manager);
+
 /*  */
 AgsLadspaManager* ags_ladspa_manager_get_instance();
 
 AgsLadspaManager* ags_ladspa_manager_new();
+
+G_END_DECLS
 
 #endif /*__AGS_LADSPA_MANAGER_H__*/

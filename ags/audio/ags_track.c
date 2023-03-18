@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -18,8 +18,6 @@
  */
 
 #include <ags/audio/ags_track.h>
-
-#include <ags/libags.h>
 
 #include <ags/audio/ags_audio_signal.h>
 
@@ -57,8 +55,6 @@ enum{
 
 static gpointer ags_track_parent_class = NULL;
 
-static pthread_mutex_t ags_track_class_mutex = PTHREAD_MUTEX_INITIALIZER;
-
 GType
 ags_track_get_type()
 {
@@ -90,6 +86,25 @@ ags_track_get_type()
   return g_define_type_id__volatile;
 }
 
+GType
+ags_track_flags_get_type()
+{
+  static volatile gsize g_flags_type_id__volatile;
+
+  if(g_once_init_enter (&g_flags_type_id__volatile)){
+    static const GFlagsValue values[] = {
+      { AGS_TRACK_IS_SELECTED, "AGS_TRACK_IS_SELECTED", "track-is-selected" },
+      { 0, NULL, NULL }
+    };
+
+    GType g_flags_type_id = g_flags_register_static(g_intern_static_string("AgsTrackFlags"), values);
+
+    g_once_init_leave (&g_flags_type_id__volatile, g_flags_type_id);
+  }
+  
+  return g_flags_type_id__volatile;
+}
+
 void 
 ags_track_class_init(AgsTrackClass *track)
 {
@@ -112,7 +127,7 @@ ags_track_class_init(AgsTrackClass *track)
    *
    * Track's x offset.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint64("x",
 				   i18n_pspec("offset x"),
@@ -130,7 +145,7 @@ ags_track_class_init(AgsTrackClass *track)
    *
    * Track's SMF buffer.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_pointer("smf-buffer",
 				    i18n_pspec("SMF buffer"),
@@ -144,32 +159,17 @@ ags_track_class_init(AgsTrackClass *track)
 void
 ags_track_init(AgsTrack *track)
 {  
-  pthread_mutex_t *mutex;
-  pthread_mutexattr_t *attr;
-
   track->flags = 0;
 
-  /* add track mutex */
-  track->obj_mutexattr = 
-    attr = (pthread_mutexattr_t *) malloc(sizeof(pthread_mutexattr_t));
-  pthread_mutexattr_init(attr);
-  pthread_mutexattr_settype(attr,
-			    PTHREAD_MUTEX_RECURSIVE);
-
-#ifdef __linux__
-  pthread_mutexattr_setprotocol(attr,
-				PTHREAD_PRIO_INHERIT);
-#endif
-
-  track->obj_mutex = 
-    mutex = (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t));
-  pthread_mutex_init(mutex,
-		     attr);  
+  /* track mutex */
+  g_rec_mutex_init(&(track->obj_mutex));
 
   /* fields */
   track->x = 0;
 
   track->smf_buffer = NULL;
+  track->allocated_smf_buffer_length = 0;
+  track->smf_buffer_length = 0;
 }
 
 void
@@ -180,7 +180,7 @@ ags_track_set_property(GObject *gobject,
 {
   AgsTrack *track;
 
-  pthread_mutex_t *track_mutex;
+  GRecMutex *track_mutex;
 
   track = AGS_TRACK(gobject);
 
@@ -190,20 +190,20 @@ ags_track_set_property(GObject *gobject,
   switch(prop_id){
   case PROP_X:
     {
-      pthread_mutex_lock(track_mutex);
+      g_rec_mutex_lock(track_mutex);
 
       track->x = g_value_get_uint64(value);
 
-      pthread_mutex_unlock(track_mutex);
+      g_rec_mutex_unlock(track_mutex);
     }
     break;
   case PROP_SMF_BUFFER:
     {
-      pthread_mutex_lock(track_mutex);
+      g_rec_mutex_lock(track_mutex);
 
       track->smf_buffer = g_value_get_pointer(value);
 
-      pthread_mutex_unlock(track_mutex);
+      g_rec_mutex_unlock(track_mutex);
     }
     break;
   default:
@@ -220,7 +220,7 @@ ags_track_get_property(GObject *gobject,
 {
   AgsTrack *track;
 
-  pthread_mutex_t *track_mutex;
+  GRecMutex *track_mutex;
 
   track = AGS_TRACK(gobject);
 
@@ -230,22 +230,22 @@ ags_track_get_property(GObject *gobject,
   switch(prop_id){
   case PROP_X:
     {
-      pthread_mutex_lock(track_mutex);
+      g_rec_mutex_lock(track_mutex);
 
       g_value_set_uint64(value,
 			 track->x);
 
-      pthread_mutex_unlock(track_mutex);
+      g_rec_mutex_unlock(track_mutex);
     }
     break;
   case PROP_SMF_BUFFER:
     {
-      pthread_mutex_lock(track_mutex);
+      g_rec_mutex_lock(track_mutex);
 
       g_value_set_pointer(value,
 			  track->smf_buffer);
       
-      pthread_mutex_unlock(track_mutex);
+      g_rec_mutex_unlock(track_mutex);
     }
     break;
   default:
@@ -261,12 +261,6 @@ ags_track_finalize(GObject *gobject)
 
   track = AGS_TRACK(gobject);
 
-  pthread_mutex_destroy(track->obj_mutex);
-  free(track->obj_mutex);
-
-  pthread_mutexattr_destroy(track->obj_mutexattr);
-  free(track->obj_mutexattr);
-
   if(track->smf_buffer != NULL){
     free(track->smf_buffer);
   }
@@ -276,18 +270,59 @@ ags_track_finalize(GObject *gobject)
 }
 
 /**
- * ags_track_get_class_mutex:
+ * ags_track_get_obj_mutex:
+ * @track: the #AgsTrack
  * 
- * Use this function's returned mutex to access mutex fields.
- *
- * Returns: the class mutex
+ * Get object mutex.
  * 
- * Since: 2.0.0
+ * Returns: the #GRecMutex to lock @track
+ * 
+ * Since: 3.1.0
  */
-pthread_mutex_t*
-ags_track_get_class_mutex()
+GRecMutex*
+ags_track_get_obj_mutex(AgsTrack *track)
 {
-  return(&ags_track_class_mutex);
+  if(!AGS_IS_TRACK(track)){
+    return(NULL);
+  }
+
+  return(AGS_TRACK_GET_OBJ_MUTEX(track));
+}
+
+/**
+ * ags_track_lock:
+ * @track: the #AgsTrack
+ * 
+ * Lock object mutex.
+ * 
+ * Since: 3.1.0
+ */
+void
+ags_track_lock(AgsTrack *track)
+{
+  if(!AGS_IS_TRACK(track)){
+    return;
+  }
+
+  g_rec_mutex_lock(AGS_TRACK_GET_OBJ_MUTEX(track));
+}
+
+/**
+ * ags_track_unlock:
+ * @track: the #AgsTrack
+ * 
+ * Unlock object mutex.
+ * 
+ * Since: 3.1.0
+ */
+void
+ags_track_unlock(AgsTrack *track)
+{
+  if(!AGS_IS_TRACK(track)){
+    return;
+  }
+
+  g_rec_mutex_unlock(AGS_TRACK_GET_OBJ_MUTEX(track));
 }
 
 /**
@@ -299,14 +334,14 @@ ags_track_get_class_mutex()
  * 
  * Returns: %TRUE if flags are set, else %FALSE
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gboolean
 ags_track_test_flags(AgsTrack *track, guint flags)
 {
   gboolean retval;
   
-  pthread_mutex_t *track_mutex;
+  GRecMutex *track_mutex;
 
   if(!AGS_IS_TRACK(track)){
     return(FALSE);
@@ -316,11 +351,11 @@ ags_track_test_flags(AgsTrack *track, guint flags)
   track_mutex = AGS_TRACK_GET_OBJ_MUTEX(track);
 
   /* test */
-  pthread_mutex_lock(track_mutex);
+  g_rec_mutex_lock(track_mutex);
 
   retval = (flags & (track->flags)) ? TRUE: FALSE;
   
-  pthread_mutex_unlock(track_mutex);
+  g_rec_mutex_unlock(track_mutex);
 
   return(retval);
 }
@@ -332,12 +367,12 @@ ags_track_test_flags(AgsTrack *track, guint flags)
  * 
  * Set @flags on @track.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_track_set_flags(AgsTrack *track, guint flags)
 {
-  pthread_mutex_t *track_mutex;
+  GRecMutex *track_mutex;
 
   if(!AGS_IS_TRACK(track)){
     return;
@@ -347,11 +382,11 @@ ags_track_set_flags(AgsTrack *track, guint flags)
   track_mutex = AGS_TRACK_GET_OBJ_MUTEX(track);
 
   /* set */
-  pthread_mutex_lock(track_mutex);
+  g_rec_mutex_lock(track_mutex);
 
   track->flags |= flags;
   
-  pthread_mutex_unlock(track_mutex);
+  g_rec_mutex_unlock(track_mutex);
 }
 
 /**
@@ -361,12 +396,12 @@ ags_track_set_flags(AgsTrack *track, guint flags)
  * 
  * Unset @flags on @track.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_track_unset_flags(AgsTrack *track, guint flags)
 {
-  pthread_mutex_t *track_mutex;
+  GRecMutex *track_mutex;
 
   if(!AGS_IS_TRACK(track)){
     return;
@@ -376,11 +411,11 @@ ags_track_unset_flags(AgsTrack *track, guint flags)
   track_mutex = AGS_TRACK_GET_OBJ_MUTEX(track);
 
   /* unset */
-  pthread_mutex_lock(track_mutex);
+  g_rec_mutex_lock(track_mutex);
 
   track->flags &= (~flags);
   
-  pthread_mutex_unlock(track_mutex);
+  g_rec_mutex_unlock(track_mutex);
 }
 
 /**
@@ -392,7 +427,7 @@ ags_track_unset_flags(AgsTrack *track, guint flags)
  * 
  * Returns: 0 if equal, -1 if smaller and 1 if bigger offset
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gint
 ags_track_sort_func(gconstpointer a,
@@ -424,14 +459,101 @@ ags_track_sort_func(gconstpointer a,
 }
 
 /**
+ * ags_track_get_x:
+ * @track: the #AgsTrack
+ *
+ * Gets x.
+ * 
+ * Returns: the x
+ * 
+ * Since: 3.1.0
+ */
+guint64
+ags_track_get_x(AgsTrack *track)
+{
+  guint64 x;
+  
+  if(!AGS_IS_TRACK(track)){
+    return(0);
+  }
+
+  g_object_get(track,
+	       "x", &x,
+	       NULL);
+
+  return(x);
+}
+
+/**
+ * ags_track_set_x:
+ * @track: the #AgsTrack
+ * @x: the x
+ *
+ * Sets x.
+ * 
+ * Since: 3.1.0
+ */
+void
+ags_track_set_x(AgsTrack *track, guint64 x)
+{
+  if(!AGS_IS_TRACK(track)){
+    return;
+  }
+
+  g_object_set(track,
+	       "x", x,
+	       NULL);
+}
+
+/**
+ * ags_track_get_data:
+ * @track: the #AgsTrack
+ * @smf_buffer_length: (out): the SMF buffer length return location
+ *
+ * Gets data.
+ * 
+ * Returns: the data
+ * 
+ * Since: 3.1.0
+ */
+gpointer
+ags_track_get_smf_buffer(AgsTrack *track,
+			 guint *smf_buffer_length)
+{
+  gpointer smf_buffer;
+  
+  GRecMutex *track_mutex;
+
+  if(!AGS_IS_TRACK(track)){
+    return(NULL);
+  }
+      
+  /* get track mutex */
+  track_mutex = AGS_TRACK_GET_OBJ_MUTEX(track);
+
+  /* set format */
+  g_rec_mutex_lock(track_mutex);
+
+  smf_buffer = track->smf_buffer;
+
+  if(smf_buffer_length != NULL){
+    smf_buffer_length[0] = track->smf_buffer_length;
+  }
+  
+  g_rec_mutex_unlock(track_mutex);
+
+  return(smf_buffer);
+}
+
+/**
  * ags_track_duplicate:
  * @track: an #AgsTrack
  * 
  * Duplicate a track.
  *
- * Returns: the duplicated #AgsTrack.
+ * Returns: (transfer full): the duplicated #AgsTrack.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 AgsTrack*
 ags_track_duplicate(AgsTrack *track)
@@ -440,7 +562,7 @@ ags_track_duplicate(AgsTrack *track)
 
   guint copy_mode;
 
-  pthread_mutex_t *track_mutex;
+  GRecMutex *track_mutex;
 
   if(!AGS_IS_TRACK(track)){
     return(NULL);
@@ -454,7 +576,7 @@ ags_track_duplicate(AgsTrack *track)
 
   track_copy->flags = 0;
 
-  pthread_mutex_lock(track_mutex);
+  g_rec_mutex_lock(track_mutex);
 
   track_copy->x = track->x;
 
@@ -463,9 +585,96 @@ ags_track_duplicate(AgsTrack *track)
 
   //TODO:JK: implement me
 
-  pthread_mutex_unlock(track_mutex);
+  g_rec_mutex_unlock(track_mutex);
 
   return(track_copy);
+}
+
+/**
+ * ags_track_alloc_smf_buffer:
+ * @track: the #AgsTrack
+ * @smf_buffer_length: SMF buffer length
+ * 
+ * Allocate SMF buffer of @track.
+ * 
+ * Returns: the newly allocated SMF buffer
+ * 
+ * Since: 3.6.17
+ */
+gpointer
+ags_track_alloc_smf_buffer(AgsTrack *track,
+			   guint smf_buffer_length)
+{
+  guchar *smf_buffer;
+
+  GRecMutex *track_mutex;
+
+  if(!AGS_IS_TRACK(track) ||
+     smf_buffer_length == 0){
+    return(NULL);
+  }
+  
+  /* get track mutex */
+  track_mutex = AGS_TRACK_GET_OBJ_MUTEX(track);
+  
+  smf_buffer = NULL;
+
+  g_rec_mutex_lock(track_mutex);
+
+  if(track->smf_buffer == NULL){
+    smf_buffer =
+      track->smf_buffer = (guchar *) g_malloc(smf_buffer_length * sizeof(guchar));
+
+    track->allocated_smf_buffer_length = smf_buffer_length;
+  }
+  
+  g_rec_mutex_lock(track_mutex);
+
+  return(smf_buffer);
+}
+
+/**
+ * ags_track_realloc_smf_buffer:
+ * @track: the #AgsTrack
+ * @smf_buffer_length: SMF buffer length
+ * 
+ * Reallocate SMF buffer of @track.
+ * 
+ * Returns: the reallocated SMF buffer
+ * 
+ * Since: 3.6.17
+ */
+gpointer
+ags_track_realloc_smf_buffer(AgsTrack *track,
+			     guint smf_buffer_length)
+{
+  guchar *smf_buffer;
+
+  GRecMutex *track_mutex;
+
+  if(!AGS_IS_TRACK(track) ||
+     smf_buffer_length == 0){
+    return(NULL);
+  }
+  
+  /* get track mutex */
+  track_mutex = AGS_TRACK_GET_OBJ_MUTEX(track);
+  
+  smf_buffer = NULL;
+
+  g_rec_mutex_lock(track_mutex);
+
+  if(track->smf_buffer != NULL){
+    smf_buffer =
+      track->smf_buffer = (guchar *) g_realloc(track->smf_buffer,
+					       smf_buffer_length * sizeof(guchar));
+
+    track->allocated_smf_buffer_length = smf_buffer_length;
+  }
+  
+  g_rec_mutex_lock(track_mutex);
+
+  return(smf_buffer);
 }
 
 /**
@@ -475,7 +684,7 @@ ags_track_duplicate(AgsTrack *track)
  *
  * Returns: the new #AgsTrack
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 AgsTrack*
 ags_track_new()

@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -23,9 +23,9 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include <pthread.h>
-
 #include <ags/libags.h>
+
+G_BEGIN_DECLS
 
 #define AGS_TYPE_JACK_DEVIN                (ags_jack_devin_get_type())
 #define AGS_JACK_DEVIN(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_JACK_DEVIN, AgsJackDevin))
@@ -34,47 +34,50 @@
 #define AGS_IS_JACK_DEVIN_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE ((class), AGS_TYPE_JACK_DEVIN))
 #define AGS_JACK_DEVIN_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS(obj, AGS_TYPE_JACK_DEVIN, AgsJackDevinClass))
 
-#define AGS_JACK_DEVIN_GET_OBJ_MUTEX(obj) (((AgsJackDevin *) obj)->obj_mutex)
+#define AGS_JACK_DEVIN_GET_OBJ_MUTEX(obj) (&(((AgsJackDevin *) obj)->obj_mutex))
 
 typedef struct _AgsJackDevin AgsJackDevin;
 typedef struct _AgsJackDevinClass AgsJackDevinClass;
 
 /**
  * AgsJackDevinFlags:
- * @AGS_JACK_DEVIN_ADDED_TO_REGISTRY: the JACK devin was added to registry, see #AgsConnectable::add_to_registry()
- * @AGS_JACK_DEVIN_CONNECTED: indicates the JACK devin was connected by calling #AgsConnectable::connect()
- * @AGS_JACK_DEVIN_BUFFER0: ring-buffer 0
- * @AGS_JACK_DEVIN_BUFFER1: ring-buffer 1
- * @AGS_JACK_DEVIN_BUFFER2: ring-buffer 2
- * @AGS_JACK_DEVIN_BUFFER3: ring-buffer 3
- * @AGS_JACK_DEVIN_ATTACK_FIRST: use first attack, instead of second one
+ * @AGS_JACK_DEVIN_INITIALIZED: the soundcard was initialized
+ * @AGS_JACK_DEVIN_START_RECORD: capture starting
  * @AGS_JACK_DEVIN_RECORD: do capture
  * @AGS_JACK_DEVIN_SHUTDOWN: stop capture
- * @AGS_JACK_DEVIN_START_RECORD: capture starting
  * @AGS_JACK_DEVIN_NONBLOCKING: do non-blocking calls
- * @AGS_JACK_DEVIN_INITIALIZED: the soundcard was initialized
+ * @AGS_JACK_DEVIN_ATTACK_FIRST: use first attack, instead of second one
  *
  * Enum values to control the behavior or indicate internal state of #AgsJackDevin by
  * enable/disable as flags.
  */
 typedef enum{
-  AGS_JACK_DEVIN_ADDED_TO_REGISTRY              = 1,
-  AGS_JACK_DEVIN_CONNECTED                      = 1 <<  1,
+  AGS_JACK_DEVIN_INITIALIZED                    = 1,
+  AGS_JACK_DEVIN_START_RECORD                   = 1 <<  1,
+  AGS_JACK_DEVIN_RECORD                         = 1 <<  2,
+  AGS_JACK_DEVIN_SHUTDOWN                       = 1 <<  3,
 
-  AGS_JACK_DEVIN_BUFFER0                        = 1 <<  2,
-  AGS_JACK_DEVIN_BUFFER1                        = 1 <<  3,
-  AGS_JACK_DEVIN_BUFFER2                        = 1 <<  4,
-  AGS_JACK_DEVIN_BUFFER3                        = 1 <<  5,
+  AGS_JACK_DEVIN_NONBLOCKING                    = 1 <<  4,
 
-  AGS_JACK_DEVIN_ATTACK_FIRST                   = 1 <<  6,
+  AGS_JACK_DEVIN_ATTACK_FIRST                   = 1 <<  5,
+}AgsJackDevinFlags;
 
-  AGS_JACK_DEVIN_RECORD                         = 1 <<  7,
-  AGS_JACK_DEVIN_SHUTDOWN                       = 1 <<  6,
-  AGS_JACK_DEVIN_START_RECORD                   = 1 <<  8,
-
-  AGS_JACK_DEVIN_NONBLOCKING                    = 1 <<  9,
-  AGS_JACK_DEVIN_INITIALIZED                    = 1 << 10,
-  }AgsJackDevinFlags;
+/**
+ * AgsJackDevinAppBufferMode:
+ * @AGS_JACK_DEVIN_APP_BUFFER_0: ring-buffer 0
+ * @AGS_JACK_DEVIN_APP_BUFFER_1: ring-buffer 1
+ * @AGS_JACK_DEVIN_APP_BUFFER_2: ring-buffer 2
+ * @AGS_JACK_DEVIN_APP_BUFFER_3: ring-buffer 3
+ * 
+ * Enum values to indicate internal state of #AgsJackDevin application buffer by
+ * setting mode.
+ */
+typedef enum{
+  AGS_JACK_DEVIN_APP_BUFFER_0,
+  AGS_JACK_DEVIN_APP_BUFFER_1,
+  AGS_JACK_DEVIN_APP_BUFFER_2,
+  AGS_JACK_DEVIN_APP_BUFFER_3,
+}AgsJackDevinAppBufferMode;
 
 /**
  * AgsJackDevinSyncFlags:
@@ -107,12 +110,10 @@ struct _AgsJackDevin
   GObject gobject;
 
   guint flags;
+  guint connectable_flags;
   volatile guint sync_flags;
   
-  pthread_mutex_t *obj_mutex;
-  pthread_mutexattr_t *obj_mutexattr;
-
-  AgsApplicationContext *application_context;
+  GRecMutex obj_mutex;
 
   AgsUUID *uuid;
 
@@ -122,8 +123,13 @@ struct _AgsJackDevin
   guint buffer_size;
   guint samplerate;
   
-  pthread_mutex_t **buffer_mutex;
-  void** buffer;
+  guint app_buffer_mode;
+
+  GRecMutex **app_buffer_mutex;
+  void** app_buffer;
+
+  guint sub_block_count;
+  GRecMutex **sub_block_mutex;
 
   double bpm; // beats per minute
   gdouble delay_factor;
@@ -151,13 +157,11 @@ struct _AgsJackDevin
   gchar **port_name;
   GList *jack_port;
 
-  pthread_mutex_t *callback_mutex;
-  pthread_cond_t *callback_cond;
+  GMutex callback_mutex;
+  GCond callback_cond;
 
-  pthread_mutex_t *callback_finish_mutex;
-  pthread_cond_t *callback_finish_cond;
-
-  GObject *notify_soundcard;
+  GMutex callback_finish_mutex;
+  GCond callback_finish_cond;
 };
 
 struct _AgsJackDevinClass
@@ -166,10 +170,9 @@ struct _AgsJackDevinClass
 };
 
 GType ags_jack_devin_get_type();
+GType ags_jack_devin_flags_get_type();
 
 GQuark ags_jack_devin_error_quark();
-
-pthread_mutex_t* ags_jack_devin_get_class_mutex();
 
 gboolean ags_jack_devin_test_flags(AgsJackDevin *jack_devin, guint flags);
 void ags_jack_devin_set_flags(AgsJackDevin *jack_devin, guint flags);
@@ -180,6 +183,8 @@ void ags_jack_devin_switch_buffer_flag(AgsJackDevin *jack_devin);
 void ags_jack_devin_adjust_delay_and_attack(AgsJackDevin *jack_devin);
 void ags_jack_devin_realloc_buffer(AgsJackDevin *jack_devin);
 
-AgsJackDevin* ags_jack_devin_new(AgsApplicationContext *application_context);
+AgsJackDevin* ags_jack_devin_new();
+
+G_END_DECLS
 
 #endif /*__AGS_JACK_DEVIN_H__*/

@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -18,8 +18,6 @@
  */
 
 #include <ags/audio/file/ags_sfz_region.h>
-
-#include <ags/libags.h>
 
 #include <ags/audio/file/ags_sfz_group.h>
 #include <ags/audio/file/ags_sfz_sample.h>
@@ -73,8 +71,6 @@ enum{
 };
 
 static gpointer ags_sfz_region_parent_class = NULL;
-
-static pthread_mutex_t ags_sfz_region_class_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 GType
 ags_sfz_region_get_type()
@@ -140,7 +136,7 @@ ags_sfz_region_class_init(AgsSFZRegionClass *sfz_region)
    *
    * The nth region.
    * 
-   * Since: 2.3.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_int("nth-region",
 				i18n_pspec("nth region"),
@@ -154,11 +150,11 @@ ags_sfz_region_class_init(AgsSFZRegionClass *sfz_region)
 				  param_spec);
 
   /**
-   * AgsSFZSample:group:
+   * AgsSFZRegion:group:
    *
    * The group assigned with.
    * 
-   * Since: 2.3.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_object("group",
 				   i18n_pspec("assigned group"),
@@ -170,11 +166,11 @@ ags_sfz_region_class_init(AgsSFZRegionClass *sfz_region)
 				  param_spec);
 
   /**
-   * AgsSFZSample:sample:
+   * AgsSFZRegion:sample:
    *
    * The sample assigned with.
    * 
-   * Since: 2.3.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_object("sample",
 				   i18n_pspec("assigned sample"),
@@ -214,27 +210,11 @@ ags_sfz_region_init(AgsSFZRegion *sfz_region)
 {
   AgsConfig *config;
 
-  pthread_mutex_t *mutex;
-  pthread_mutexattr_t *attr;
-
   sfz_region->flags = 0;
+  sfz_region->connectable_flags = 0;
 
-  /* add audio file mutex */
-  sfz_region->obj_mutexattr = 
-    attr = (pthread_mutexattr_t *) malloc(sizeof(pthread_mutexattr_t));
-  pthread_mutexattr_init(attr);
-  pthread_mutexattr_settype(attr,
-			    PTHREAD_MUTEX_RECURSIVE);
-
-#ifdef __linux__
-  pthread_mutexattr_setprotocol(attr,
-				PTHREAD_PRIO_INHERIT);
-#endif
-
-  sfz_region->obj_mutex = 
-    mutex = (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t));
-  pthread_mutex_init(mutex,
-		     attr);  
+  /* add sfz region mutex */
+  g_rec_mutex_init(&(sfz_region->obj_mutex));
 
   /* uuid */
   sfz_region->uuid = ags_uuid_alloc();
@@ -258,7 +238,7 @@ ags_sfz_region_set_property(GObject *gobject,
 {
   AgsSFZRegion *sfz_region;
 
-  pthread_mutex_t *sfz_region_mutex;
+  GRecMutex *sfz_region_mutex;
 
   sfz_region = AGS_SFZ_REGION(gobject);
 
@@ -272,17 +252,17 @@ ags_sfz_region_set_property(GObject *gobject,
 
     nth_region = g_value_get_int(value);
 
-    pthread_mutex_lock(sfz_region_mutex);
+    g_rec_mutex_lock(sfz_region_mutex);
 
     if(nth_region == sfz_region->nth_region){
-      pthread_mutex_unlock(sfz_region_mutex);
+      g_rec_mutex_unlock(sfz_region_mutex);
 
       return;	
     }
     
     sfz_region->nth_region = nth_region;
 
-    pthread_mutex_unlock(sfz_region_mutex);
+    g_rec_mutex_unlock(sfz_region_mutex);
   }
   break;
   case PROP_GROUP:
@@ -291,10 +271,10 @@ ags_sfz_region_set_property(GObject *gobject,
 
     group = g_value_get_object(value);
 
-    pthread_mutex_lock(sfz_region_mutex);
+    g_rec_mutex_lock(sfz_region_mutex);
 
     if(sfz_region->group == group){
-      pthread_mutex_unlock(sfz_region_mutex);
+      g_rec_mutex_unlock(sfz_region_mutex);
 
       return;	
     }
@@ -309,7 +289,7 @@ ags_sfz_region_set_property(GObject *gobject,
     
     sfz_region->group = group;
 
-    pthread_mutex_unlock(sfz_region_mutex);
+    g_rec_mutex_unlock(sfz_region_mutex);
   }
   break;
   case PROP_SAMPLE:
@@ -318,10 +298,10 @@ ags_sfz_region_set_property(GObject *gobject,
 
     sample = g_value_get_object(value);
 
-    pthread_mutex_lock(sfz_region_mutex);
+    g_rec_mutex_lock(sfz_region_mutex);
 
     if(sfz_region->sample == sample){
-      pthread_mutex_unlock(sfz_region_mutex);
+      g_rec_mutex_unlock(sfz_region_mutex);
 
       return;	
     }
@@ -336,7 +316,7 @@ ags_sfz_region_set_property(GObject *gobject,
     
     sfz_region->sample = sample;
 
-    pthread_mutex_unlock(sfz_region_mutex);
+    g_rec_mutex_unlock(sfz_region_mutex);
   }
   break;
   default:
@@ -352,7 +332,7 @@ ags_sfz_region_get_property(GObject *gobject,
 {
   AgsSFZRegion *sfz_region;
 
-  pthread_mutex_t *sfz_region_mutex;
+  GRecMutex *sfz_region_mutex;
 
   sfz_region = (AgsSFZRegion *) gobject;
 
@@ -362,29 +342,29 @@ ags_sfz_region_get_property(GObject *gobject,
   switch(prop_id){
   case PROP_NTH_REGION:
   {
-    pthread_mutex_lock(sfz_region_mutex);
+    g_rec_mutex_lock(sfz_region_mutex);
 
     g_value_set_int(value, sfz_region->nth_region);
 
-    pthread_mutex_unlock(sfz_region_mutex);
+    g_rec_mutex_unlock(sfz_region_mutex);
   }
   break;
   case PROP_GROUP:
   {
-    pthread_mutex_lock(sfz_region_mutex);
+    g_rec_mutex_lock(sfz_region_mutex);
 
     g_value_set_object(value, sfz_region->group);
 
-    pthread_mutex_unlock(sfz_region_mutex);
+    g_rec_mutex_unlock(sfz_region_mutex);
   }
   break;
   case PROP_SAMPLE:
   {
-    pthread_mutex_lock(sfz_region_mutex);
+    g_rec_mutex_lock(sfz_region_mutex);
 
     g_value_set_object(value, sfz_region->sample);
 
-    pthread_mutex_unlock(sfz_region_mutex);
+    g_rec_mutex_unlock(sfz_region_mutex);
   }
   break;
   default:
@@ -422,12 +402,6 @@ ags_sfz_region_finalize(GObject *gobject)
 
   sfz_region = AGS_SFZ_REGION(gobject);
 
-  pthread_mutex_destroy(sfz_region->obj_mutex);
-  free(sfz_region->obj_mutex);
-
-  pthread_mutexattr_destroy(sfz_region->obj_mutexattr);
-  free(sfz_region->obj_mutexattr);
-
   if(sfz_region->sample != NULL){
     g_object_unref(sfz_region->sample);
   }
@@ -447,19 +421,19 @@ ags_sfz_region_get_uuid(AgsConnectable *connectable)
   
   AgsUUID *ptr;
 
-  pthread_mutex_t *sfz_region_mutex;
+  GRecMutex *sfz_region_mutex;
 
   sfz_region = AGS_SFZ_REGION(connectable);
 
-  /* get audio file mutex */
+  /* get sfz region mutex */
   sfz_region_mutex = AGS_SFZ_REGION_GET_OBJ_MUTEX(sfz_region);
 
   /* get UUID */
-  pthread_mutex_lock(sfz_region_mutex);
+  g_rec_mutex_lock(sfz_region_mutex);
 
   ptr = sfz_region->uuid;
 
-  pthread_mutex_unlock(sfz_region_mutex);
+  g_rec_mutex_unlock(sfz_region_mutex);
   
   return(ptr);
 }
@@ -477,20 +451,20 @@ ags_sfz_region_is_ready(AgsConnectable *connectable)
   
   gboolean is_ready;
 
-  pthread_mutex_t *sfz_region_mutex;
+  GRecMutex *sfz_region_mutex;
 
   sfz_region = AGS_SFZ_REGION(connectable);
 
-  /* get audio file mutex */
+  /* get sfz region mutex */
   sfz_region_mutex = AGS_SFZ_REGION_GET_OBJ_MUTEX(sfz_region);
 
   /* check is ready */
-  pthread_mutex_lock(sfz_region_mutex);
-  
-  is_ready = (((AGS_SFZ_REGION_ADDED_TO_REGISTRY & (sfz_region->flags)) != 0) ? TRUE: FALSE);
-  
-  pthread_mutex_unlock(sfz_region_mutex);
+  g_rec_mutex_lock(sfz_region_mutex);
 
+  is_ready = ((AGS_CONNECTABLE_ADDED_TO_REGISTRY & (sfz_region->connectable_flags)) != 0) ? TRUE: FALSE;
+
+  g_rec_mutex_unlock(sfz_region_mutex);
+  
   return(is_ready);
 }
 
@@ -504,13 +478,22 @@ ags_sfz_region_add_to_registry(AgsConnectable *connectable)
 
   AgsApplicationContext *application_context;
 
+  GRecMutex *sfz_region_mutex;
+
   if(ags_connectable_is_ready(connectable)){
     return;
   }
 
   sfz_region = AGS_SFZ_REGION(connectable);
 
-  ags_sfz_region_set_flags(sfz_region, AGS_SFZ_REGION_ADDED_TO_REGISTRY);
+  /* get sfz_region mutex */
+  sfz_region_mutex = AGS_SFZ_REGION_GET_OBJ_MUTEX(sfz_region);
+
+  g_rec_mutex_lock(sfz_region_mutex);
+
+  sfz_region->connectable_flags |= AGS_CONNECTABLE_ADDED_TO_REGISTRY;
+  
+  g_rec_mutex_unlock(sfz_region_mutex);
 
   application_context = ags_application_context_get_instance();
 
@@ -528,9 +511,24 @@ ags_sfz_region_add_to_registry(AgsConnectable *connectable)
 void
 ags_sfz_region_remove_from_registry(AgsConnectable *connectable)
 {
+  AgsSFZRegion *sfz_region;
+
+  GRecMutex *sfz_region_mutex;
+
   if(!ags_connectable_is_ready(connectable)){
     return;
   }
+
+  sfz_region = AGS_SFZ_REGION(connectable);
+
+  /* get sfz_region mutex */
+  sfz_region_mutex = AGS_SFZ_REGION_GET_OBJ_MUTEX(sfz_region);
+
+  g_rec_mutex_lock(sfz_region_mutex);
+
+  sfz_region->connectable_flags &= (~AGS_CONNECTABLE_ADDED_TO_REGISTRY);
+  
+  g_rec_mutex_unlock(sfz_region_mutex);
 
   //TODO:JK: implement me
 }
@@ -573,20 +571,20 @@ ags_sfz_region_is_connected(AgsConnectable *connectable)
   
   gboolean is_connected;
 
-  pthread_mutex_t *sfz_region_mutex;
+  GRecMutex *sfz_region_mutex;
 
   sfz_region = AGS_SFZ_REGION(connectable);
 
-  /* get audio file mutex */
+  /* get sfz_region mutex */
   sfz_region_mutex = AGS_SFZ_REGION_GET_OBJ_MUTEX(sfz_region);
 
   /* check is connected */
-  pthread_mutex_lock(sfz_region_mutex);
+  g_rec_mutex_lock(sfz_region_mutex);
 
-  is_connected = (((AGS_SFZ_REGION_CONNECTED & (sfz_region->flags)) != 0) ? TRUE: FALSE);
+  is_connected = ((AGS_CONNECTABLE_CONNECTED & (sfz_region->connectable_flags)) != 0) ? TRUE: FALSE;
+
+  g_rec_mutex_unlock(sfz_region_mutex);
   
-  pthread_mutex_unlock(sfz_region_mutex);
-
   return(is_connected);
 }
 
@@ -595,13 +593,22 @@ ags_sfz_region_connect(AgsConnectable *connectable)
 {
   AgsSFZRegion *sfz_region;
 
+  GRecMutex *sfz_region_mutex;
+
   if(ags_connectable_is_connected(connectable)){
     return;
   }
 
   sfz_region = AGS_SFZ_REGION(connectable);
+
+  /* get sfz_region mutex */
+  sfz_region_mutex = AGS_SFZ_REGION_GET_OBJ_MUTEX(sfz_region);
+
+  g_rec_mutex_lock(sfz_region_mutex);
+
+  sfz_region->connectable_flags |= AGS_CONNECTABLE_CONNECTED;
   
-  ags_sfz_region_set_flags(sfz_region, AGS_SFZ_REGION_CONNECTED);
+  g_rec_mutex_unlock(sfz_region_mutex);
 }
 
 void
@@ -609,28 +616,22 @@ ags_sfz_region_disconnect(AgsConnectable *connectable)
 {
   AgsSFZRegion *sfz_region;
 
+  GRecMutex *sfz_region_mutex;
+
   if(!ags_connectable_is_connected(connectable)){
     return;
   }
 
   sfz_region = AGS_SFZ_REGION(connectable);
 
-  ags_sfz_region_unset_flags(sfz_region, AGS_SFZ_REGION_CONNECTED);
-}
+  /* get sfz_region mutex */
+  sfz_region_mutex = AGS_SFZ_REGION_GET_OBJ_MUTEX(sfz_region);
 
-/**
- * ags_sfz_region_get_class_mutex:
- * 
- * Use this function's returned mutex to access mutex fields.
- *
- * Returns: the class mutex
- * 
- * Since: 2.3.0
- */
-pthread_mutex_t*
-ags_sfz_region_get_class_mutex()
-{
-  return(&ags_sfz_region_class_mutex);
+  g_rec_mutex_lock(sfz_region_mutex);
+
+  sfz_region->connectable_flags &= (~AGS_CONNECTABLE_CONNECTED);
+  
+  g_rec_mutex_unlock(sfz_region_mutex);
 }
 
 /**
@@ -642,14 +643,14 @@ ags_sfz_region_get_class_mutex()
  * 
  * Returns: %TRUE if flags are set, else %FALSE
  *
- * Since: 2.3.0
+ * Since: 3.0.0
  */
 gboolean
 ags_sfz_region_test_flags(AgsSFZRegion *sfz_region, guint flags)
 {
   gboolean retval;  
   
-  pthread_mutex_t *sfz_region_mutex;
+  GRecMutex *sfz_region_mutex;
 
   if(!AGS_IS_SFZ_REGION(sfz_region)){
     return(FALSE);
@@ -659,11 +660,11 @@ ags_sfz_region_test_flags(AgsSFZRegion *sfz_region, guint flags)
   sfz_region_mutex = AGS_SFZ_REGION_GET_OBJ_MUTEX(sfz_region);
 
   /* test */
-  pthread_mutex_lock(sfz_region_mutex);
+  g_rec_mutex_lock(sfz_region_mutex);
 
   retval = (flags & (sfz_region->flags)) ? TRUE: FALSE;
   
-  pthread_mutex_unlock(sfz_region_mutex);
+  g_rec_mutex_unlock(sfz_region_mutex);
 
   return(retval);
 }
@@ -675,12 +676,12 @@ ags_sfz_region_test_flags(AgsSFZRegion *sfz_region, guint flags)
  *
  * Enable a feature of @sfz_region.
  *
- * Since: 2.3.0
+ * Since: 3.0.0
  */
 void
 ags_sfz_region_set_flags(AgsSFZRegion *sfz_region, guint flags)
 {
-  pthread_mutex_t *sfz_region_mutex;
+  GRecMutex *sfz_region_mutex;
 
   if(!AGS_IS_SFZ_REGION(sfz_region)){
     return;
@@ -692,11 +693,11 @@ ags_sfz_region_set_flags(AgsSFZRegion *sfz_region, guint flags)
   //TODO:JK: add more?
 
   /* set flags */
-  pthread_mutex_lock(sfz_region_mutex);
+  g_rec_mutex_lock(sfz_region_mutex);
 
   sfz_region->flags |= flags;
   
-  pthread_mutex_unlock(sfz_region_mutex);
+  g_rec_mutex_unlock(sfz_region_mutex);
 }
     
 /**
@@ -706,12 +707,12 @@ ags_sfz_region_set_flags(AgsSFZRegion *sfz_region, guint flags)
  *
  * Disable a feature of @sfz_region.
  *
- * Since: 2.3.0
+ * Since: 3.0.0
  */
 void
 ags_sfz_region_unset_flags(AgsSFZRegion *sfz_region, guint flags)
 {  
-  pthread_mutex_t *sfz_region_mutex;
+  GRecMutex *sfz_region_mutex;
 
   if(!AGS_IS_SFZ_REGION(sfz_region)){
     return;
@@ -723,11 +724,145 @@ ags_sfz_region_unset_flags(AgsSFZRegion *sfz_region, guint flags)
   //TODO:JK: add more?
 
   /* unset flags */
-  pthread_mutex_lock(sfz_region_mutex);
+  g_rec_mutex_lock(sfz_region_mutex);
 
   sfz_region->flags &= (~flags);
   
-  pthread_mutex_unlock(sfz_region_mutex);
+  g_rec_mutex_unlock(sfz_region_mutex);
+}
+
+/**
+ * ags_sfz_region_get_group:
+ * @sfz_region: the #AgsSFZRegion
+ *
+ * Get the groups of @sfz_region.
+ * 
+ * Returns: (transfer full): the #AgsSFZGroup
+ *
+ * Since: 3.17.0
+ */
+GObject*
+ags_sfz_region_get_group(AgsSFZRegion *sfz_region)
+{
+  GObject *group;
+  
+  if(!AGS_IS_SFZ_REGION(sfz_region)){
+    return(NULL);
+  }
+
+  group = NULL;
+
+  g_object_get(sfz_region,
+	       "group", &group,
+	       NULL);
+  
+  return(group);
+}
+
+/**
+ * ags_sfz_region_set_group:
+ * @sfz_region: the #AgsSFZRegion
+ * @group: (transfer none): the #AgsSFZGroup
+ *
+ * Set the group field of @sfz_region
+ * 
+ * Since: 3.17.0
+ */
+void
+ags_sfz_region_set_group(AgsSFZRegion *sfz_region,
+			 GObject *group)
+{
+  if(!AGS_IS_SFZ_REGION(sfz_region)){
+    return;
+  }
+
+  g_object_set(sfz_region,
+	       "group", group,
+	       NULL);
+}
+
+/**
+ * ags_sfz_region_get_sample:
+ * @sfz_region: the #AgsSFZRegion
+ *
+ * Get the samples of @sfz_region.
+ * 
+ * Returns: (transfer full): the #AgsSFZSample
+ *
+ * Since: 3.17.0
+ */
+GObject*
+ags_sfz_region_get_sample(AgsSFZRegion *sfz_region)
+{
+  GObject *sample;
+  
+  if(!AGS_IS_SFZ_REGION(sfz_region)){
+    return(NULL);
+  }
+
+  sample = NULL;
+
+  g_object_get(sfz_region,
+	       "sample", &sample,
+	       NULL);
+  
+  return(sample);
+}
+
+/**
+ * ags_sfz_region_set_sample:
+ * @sfz_region: the #AgsSFZRegion
+ * @sample: (transfer none): the #AgsSFZSample
+ *
+ * Set the sample field of @sfz_region
+ * 
+ * Since: 3.17.0
+ */
+void
+ags_sfz_region_set_sample(AgsSFZRegion *sfz_region,
+			  GObject *sample)
+{
+  if(!AGS_IS_SFZ_REGION(sfz_region)){
+    return;
+  }
+
+  g_object_set(sfz_region,
+	       "sample", sample,
+	       NULL);
+}
+
+/**
+ * ags_sfz_region_get_control:
+ * @sfz_region: the #AgsSFZRegion
+ *
+ * Get all control of @sfz_region.
+ * 
+ * Returns: (element-type utf8) (transfer container): the #GList-struct containing controls as string
+ *
+ * Since: 3.17.0
+ */
+GList*
+ags_sfz_region_get_control(AgsSFZRegion *sfz_region)
+{
+  GList *start_list;
+  
+  GRecMutex *sfz_region_mutex;
+
+  if(!AGS_IS_SFZ_REGION(sfz_region)){
+    return(NULL);
+  }
+
+  /* get sfz_region mutex */
+  sfz_region_mutex = AGS_SFZ_REGION_GET_OBJ_MUTEX(sfz_region);
+  
+  /* get */
+  g_rec_mutex_lock(sfz_region_mutex);
+
+  start_list = g_hash_table_get_keys(sfz_region->control);
+  
+  g_rec_mutex_unlock(sfz_region_mutex);
+
+  return(start_list);
 }
 
 /**
@@ -738,14 +873,14 @@ ags_sfz_region_unset_flags(AgsSFZRegion *sfz_region, guint flags)
  *
  * Insert control specified by @key and @value to @sfz_region.
  *
- * Since: 2.3.0
+ * Since: 3.0.0
  */
 void
 ags_sfz_region_insert_control(AgsSFZRegion *sfz_region,
 			      gchar *key,
 			      gchar *value)
 {
-  pthread_mutex_t *sfz_region_mutex;
+  GRecMutex *sfz_region_mutex;
 
   if(!AGS_IS_SFZ_REGION(sfz_region)){
     return;
@@ -755,13 +890,13 @@ ags_sfz_region_insert_control(AgsSFZRegion *sfz_region,
   sfz_region_mutex = AGS_SFZ_REGION_GET_OBJ_MUTEX(sfz_region);
   
   /* insert */
-  pthread_mutex_lock(sfz_region_mutex);
+  g_rec_mutex_lock(sfz_region_mutex);
   
   g_hash_table_insert(sfz_region->control,
 		      key,
 		      value);
 
-  pthread_mutex_unlock(sfz_region_mutex);
+  g_rec_mutex_unlock(sfz_region_mutex);
 }
 
 /**
@@ -771,7 +906,9 @@ ags_sfz_region_insert_control(AgsSFZRegion *sfz_region,
  *
  * Lookup control specified by @key of @sfz_region.
  *
- * Since: 2.3.0
+ * Returns: (transfer full): the matching value of key
+ * 
+ * Since: 3.0.0
  */
 gchar*
 ags_sfz_region_lookup_control(AgsSFZRegion *sfz_region,
@@ -779,7 +916,7 @@ ags_sfz_region_lookup_control(AgsSFZRegion *sfz_region,
 {
   gchar *value;
   
-  pthread_mutex_t *sfz_region_mutex;
+  GRecMutex *sfz_region_mutex;
 
   if(!AGS_IS_SFZ_REGION(sfz_region)){
     return(NULL);
@@ -789,14 +926,14 @@ ags_sfz_region_lookup_control(AgsSFZRegion *sfz_region,
   sfz_region_mutex = AGS_SFZ_REGION_GET_OBJ_MUTEX(sfz_region);
   
   /* lookup */
-  pthread_mutex_lock(sfz_region_mutex);
+  g_rec_mutex_lock(sfz_region_mutex);
   
   value = g_hash_table_lookup(sfz_region->control,
 			      key);
 
   value = g_strdup(value);
   
-  pthread_mutex_unlock(sfz_region_mutex);
+  g_rec_mutex_unlock(sfz_region_mutex);
 
   return(value);
 }
@@ -808,7 +945,7 @@ ags_sfz_region_lookup_control(AgsSFZRegion *sfz_region,
  *
  * Returns: the new #AgsSFZRegion.
  *
- * Since: 2.3.0
+ * Since: 3.0.0
  */
 AgsSFZRegion*
 ags_sfz_region_new()

@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2020 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -23,35 +23,35 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include <pthread.h>
+G_BEGIN_DECLS
 
 #define AGS_TYPE_PRIORITY                (ags_priority_get_type ())
+#define AGS_TYPE_PRIORITY_FLAGS          (ags_priority_flags_get_type())
 #define AGS_PRIORITY(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_PRIORITY, AgsPriority))
 #define AGS_PRIORITY_CLASS(class)        (G_TYPE_CHECK_CLASS_CAST((class), AGS_TYPE_PRIORITY, AgsPriorityClass))
 #define AGS_IS_PRIORITY(obj)             (G_TYPE_CHECK_INSTANCE_TYPE((obj), AGS_TYPE_PRIORITY))
 #define AGS_IS_PRIORITY_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE((class), AGS_TYPE_PRIORITY))
 #define AGS_PRIORITY_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS((obj), AGS_TYPE_PRIORITY, AgsPriorityClass))
 
-#define AGS_PRIORITY_GET_OBJ_MUTEX(obj) (((AgsPriority *) obj)->obj_mutex)
+#define AGS_PRIORITY_GET_OBJ_MUTEX(obj) (&(((AgsPriority *) obj)->obj_mutex))
 
 #define AGS_PRIORITY_DEFAULT_VERSION "2.4.2"
 #define AGS_PRIORITY_DEFAULT_BUILD_ID "Mon Dec  2 08:15:02 UTC 2019"
 
 #define AGS_PRIORITY_RT_THREAD "rt-thread"
 
+#define AGS_PRIORITY_KEY_LIBAGS "libags"
+
+#define AGS_PRIORITY_KEY_SERVER_MAIN_LOOP "server-main-loop"
+
+#define AGS_PRIORITY_KEY_AUDIO_MAIN_LOOP "audio-main-loop"
+#define AGS_PRIORITY_KEY_AUDIO "audio"
+#define AGS_PRIORITY_KEY_OSC_SERVER_MAIN_LOOP "osc-server-main-loop"
+
+#define AGS_PRIORITY_KEY_GUI_MAIN_LOOP "gui-main-loop"
+
 typedef struct _AgsPriority AgsPriority;
 typedef struct _AgsPriorityClass AgsPriorityClass;
-
-/**
- * AgsPriorityFlags:
- * @AGS_PRIORITY_CONNECTED: the priority was connected by calling #AgsConnectable::connect()
- * 
- * Enum values to control the behavior or indicate internal state of #AgsPriority by
- * enable/disable as flags.
- */
-typedef enum{
-  AGS_PRIORITY_CONNECTED    = 1,
-}AgsPriorityFlags;
 
 struct _AgsPriority
 {
@@ -59,8 +59,7 @@ struct _AgsPriority
 
   guint flags;
 
-  pthread_mutex_t *obj_mutex;
-  pthread_mutexattr_t *obj_mutexattr;
+  GRecMutex obj_mutex;
   
   gchar *version;
   gchar *build_id;
@@ -80,8 +79,6 @@ struct _AgsPriorityClass
 
 GType ags_priority_get_type();
 
-pthread_mutex_t* ags_priority_get_class_mutex();
-
 void ags_priority_load_defaults(AgsPriority *priority);
 void ags_priority_load_from_file(AgsPriority *priority, gchar *filename);
 
@@ -90,5 +87,7 @@ gchar* ags_priority_get_value(AgsPriority *priority, gchar *group, gchar *key);
 
 AgsPriority* ags_priority_get_instance();
 AgsPriority* ags_priority_new();
+
+G_END_DECLS
 
 #endif /*__AGS_PRIORITY_H__*/

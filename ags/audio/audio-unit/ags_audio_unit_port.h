@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -23,7 +23,7 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include <ags/config.h>
+#include <ags/ags_api_config.h>
 
 #ifdef AGS_WITH_AUDIO_UNIT
 #include <AudioToolbox/AudioToolbox.h>
@@ -37,6 +37,8 @@
 
 #include <ags/libags.h>
 
+G_BEGIN_DECLS
+
 #define AGS_TYPE_AUDIO_UNIT_PORT                (ags_audio_unit_port_get_type())
 #define AGS_AUDIO_UNIT_PORT(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_AUDIO_UNIT_PORT, AgsAudioUnitPort))
 #define AGS_AUDIO_UNIT_PORT_CLASS(class)        (G_TYPE_CHECK_CLASS_CAST(class, AGS_TYPE_AUDIO_UNIT_PORT, AgsAudioUnitPort))
@@ -44,7 +46,7 @@
 #define AGS_IS_AUDIO_UNIT_PORT_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE ((class), AGS_TYPE_AUDIO_UNIT_PORT))
 #define AGS_AUDIO_UNIT_PORT_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS(obj, AGS_TYPE_AUDIO_UNIT_PORT, AgsAudioUnitPortClass))
 
-#define AGS_AUDIO_UNIT_PORT_GET_OBJ_MUTEX(obj) (((AgsAudioUnitPort *) obj)->obj_mutex)
+#define AGS_AUDIO_UNIT_PORT_GET_OBJ_MUTEX(obj) (&(((AgsAudioUnitPort *) obj)->obj_mutex))
 
 #define AGS_AUDIO_UNIT_PORT_DEFAULT_CACHE_BUFFER_SIZE (4096)
 
@@ -53,8 +55,6 @@ typedef struct _AgsAudioUnitPortClass AgsAudioUnitPortClass;
 
 /**
  * AgsAudioUnitPortFlags:
- * @AGS_AUDIO_UNIT_PORT_ADDED_TO_REGISTRY: the AudioUnit port was added to registry, see #AgsConnectable::add_to_registry()
- * @AGS_AUDIO_UNIT_PORT_CONNECTED: indicates the port was connected by calling #AgsConnectable::connect()
  * @AGS_AUDIO_UNIT_PORT_REGISTERED: the port was registered
  * @AGS_AUDIO_UNIT_PORT_IS_AUDIO: the port provides audio data
  * @AGS_AUDIO_UNIT_PORT_IS_MIDI: the port provides midi data
@@ -65,8 +65,6 @@ typedef struct _AgsAudioUnitPortClass AgsAudioUnitPortClass;
  * enable/disable as flags.
  */
 typedef enum{
-  AGS_AUDIO_UNIT_PORT_ADDED_TO_REGISTRY  = 1,
-  AGS_AUDIO_UNIT_PORT_CONNECTED          = 1 <<  1,
   AGS_AUDIO_UNIT_PORT_REGISTERED         = 1 <<  2,
   AGS_AUDIO_UNIT_PORT_IS_AUDIO           = 1 <<  3,
   AGS_AUDIO_UNIT_PORT_IS_MIDI            = 1 <<  4,
@@ -79,9 +77,9 @@ struct _AgsAudioUnitPort
   GObject gobject;
 
   guint flags;
-
-  pthread_mutex_t *obj_mutex;
-  pthread_mutexattr_t *obj_mutexattr;
+  guint connectable_flags;
+  
+  GRecMutex obj_mutex;
 
   GObject *audio_unit_client;
 
@@ -138,8 +136,7 @@ struct _AgsAudioUnitPortClass
 };
 
 GType ags_audio_unit_port_get_type();
-
-pthread_mutex_t* ags_audio_unit_port_get_class_mutex();
+GType ags_audio_unit_port_flags_get_type();
 
 gboolean ags_audio_unit_port_test_flags(AgsAudioUnitPort *audio_unit_port, guint flags);
 void ags_audio_unit_port_set_flags(AgsAudioUnitPort *audio_unit_port, guint flags);
@@ -164,5 +161,7 @@ void ags_audio_unit_port_set_buffer_size(AgsAudioUnitPort *audio_unit_port,
 					 guint buffer_size);
 
 AgsAudioUnitPort* ags_audio_unit_port_new(GObject *audio_unit_client);
+
+G_END_DECLS
 
 #endif /*__AGS_AUDIO_UNIT_PORT_H__*/

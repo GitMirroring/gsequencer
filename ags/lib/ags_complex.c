@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2018 Joël Krähemann
+ * Copyright (C) 2005-2020 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -53,11 +53,11 @@ ags_complex_get_type(void)
 /**
  * ags_complex_alloc:
  *
- * Allocate #AgsComplex
+ * Allocate #AgsComplex-struct
  *
- * Returns: a new #AgsComplex
+ * Returns: a new #AgsComplex-struct
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 AgsComplex*
 ags_complex_alloc()
@@ -66,21 +66,21 @@ ags_complex_alloc()
 
   ptr = (AgsComplex *) malloc(sizeof(AgsComplex));
   
-  ptr[0][0] = 0.0;
-  ptr[0][1] = 0.0;
+  ptr[0].real = 0.0;
+  ptr[0].imag = 0.0;
 
   return(ptr);
 }
 
 /**
  * ags_complex_copy:
- * @ptr: the original #AgsComplex
+ * @ptr: the original #AgsComplex-struct
  *
  * Create a copy of @ptr.
  *
- * Returns: a pointer of the new #AgsComplex
+ * Returns: a pointer of the new #AgsComplex-struct
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gpointer
 ags_complex_copy(AgsComplex *ptr)
@@ -89,19 +89,19 @@ ags_complex_copy(AgsComplex *ptr)
   
   new_ptr = (AgsComplex *) malloc(sizeof(AgsComplex));
   
-  new_ptr[0][0] = ptr[0][0];
-  new_ptr[0][1] = ptr[0][1];
+  new_ptr->real = ptr->real;
+  new_ptr->imag = ptr->imag;
 
   return(new_ptr);
 }
 
 /**
  * ags_complex_free:
- * @ptr: the #AgsComplex
+ * @ptr: the #AgsComplex-struct
  *
  * Free the memory of @ptr.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_complex_free(AgsComplex *ptr)
@@ -117,31 +117,74 @@ ags_complex_free(AgsComplex *ptr)
  *
  * Returns: number as complex data type
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
-complex
+double complex
 ags_complex_get(AgsComplex *ptr)
 {
-  complex z;
+  double _Complex z;
 
-  z = ptr[0][0] + I * ptr[0][1];
+  z = ptr->real + I * ptr->imag;
 
   return(z);
 }
 
 /**
  * ags_complex_set:
- * @ptr: the #AgsComplex
+ * @ptr: the #AgsComplex-struct
  * @z: the complex data to set
  * 
  * Set complex number.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
-ags_complex_set(AgsComplex *ptr, complex z)
+ags_complex_set(AgsComplex *ptr, double _Complex z)
 {
-  ptr[0][0] = creal(z);
-  ptr[0][1] = cimag(z);
+  ptr->real = creal(z);
+  ptr->imag = cimag(z);
 }
 
+/**
+ * ags_complex_get:
+ * @ptr: the #AgsComplex-struct
+ * @real: (out): the real part
+ * @imag: (out): the imaginary part
+ * 
+ * Get complex number.
+ *
+ * Returns: number as complex data type
+ *
+ * Since: 3.7.11
+ */
+void
+ags_complex_get_term(AgsComplex *ptr,
+		     gdouble *real,
+		     gdouble *imag)
+{
+  if(real != NULL){
+    real[0] = ptr->real;
+  }
+
+  if(imag != NULL){
+    imag[0] = ptr->imag;
+  }
+}
+
+/**
+ * ags_complex_set:
+ * @ptr: the #AgsComplex-struct
+ * @real: the real part
+ * @imag: the imaginary part
+ * 
+ * Set complex number.
+ *
+ * Since: 3.7.11
+ */
+void ags_complex_set_term(AgsComplex *ptr,
+			  gdouble real,
+			  gdouble imag)
+{
+  ptr->real = real;
+  ptr->imag = imag;
+}

@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2018 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -18,8 +18,6 @@
  */
 
 #include <ags/audio/ags_recall_channel.h>
-
-#include <ags/libags.h>
 
 #include <ags/audio/ags_audio.h>
 #include <ags/audio/ags_output.h>
@@ -56,12 +54,12 @@ AgsRecall* ags_recall_channel_duplicate(AgsRecall *recall,
 
 /**
  * SECTION:ags_recall_channel
- * @short_description: channel context of recall
+ * @short_description: The recall base class of channel context
  * @title: AgsRecallChannel
  * @section_id:
  * @include: ags/audio/ags_recall_channel.h
  *
- * #AgsRecallChannel acts as channel recall.
+ * #AgsRecallChannel acts as channel recall and hosts #AgsPort for audio context ports.
  */
 
 enum{
@@ -139,7 +137,7 @@ ags_recall_channel_class_init(AgsRecallChannelClass *recall_channel)
    *
    * The associated recall within audio context.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_object("recall-audio",
 				   i18n_pspec("audio level recall"),
@@ -155,7 +153,7 @@ ags_recall_channel_class_init(AgsRecallChannelClass *recall_channel)
    *
    * The assigned destination channel.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_object("destination",
 				   i18n_pspec("assigned destination channel"),
@@ -171,7 +169,7 @@ ags_recall_channel_class_init(AgsRecallChannelClass *recall_channel)
    *
    * The assigned source channel.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_object("source",
 				   i18n_pspec("assigned source channel"),
@@ -213,7 +211,7 @@ ags_recall_channel_set_property(GObject *gobject,
 {
   AgsRecallChannel *recall_channel;
 
-  pthread_mutex_t *recall_mutex;
+  GRecMutex *recall_mutex;
 
   recall_channel = AGS_RECALL_CHANNEL(gobject);
 
@@ -229,10 +227,10 @@ ags_recall_channel_set_property(GObject *gobject,
       
       recall_audio = (AgsRecallAudio *) g_value_get_object(value);
 
-      pthread_mutex_lock(recall_mutex);
+      g_rec_mutex_lock(recall_mutex);
 
       if(recall_channel->recall_audio == recall_audio){
-	pthread_mutex_unlock(recall_mutex);
+	g_rec_mutex_unlock(recall_mutex);
 	
 	return;
       }
@@ -247,7 +245,7 @@ ags_recall_channel_set_property(GObject *gobject,
 
       recall_channel->recall_audio = recall_audio;
 
-      pthread_mutex_unlock(recall_mutex);
+      g_rec_mutex_unlock(recall_mutex);
     }
     break;
   case PROP_DESTINATION:
@@ -256,10 +254,10 @@ ags_recall_channel_set_property(GObject *gobject,
 
       destination = (AgsChannel *) g_value_get_object(value);
 
-      pthread_mutex_lock(recall_mutex);
+      g_rec_mutex_lock(recall_mutex);
 
       if(recall_channel->destination == destination){      
-	pthread_mutex_unlock(recall_mutex);	
+	g_rec_mutex_unlock(recall_mutex);	
 
 	return;
       }
@@ -274,7 +272,7 @@ ags_recall_channel_set_property(GObject *gobject,
        
       recall_channel->destination = destination;
       
-      pthread_mutex_unlock(recall_mutex);	
+      g_rec_mutex_unlock(recall_mutex);	
     }
     break;
   case PROP_SOURCE:
@@ -283,10 +281,10 @@ ags_recall_channel_set_property(GObject *gobject,
 
       source = (AgsChannel *) g_value_get_object(value);
 
-      pthread_mutex_lock(recall_mutex);
+      g_rec_mutex_lock(recall_mutex);
 
       if(recall_channel->source == source){      
-	pthread_mutex_unlock(recall_mutex);	
+	g_rec_mutex_unlock(recall_mutex);	
 
 	return;
       }
@@ -301,7 +299,7 @@ ags_recall_channel_set_property(GObject *gobject,
        
       recall_channel->source = source;
       
-      pthread_mutex_unlock(recall_mutex);	
+      g_rec_mutex_unlock(recall_mutex);	
     }
     break;
   default:
@@ -318,7 +316,7 @@ ags_recall_channel_get_property(GObject *gobject,
 {
   AgsRecallChannel *recall_channel;
 
-  pthread_mutex_t *recall_mutex;
+  GRecMutex *recall_mutex;
 
   recall_channel = AGS_RECALL_CHANNEL(gobject);
 
@@ -328,29 +326,29 @@ ags_recall_channel_get_property(GObject *gobject,
   switch(prop_id){
   case PROP_RECALL_AUDIO:
     {
-      pthread_mutex_lock(recall_mutex);
+      g_rec_mutex_lock(recall_mutex);
 
       g_value_set_object(value, recall_channel->recall_audio);
 
-      pthread_mutex_unlock(recall_mutex);
+      g_rec_mutex_unlock(recall_mutex);
     }
     break;
   case PROP_DESTINATION:
     {
-      pthread_mutex_lock(recall_mutex);
+      g_rec_mutex_lock(recall_mutex);
 
       g_value_set_object(value, recall_channel->destination);
       
-      pthread_mutex_unlock(recall_mutex);	
+      g_rec_mutex_unlock(recall_mutex);	
     }
     break;
   case PROP_SOURCE:
     {
-      pthread_mutex_lock(recall_mutex);
+      g_rec_mutex_lock(recall_mutex);
 
       g_value_set_object(value, recall_channel->source);
       
-      pthread_mutex_unlock(recall_mutex);	
+      g_rec_mutex_unlock(recall_mutex);	
     }
     break;
   default:
@@ -368,16 +366,24 @@ ags_recall_channel_dispose(GObject *gobject)
   
   /* source */
   if(recall_channel->source != NULL){
-    g_object_unref(recall_channel->source);
+    gpointer tmp;
 
+    tmp = recall_channel->source;
+    
     recall_channel->source = NULL;
+
+    g_object_unref(tmp);
   }
 
   /* destination */
   if(recall_channel->destination != NULL){
-    g_object_unref(G_OBJECT(recall_channel->destination));
+    gpointer tmp;
+
+    tmp = recall_channel->destination;
 
     recall_channel->destination = NULL;
+
+    g_object_unref(G_OBJECT(recall_channel->destination));
   }
 
   /* call parent */
@@ -393,11 +399,23 @@ ags_recall_channel_finalize(GObject *gobject)
 
   /* source */
   if(recall_channel->source != NULL){
-    g_object_unref(recall_channel->source);
+    gpointer tmp;
+
+    tmp = recall_channel->source;
+    
+    recall_channel->source = NULL;
+
+    g_object_unref(tmp);
   }
 
   /* destination */
   if(recall_channel->destination != NULL){
+    gpointer tmp;
+
+    tmp = recall_channel->destination;
+
+    recall_channel->destination = NULL;
+
     g_object_unref(G_OBJECT(recall_channel->destination));
   }
 
@@ -413,19 +431,12 @@ ags_recall_channel_notify_recall_container_callback(GObject *gobject,
   AgsRecallContainer *recall_container;
   AgsRecallChannel *recall_channel;
   
-  pthread_mutex_t *recall_mutex;
-
   recall_channel = AGS_RECALL_CHANNEL(gobject);
 
-  /* get recall mutex */
-  recall_mutex = AGS_RECALL_GET_OBJ_MUTEX(recall_channel);
-
   /* get some fields */
-  pthread_mutex_lock(recall_mutex);
-
-  recall_container = (AgsRecallContainer *) AGS_RECALL(recall_channel)->recall_container;
-
-  pthread_mutex_unlock(recall_mutex);
+  g_object_get(recall_channel,
+	       "recall-container", &recall_container,
+	       NULL);
 
   if(recall_container != NULL){
     AgsRecallAudio *recall_audio;
@@ -444,6 +455,8 @@ ags_recall_channel_notify_recall_container_callback(GObject *gobject,
     if(recall_audio != NULL){
       g_object_unref(recall_audio);
     }
+
+    g_object_unref(recall_container);
   }else{
     g_object_set(recall_channel,
 		 "recall-audio", NULL,
@@ -462,8 +475,6 @@ ags_recall_channel_automate(AgsRecall *recall)
   GList *automation_start, *automation;
   GList *port_start, *port;
 
-  gchar **automation_port;
-  
   gdouble delay;
   guint note_offset, delay_counter;
   
@@ -474,8 +485,15 @@ ags_recall_channel_automate(AgsRecall *recall)
   guint ret_x;
   gboolean return_prev_on_failure;
 
-  pthread_mutex_t *audio_mutex;
+  GRecMutex *audio_mutex;
+
+  audio = NULL;
+  channel = NULL;  
+
+  soundcard = NULL;
   
+  port_start = NULL;
+
   g_object_get(recall,
 	       "source", &channel,
 	       NULL);
@@ -486,16 +504,23 @@ ags_recall_channel_automate(AgsRecall *recall)
 
   audio_mutex = AGS_AUDIO_GET_OBJ_MUTEX(audio);
 
-  /* check automation port */
-  pthread_mutex_lock(audio_mutex);
+  g_rec_mutex_lock(audio_mutex);
 
-  automation_port = g_strdupv(audio->automation_port);
-  
-  pthread_mutex_unlock(audio_mutex);
-  
-  if(automation_port == NULL){
+  if(audio->automation_port == NULL){  
+    g_rec_mutex_unlock(audio_mutex);
+
+    if(audio != NULL){
+      g_object_unref(audio);
+    }
+
+    if(channel != NULL){
+      g_object_unref(channel);
+    }
+    
     return;
   }
+  
+  g_rec_mutex_unlock(audio_mutex);
   
   g_object_get(audio,
 	       "output-soundcard", &soundcard,
@@ -536,21 +561,25 @@ ags_recall_channel_automate(AgsRecall *recall)
 
     gboolean success;
     
-    g_object_get(port->data,
+    g_object_get(AGS_PORT(port->data),
 		 "specifier", &specifier,
 		 NULL);
-
-    success = (g_strv_contains(automation_port, specifier)) ? TRUE: FALSE;
     
+    g_rec_mutex_lock(audio_mutex);
+
+    success = (specifier != NULL && g_strv_contains(audio->automation_port, specifier)) ? TRUE: FALSE;
+    
+    g_rec_mutex_unlock(audio_mutex);
+      
     g_free(specifier);
     
-    if(!success){
+    if(!success){      
       /* iterate */
       port = port->next;
-
+      
       continue;
     }
-    
+
     g_object_get(AGS_PORT(port->data),
 		 "automation", &automation_start,
 		 NULL);
@@ -563,31 +592,22 @@ ags_recall_channel_automate(AgsRecall *recall)
 
       AgsTimestamp *timestamp;
       
-      guint current_automation_flags;
-
-      pthread_mutex_t *automation_mutex;
-      
       current_automation = automation->data;
 
-      /* get automation mutex */
-      automation_mutex = AGS_AUTOMATION_GET_OBJ_MUTEX(current_automation);
-
       /* get some fields */
-      pthread_mutex_lock(automation_mutex);
-
-      current_automation_flags = current_automation->flags;
-      
-      timestamp = current_automation->timestamp;
-
-      pthread_mutex_unlock(automation_mutex);
+      g_object_get(current_automation,
+		   "timestamp", &timestamp,
+		   NULL);
       
       if(ags_timestamp_get_ags_offset(timestamp) + AGS_AUTOMATION_DEFAULT_OFFSET < x){
 	automation = automation->next;
+
+	g_object_unref(timestamp);
 	
 	continue;
       }
       
-      if((AGS_AUTOMATION_BYPASS & (current_automation_flags)) == 0){
+      if(!ags_automation_test_flags(current_automation, AGS_AUTOMATION_BYPASS)){
 	GValue value = {0,};
 	
 	ret_x = ags_automation_get_value(current_automation,
@@ -596,14 +616,21 @@ ags_recall_channel_automate(AgsRecall *recall)
 					 &value);
 
 	if(ret_x != G_MAXUINT){
+//	  g_message("automate -> %f", g_value_get_float(&value));
+	  
 	  ags_port_safe_write(port->data,
 			      &value);
 	}
       }
 
       if(ags_timestamp_get_ags_offset(timestamp) > ceil(x + step)){
+	g_object_unref(timestamp);
+
 	break;
       }
+
+      /* unref */
+      g_object_unref(timestamp);
 
       /* iterate */
       automation = automation->next;
@@ -616,16 +643,20 @@ ags_recall_channel_automate(AgsRecall *recall)
     port = port->next;
   }
 
-  g_object_unref(channel);
+  if(audio != NULL){
+    g_object_unref(audio);
+  }
 
-  g_object_unref(audio);
+  if(channel != NULL){
+    g_object_unref(channel);
+  }
 
-  g_object_unref(soundcard);
-
+  if(soundcard != NULL){
+    g_object_unref(soundcard);
+  }
+  
   g_list_free_full(port_start,
 		   g_object_unref);
-
-  g_strfreev(automation_port);
 }
 
 AgsRecall*
@@ -645,30 +676,133 @@ ags_recall_channel_duplicate(AgsRecall *recall,
 }
 
 /**
+ * ags_recall_channel_get_destination:
+ * @recall_channel: the #AgsRecallDestination
+ * 
+ * Get destination.
+ * 
+ * Returns: (transfer full): the #AgsDestination
+ * 
+ * Since: 3.1.0
+ */
+AgsChannel*
+ags_recall_channel_get_destination(AgsRecallChannel *recall_channel)
+{
+  AgsChannel *destination;
+
+  if(!AGS_IS_RECALL_CHANNEL(recall_channel)){
+    return(NULL);
+  }
+
+  g_object_get(recall_channel,
+	       "destination", &destination,
+	       NULL);
+
+  return(destination);
+}
+
+/**
+ * ags_recall_channel_set_destination:
+ * @recall_channel: the #AgsRecallChannel
+ * @destination: the #AgsChannel
+ * 
+ * Set destination.
+ * 
+ * Since: 3.1.0
+ */
+void
+ags_recall_channel_set_destination(AgsRecallChannel *recall_channel, AgsChannel *destination)
+{
+  if(!AGS_IS_RECALL_CHANNEL(recall_channel)){
+    return;
+  }
+
+  g_object_set(recall_channel,
+	       "destination", destination,
+	       NULL);
+}
+
+/**
+ * ags_recall_channel_get_source:
+ * @recall_channel: the #AgsRecallSource
+ * 
+ * Get source.
+ * 
+ * Returns: (transfer full): the #AgsSource
+ * 
+ * Since: 3.1.0
+ */
+AgsChannel*
+ags_recall_channel_get_source(AgsRecallChannel *recall_channel)
+{
+  AgsChannel *source;
+
+  if(!AGS_IS_RECALL_CHANNEL(recall_channel)){
+    return(NULL);
+  }
+
+  g_object_get(recall_channel,
+	       "source", &source,
+	       NULL);
+
+  return(source);
+}
+
+/**
+ * ags_recall_channel_set_source:
+ * @recall_channel: the #AgsRecallChannel
+ * @source: the #AgsChannel
+ * 
+ * Set source.
+ * 
+ * Since: 3.1.0
+ */
+void
+ags_recall_channel_set_source(AgsRecallChannel *recall_channel, AgsChannel *source)
+{
+  if(!AGS_IS_RECALL_CHANNEL(recall_channel)){
+    return;
+  }
+
+  g_object_set(recall_channel,
+	       "source", source,
+	       NULL);
+}
+
+/**
  * ags_recall_channel_find_channel:
- * @recall_channel: a #GList containing #AgsRecallChannel
+ * @recall_channel: (element-type AgsAudio.RecallChannel) (transfer none): the #GList-struct containing #AgsRecallChannel
  * @source: the #AgsChannel to find
  *
  * Retrieve next recall assigned to channel.
  *
- * Returns: next matching #GList-struct or %NULL
+ * Returns: (element-type AgsAudio.RecallChannel) (transfer none): next matching #GList-struct or %NULL
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 GList*
 ags_recall_channel_find_channel(GList *recall_channel, AgsChannel *source)
 {
-  AgsChannel *current_source;
   AgsRecallChannel *current_recall_channel;
 
+  gboolean success;
+  
   while(recall_channel != NULL){
+    AgsChannel *current_source;
+    
     current_recall_channel = AGS_RECALL_CHANNEL(recall_channel->data);
 
     g_object_get(current_recall_channel,
 		 "source", &current_source,
 		 NULL);
+
+    success = (current_source == source) ? TRUE: FALSE;
+
+    if(current_source != NULL){
+      g_object_unref(current_source);
+    }
     
-    if(current_source == source){
+    if(success){
       return(recall_channel);
     }
 
@@ -685,7 +819,7 @@ ags_recall_channel_find_channel(GList *recall_channel, AgsChannel *source)
  *
  * Returns: a new #AgsRecallChannel.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 AgsRecallChannel*
 ags_recall_channel_new()

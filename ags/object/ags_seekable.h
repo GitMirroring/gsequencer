@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2020 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -23,7 +23,12 @@
 #include <glib.h>
 #include <glib-object.h>
 
+#include <unistd.h>
+
+G_BEGIN_DECLS
+
 #define AGS_TYPE_SEEKABLE                    (ags_seekable_get_type())
+#define AGS_TYPE_SEEK_TYPE                   (ags_seek_type_get_type())
 #define AGS_SEEKABLE(obj)                    (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_SEEKABLE, AgsSeekable))
 #define AGS_SEEKABLE_INTERFACE(vtable)       (G_TYPE_CHECK_CLASS_CAST((vtable), AGS_TYPE_SEEKABLE, AgsSeekableInterface))
 #define AGS_IS_SEEKABLE(obj)                 (G_TYPE_CHECK_INSTANCE_TYPE((obj), AGS_TYPE_SEEKABLE))
@@ -33,6 +38,14 @@
 typedef struct _AgsSeekable AgsSeekable;
 typedef struct _AgsSeekableInterface AgsSeekableInterface;
 
+/**
+ * AgsSeekType:
+ * @AGS_SEEK_CUR: seek from current position
+ * @AGS_SEEK_SET: seek by setting absolute position
+ * @AGS_SEEK_END: seek from end
+ * 
+ * Seek type.
+ */
 typedef enum{
   AGS_SEEK_CUR,
   AGS_SEEK_SET,
@@ -47,7 +60,10 @@ struct _AgsSeekableInterface
 };
 
 GType ags_seekable_get_type();
+GType ags_seek_type_get_type();
 
 void ags_seekable_seek(AgsSeekable *seekable, gint64 offset, guint whence);
+
+G_END_DECLS
 
 #endif /*__AGS_SEEKABLE_H__*/

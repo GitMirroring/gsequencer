@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -19,8 +19,6 @@
 
 #include <ags/audio/audio-unit/ags_audio_unit_devout.h>
 
-#include <ags/libags.h>
-
 #include <ags/audio/ags_sound_provider.h>
 #include <ags/audio/ags_audio_buffer_util.h>
 
@@ -28,7 +26,6 @@
 #include <ags/audio/audio-unit/ags_audio_unit_client.h>
 #include <ags/audio/audio-unit/ags_audio_unit_port.h>
 
-#include <ags/audio/task/ags_notify_soundcard.h>
 #include <ags/audio/task/ags_tic_device.h>
 #include <ags/audio/task/ags_clear_buffer.h>
 #include <ags/audio/task/ags_switch_buffer_flag.h>
@@ -69,10 +66,6 @@ void ags_audio_unit_devout_xml_parse(AgsConnectable *connectable,
 gboolean ags_audio_unit_devout_is_connected(AgsConnectable *connectable);
 void ags_audio_unit_devout_connect(AgsConnectable *connectable);
 void ags_audio_unit_devout_disconnect(AgsConnectable *connectable);
-
-void ags_audio_unit_devout_set_application_context(AgsSoundcard *soundcard,
-						   AgsApplicationContext *application_context);
-AgsApplicationContext* ags_audio_unit_devout_get_application_context(AgsSoundcard *soundcard);
 
 void ags_audio_unit_devout_set_device(AgsSoundcard *soundcard,
 				      gchar *device);
@@ -177,7 +170,6 @@ void ags_audio_unit_devout_unlock_sub_block(AgsSoundcard *soundcard,
 
 enum{
   PROP_0,
-  PROP_APPLICATION_CONTEXT,
   PROP_DEVICE,
   PROP_DSP_CHANNELS,
   PROP_PCM_CHANNELS,
@@ -194,8 +186,6 @@ enum{
 };
 
 static gpointer ags_audio_unit_devout_parent_class = NULL;
-
-static pthread_mutex_t ags_audio_unit_devout_class_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 GType
 ags_audio_unit_devout_get_type (void)
@@ -248,6 +238,30 @@ ags_audio_unit_devout_get_type (void)
   return g_define_type_id__volatile;
 }
 
+GType
+ags_audio_unit_devout_flags_get_type()
+{
+  static volatile gsize g_flags_type_id__volatile;
+
+  if(g_once_init_enter (&g_flags_type_id__volatile)){
+    static const GFlagsValue values[] = {
+      { AGS_AUDIO_UNIT_DEVOUT_INITIALIZED, "AGS_AUDIO_UNIT_DEVOUT_INITIALIZED", "audio-unit-devout-initialized" },
+      { AGS_AUDIO_UNIT_DEVOUT_START_PLAY, "AGS_AUDIO_UNIT_DEVOUT_START_PLAY", "audio-unit-devout-start-play" },
+      { AGS_AUDIO_UNIT_DEVOUT_PLAY, "AGS_AUDIO_UNIT_DEVOUT_PLAY", "audio-unit-devout-play" },
+      { AGS_AUDIO_UNIT_DEVOUT_SHUTDOWN, "AGS_AUDIO_UNIT_DEVOUT_SHUTDOWN", "audio-unit-devout-shutdown" },
+      { AGS_AUDIO_UNIT_DEVOUT_NONBLOCKING, "AGS_AUDIO_UNIT_DEVOUT_NONBLOCKING", "audio-unit-devout-nonblocking" },
+      { AGS_AUDIO_UNIT_DEVOUT_ATTACK_FIRST, "AGS_AUDIO_UNIT_DEVOUT_ATTACK_FIRST", "audio-unit-devout-attack-first" },
+      { 0, NULL, NULL }
+    };
+
+    GType g_flags_type_id = g_flags_register_static(g_intern_static_string("AgsAudioUnitDevoutFlags"), values);
+
+    g_once_init_leave (&g_flags_type_id__volatile, g_flags_type_id);
+  }
+  
+  return g_flags_type_id__volatile;
+}
+
 void
 ags_audio_unit_devout_class_init(AgsAudioUnitDevoutClass *audio_unit_devout)
 {
@@ -267,27 +281,11 @@ ags_audio_unit_devout_class_init(AgsAudioUnitDevoutClass *audio_unit_devout)
 
   /* properties */
   /**
-   * AgsAudioUnitDevout:application-context:
-   *
-   * The assigned #AgsApplicationContext
-   * 
-   * Since: 2.3.14
-   */
-  param_spec = g_param_spec_object("application-context",
-				   i18n_pspec("the application context object"),
-				   i18n_pspec("The application context object"),
-				   AGS_TYPE_APPLICATION_CONTEXT,
-				   G_PARAM_READABLE | G_PARAM_WRITABLE);
-  g_object_class_install_property(gobject,
-				  PROP_APPLICATION_CONTEXT,
-				  param_spec);
-
-  /**
    * AgsAudioUnitDevout:device:
    *
    * The audio unit soundcard indentifier
    * 
-   * Since: 2.3.14
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_string("device",
 				   i18n_pspec("the device identifier"),
@@ -303,7 +301,7 @@ ags_audio_unit_devout_class_init(AgsAudioUnitDevoutClass *audio_unit_devout)
    *
    * The dsp channel count
    * 
-   * Since: 2.3.14
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("dsp-channels",
 				 i18n_pspec("count of DSP channels"),
@@ -321,7 +319,7 @@ ags_audio_unit_devout_class_init(AgsAudioUnitDevoutClass *audio_unit_devout)
    *
    * The pcm channel count
    * 
-   * Since: 2.3.14
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("pcm-channels",
 				 i18n_pspec("count of PCM channels"),
@@ -339,7 +337,7 @@ ags_audio_unit_devout_class_init(AgsAudioUnitDevoutClass *audio_unit_devout)
    *
    * The precision of the buffer
    * 
-   * Since: 2.3.14
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("format",
 				 i18n_pspec("precision of buffer"),
@@ -357,7 +355,7 @@ ags_audio_unit_devout_class_init(AgsAudioUnitDevoutClass *audio_unit_devout)
    *
    * The buffer size
    * 
-   * Since: 2.3.14
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("buffer-size",
 				 i18n_pspec("frame count of a buffer"),
@@ -375,7 +373,7 @@ ags_audio_unit_devout_class_init(AgsAudioUnitDevoutClass *audio_unit_devout)
    *
    * The samplerate
    * 
-   * Since: 2.3.14
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("samplerate",
 				 i18n_pspec("frames per second"),
@@ -393,7 +391,7 @@ ags_audio_unit_devout_class_init(AgsAudioUnitDevoutClass *audio_unit_devout)
    *
    * The buffer
    * 
-   * Since: 2.3.14
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_pointer("buffer",
 				    i18n_pspec("the buffer"),
@@ -408,7 +406,7 @@ ags_audio_unit_devout_class_init(AgsAudioUnitDevoutClass *audio_unit_devout)
    *
    * Beats per minute
    * 
-   * Since: 2.3.14
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_double("bpm",
 				   i18n_pspec("beats per minute"),
@@ -426,7 +424,7 @@ ags_audio_unit_devout_class_init(AgsAudioUnitDevoutClass *audio_unit_devout)
    *
    * tact
    * 
-   * Since: 2.3.14
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_double("delay-factor",
 				   i18n_pspec("delay factor"),
@@ -444,7 +442,7 @@ ags_audio_unit_devout_class_init(AgsAudioUnitDevoutClass *audio_unit_devout)
    *
    * Attack of the buffer
    * 
-   * Since: 2.3.14
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_pointer("attack",
 				    i18n_pspec("attack of buffer"),
@@ -460,7 +458,7 @@ ags_audio_unit_devout_class_init(AgsAudioUnitDevoutClass *audio_unit_devout)
    *
    * The assigned #AgsAudioUnitClient
    * 
-   * Since: 2.3.14
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_object("audio-unit-client",
 				   i18n_pspec("audio unit client object"),
@@ -476,7 +474,7 @@ ags_audio_unit_devout_class_init(AgsAudioUnitDevoutClass *audio_unit_devout)
    *
    * The assigned #AgsAudioUnitPort
    * 
-   * Since: 2.3.14
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_pointer("audio-unit-port",
 				    i18n_pspec("audio unit port object"),
@@ -518,9 +516,6 @@ ags_audio_unit_devout_connectable_interface_init(AgsConnectableInterface *connec
 void
 ags_audio_unit_devout_soundcard_interface_init(AgsSoundcardInterface *soundcard)
 {
-  soundcard->set_application_context = ags_audio_unit_devout_set_application_context;
-  soundcard->get_application_context = ags_audio_unit_devout_get_application_context;
-
   soundcard->set_device = ags_audio_unit_devout_set_device;
   soundcard->get_device = ags_audio_unit_devout_get_device;
   
@@ -531,7 +526,6 @@ ags_audio_unit_devout_soundcard_interface_init(AgsSoundcardInterface *soundcard)
   soundcard->pcm_info = ags_audio_unit_devout_pcm_info;
   soundcard->get_capability = ags_audio_unit_devout_get_capability;
 
-  soundcard->get_poll_fd = NULL;
   soundcard->is_available = NULL;
 
   soundcard->is_starting =  ags_audio_unit_devout_is_starting;
@@ -599,31 +593,17 @@ ags_audio_unit_devout_init(AgsAudioUnitDevout *audio_unit_devout)
   gchar *str;
   gchar *segmentation;
 
-  guint denumerator, numerator;
+  guint denominator, numerator;
   guint i;
   
-  pthread_mutex_t *mutex;
-  pthread_mutexattr_t *attr;
-
   /* flags */
   audio_unit_devout->flags = 0;
+  audio_unit_devout->connectable_flags = 0;
   g_atomic_int_set(&(audio_unit_devout->sync_flags),
 		   AGS_AUDIO_UNIT_DEVOUT_PASS_THROUGH);
 
   /* devout mutex */
-  audio_unit_devout->obj_mutexattr = 
-    attr = (pthread_mutexattr_t *) malloc(sizeof(pthread_mutexattr_t));
-  pthread_mutexattr_init(attr);
-  pthread_mutexattr_settype(attr,
-			    PTHREAD_MUTEX_RECURSIVE);
-
-  audio_unit_devout->obj_mutex =
-    mutex = (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t));
-  pthread_mutex_init(mutex,
-		     attr);
-
-  /* parent */
-  audio_unit_devout->application_context = NULL;
+  g_rec_mutex_init(&(audio_unit_devout->obj_mutex));
 
   /* uuid */
   audio_unit_devout->uuid = ags_uuid_alloc();
@@ -647,35 +627,35 @@ ags_audio_unit_devout_init(AgsAudioUnitDevout *audio_unit_devout)
   audio_unit_devout->audio_unit_port = NULL;
 
   /* buffer */
-  audio_unit_devout->buffer_mutex = (pthread_mutex_t **) malloc(8 * sizeof(pthread_mutex_t *));
+  audio_unit_devout->app_buffer_mode = AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_0;
+
+  audio_unit_devout->app_buffer_mutex = (GRecMutex **) g_malloc(8 * sizeof(GRecMutex *));
 
   for(i = 0; i < 8; i++){
-    audio_unit_devout->buffer_mutex[i] = (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t));
+    audio_unit_devout->app_buffer_mutex[i] = (GRecMutex *) g_malloc(sizeof(GRecMutex));
 
-    pthread_mutex_init(audio_unit_devout->buffer_mutex[i],
-		       NULL);
+    g_rec_mutex_init(audio_unit_devout->app_buffer_mutex[i]);
   }
 
   audio_unit_devout->sub_block_count = AGS_SOUNDCARD_DEFAULT_SUB_BLOCK_COUNT;
-  audio_unit_devout->sub_block_mutex = (pthread_mutex_t **) malloc(8 * audio_unit_devout->sub_block_count * audio_unit_devout->pcm_channels * sizeof(pthread_mutex_t *));
+  audio_unit_devout->sub_block_mutex = (GRecMutex **) g_malloc(8 * audio_unit_devout->sub_block_count * audio_unit_devout->pcm_channels * sizeof(GRecMutex *));
 
   for(i = 0; i < 8 * audio_unit_devout->sub_block_count * audio_unit_devout->pcm_channels; i++){
-    audio_unit_devout->sub_block_mutex[i] = (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t));
+    audio_unit_devout->sub_block_mutex[i] = (GRecMutex *) g_malloc(sizeof(GRecMutex));
 
-    pthread_mutex_init(audio_unit_devout->sub_block_mutex[i],
-		       NULL);
+    g_rec_mutex_init(audio_unit_devout->sub_block_mutex[i]);
   }
 
-  audio_unit_devout->buffer = (void **) malloc(8 * sizeof(void*));
+  audio_unit_devout->app_buffer = (void **) g_malloc(8 * sizeof(void*));
 
-  audio_unit_devout->buffer[0] = NULL;
-  audio_unit_devout->buffer[1] = NULL;
-  audio_unit_devout->buffer[2] = NULL;
-  audio_unit_devout->buffer[3] = NULL;
-  audio_unit_devout->buffer[4] = NULL;
-  audio_unit_devout->buffer[5] = NULL;
-  audio_unit_devout->buffer[6] = NULL;
-  audio_unit_devout->buffer[7] = NULL;
+  audio_unit_devout->app_buffer[0] = NULL;
+  audio_unit_devout->app_buffer[1] = NULL;
+  audio_unit_devout->app_buffer[2] = NULL;
+  audio_unit_devout->app_buffer[3] = NULL;
+  audio_unit_devout->app_buffer[4] = NULL;
+  audio_unit_devout->app_buffer[5] = NULL;
+  audio_unit_devout->app_buffer[6] = NULL;
+  audio_unit_devout->app_buffer[7] = NULL;
   
   ags_audio_unit_devout_realloc_buffer(audio_unit_devout);
   
@@ -692,19 +672,19 @@ ags_audio_unit_devout_init(AgsAudioUnitDevout *audio_unit_devout)
 
   if(segmentation != NULL){
     sscanf(segmentation, "%d/%d",
-	   &denumerator,
+	   &denominator,
 	   &numerator);
     
-    audio_unit_devout->delay_factor = 1.0 / numerator * (numerator / denumerator);
+    audio_unit_devout->delay_factor = 1.0 / numerator * (numerator / denominator);
 
     g_free(segmentation);
   }
 
   /* delay and attack */
-  audio_unit_devout->delay = (gdouble *) malloc((int) 2 * AGS_SOUNDCARD_DEFAULT_PERIOD *
+  audio_unit_devout->delay = (gdouble *) g_malloc((int) 2 * AGS_SOUNDCARD_DEFAULT_PERIOD *
 						sizeof(gdouble));
   
-  audio_unit_devout->attack = (guint *) malloc((int) 2 * AGS_SOUNDCARD_DEFAULT_PERIOD *
+  audio_unit_devout->attack = (guint *) g_malloc((int) 2 * AGS_SOUNDCARD_DEFAULT_PERIOD *
 					       sizeof(guint));
 
   ags_audio_unit_devout_adjust_delay_and_attack(audio_unit_devout);
@@ -726,23 +706,14 @@ ags_audio_unit_devout_init(AgsAudioUnitDevout *audio_unit_devout)
   audio_unit_devout->loop_offset = 0;
 
   /* callback mutex */
-  audio_unit_devout->callback_mutex = (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t));
-  pthread_mutex_init(audio_unit_devout->callback_mutex,
-		     NULL);
+  g_mutex_init(&(audio_unit_devout->callback_mutex));
 
-  audio_unit_devout->callback_cond = (pthread_cond_t *) malloc(sizeof(pthread_cond_t));
-  pthread_cond_init(audio_unit_devout->callback_cond, NULL);
+  g_cond_init(&(audio_unit_devout->callback_cond));
 
   /* callback finish mutex */
-  audio_unit_devout->callback_finish_mutex = (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t));
-  pthread_mutex_init(audio_unit_devout->callback_finish_mutex,
-		     NULL);
+  g_mutex_init(&(audio_unit_devout->callback_finish_mutex));
 
-  audio_unit_devout->callback_finish_cond = (pthread_cond_t *) malloc(sizeof(pthread_cond_t));
-  pthread_cond_init(audio_unit_devout->callback_finish_cond, NULL);
-
-  /*  */
-  audio_unit_devout->notify_soundcard = NULL;
+  g_cond_init(&(audio_unit_devout->callback_finish_cond));
 }
 
 void
@@ -753,7 +724,7 @@ ags_audio_unit_devout_set_property(GObject *gobject,
 {
   AgsAudioUnitDevout *audio_unit_devout;
   
-  pthread_mutex_t *audio_unit_devout_mutex;
+  GRecMutex *audio_unit_devout_mutex;
 
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(gobject);
 
@@ -761,44 +732,17 @@ ags_audio_unit_devout_set_property(GObject *gobject,
   audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
   
   switch(prop_id){
-  case PROP_APPLICATION_CONTEXT:
-    {
-      AgsApplicationContext *application_context;
-
-      application_context = (AgsApplicationContext *) g_value_get_object(value);
-
-      pthread_mutex_lock(audio_unit_devout_mutex);
-
-      if(audio_unit_devout->application_context == application_context){
-	pthread_mutex_unlock(audio_unit_devout_mutex);
-
-	return;
-      }
-
-      if(audio_unit_devout->application_context != NULL){
-	g_object_unref(G_OBJECT(audio_unit_devout->application_context));
-      }
-
-      if(application_context != NULL){	
-	g_object_ref(G_OBJECT(application_context));
-      }
-
-      audio_unit_devout->application_context = application_context;
-
-      pthread_mutex_unlock(audio_unit_devout_mutex);
-    }
-    break;
   case PROP_DEVICE:
     {
       char *device;
 
       device = (char *) g_value_get_string(value);
 
-      pthread_mutex_lock(audio_unit_devout_mutex);
+      g_rec_mutex_lock(audio_unit_devout_mutex);
 
       audio_unit_devout->card_uri = g_strdup(device);
 
-      pthread_mutex_unlock(audio_unit_devout_mutex);
+      g_rec_mutex_unlock(audio_unit_devout_mutex);
     }
     break;
   case PROP_DSP_CHANNELS:
@@ -807,17 +751,17 @@ ags_audio_unit_devout_set_property(GObject *gobject,
 
       dsp_channels = g_value_get_uint(value);
 
-      pthread_mutex_lock(audio_unit_devout_mutex);
+      g_rec_mutex_lock(audio_unit_devout_mutex);
 
       if(dsp_channels == audio_unit_devout->dsp_channels){
-	pthread_mutex_unlock(audio_unit_devout_mutex);
+	g_rec_mutex_unlock(audio_unit_devout_mutex);
 
 	return;
       }
 
       audio_unit_devout->dsp_channels = dsp_channels;
 
-      pthread_mutex_unlock(audio_unit_devout_mutex);
+      g_rec_mutex_unlock(audio_unit_devout_mutex);
     }
     break;
   case PROP_PCM_CHANNELS:
@@ -827,10 +771,10 @@ ags_audio_unit_devout_set_property(GObject *gobject,
 
       pcm_channels = g_value_get_uint(value);
 
-      pthread_mutex_lock(audio_unit_devout_mutex);
+      g_rec_mutex_lock(audio_unit_devout_mutex);
 
       if(pcm_channels == audio_unit_devout->pcm_channels){
-	pthread_mutex_unlock(audio_unit_devout_mutex);
+	g_rec_mutex_unlock(audio_unit_devout_mutex);
 
 	return;
       }
@@ -839,25 +783,24 @@ ags_audio_unit_devout_set_property(GObject *gobject,
 
       /* destroy if less pcm-channels */
       for(i = 8 * audio_unit_devout->sub_block_count * pcm_channels; i < 8 * audio_unit_devout->sub_block_count * old_pcm_channels; i++){
-	pthread_mutex_destroy(audio_unit_devout->sub_block_mutex[i]);
+	g_rec_mutex_clear(audio_unit_devout->sub_block_mutex[i]);
 
-	free(audio_unit_devout->sub_block_mutex[i]);
+	g_free(audio_unit_devout->sub_block_mutex[i]);
       }
 
-      audio_unit_devout->sub_block_mutex = (pthread_mutex_t **) realloc(audio_unit_devout->sub_block_mutex,
-									8 * audio_unit_devout->sub_block_count * pcm_channels * sizeof(pthread_mutex_t *));
+      audio_unit_devout->sub_block_mutex = (GRecMutex **) g_realloc(audio_unit_devout->sub_block_mutex,
+									8 * audio_unit_devout->sub_block_count * pcm_channels * sizeof(GRecMutex *));
 
       /* create if more pcm-channels */
       for(i = 8 * audio_unit_devout->sub_block_count * old_pcm_channels; i < 8 * audio_unit_devout->sub_block_count * pcm_channels; i++){
-	audio_unit_devout->sub_block_mutex[i] = (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t));
+	audio_unit_devout->sub_block_mutex[i] = (GRecMutex *) g_malloc(sizeof(GRecMutex));
 
-	pthread_mutex_init(audio_unit_devout->sub_block_mutex[i],
-			   NULL);
+	g_rec_mutex_init(audio_unit_devout->sub_block_mutex[i]);
       }
 
       audio_unit_devout->pcm_channels = pcm_channels;
 
-      pthread_mutex_unlock(audio_unit_devout_mutex);
+      g_rec_mutex_unlock(audio_unit_devout_mutex);
 
       ags_audio_unit_devout_realloc_buffer(audio_unit_devout);
     }
@@ -868,17 +811,17 @@ ags_audio_unit_devout_set_property(GObject *gobject,
 
       format = g_value_get_uint(value);
 
-      pthread_mutex_lock(audio_unit_devout_mutex);
+      g_rec_mutex_lock(audio_unit_devout_mutex);
 
       if(format == audio_unit_devout->format){
-	pthread_mutex_unlock(audio_unit_devout_mutex);
+	g_rec_mutex_unlock(audio_unit_devout_mutex);
 
 	return;
       }
 
       audio_unit_devout->format = format;
 
-      pthread_mutex_unlock(audio_unit_devout_mutex);
+      g_rec_mutex_unlock(audio_unit_devout_mutex);
 
       ags_audio_unit_devout_realloc_buffer(audio_unit_devout);
     }
@@ -889,17 +832,17 @@ ags_audio_unit_devout_set_property(GObject *gobject,
 
       buffer_size = g_value_get_uint(value);
 
-      pthread_mutex_lock(audio_unit_devout_mutex);
+      g_rec_mutex_lock(audio_unit_devout_mutex);
 
       if(buffer_size == audio_unit_devout->buffer_size){
-	pthread_mutex_unlock(audio_unit_devout_mutex);
+	g_rec_mutex_unlock(audio_unit_devout_mutex);
 
 	return;
       }
 
       audio_unit_devout->buffer_size = buffer_size;
 
-      pthread_mutex_unlock(audio_unit_devout_mutex);
+      g_rec_mutex_unlock(audio_unit_devout_mutex);
 
       ags_audio_unit_devout_realloc_buffer(audio_unit_devout);
       ags_audio_unit_devout_adjust_delay_and_attack(audio_unit_devout);
@@ -911,17 +854,17 @@ ags_audio_unit_devout_set_property(GObject *gobject,
 
       samplerate = g_value_get_uint(value);
 
-      pthread_mutex_lock(audio_unit_devout_mutex);
+      g_rec_mutex_lock(audio_unit_devout_mutex);
       
       if(samplerate == audio_unit_devout->samplerate){
-	pthread_mutex_unlock(audio_unit_devout_mutex);
+	g_rec_mutex_unlock(audio_unit_devout_mutex);
 
 	return;
       }
 
       audio_unit_devout->samplerate = samplerate;
 
-      pthread_mutex_unlock(audio_unit_devout_mutex);
+      g_rec_mutex_unlock(audio_unit_devout_mutex);
 
       ags_audio_unit_devout_realloc_buffer(audio_unit_devout);
       ags_audio_unit_devout_adjust_delay_and_attack(audio_unit_devout);
@@ -938,11 +881,11 @@ ags_audio_unit_devout_set_property(GObject *gobject,
       
       bpm = g_value_get_double(value);
 
-      pthread_mutex_lock(audio_unit_devout_mutex);
+      g_rec_mutex_lock(audio_unit_devout_mutex);
 
       audio_unit_devout->bpm = bpm;
 
-      pthread_mutex_unlock(audio_unit_devout_mutex);
+      g_rec_mutex_unlock(audio_unit_devout_mutex);
 
       ags_audio_unit_devout_adjust_delay_and_attack(audio_unit_devout);
     }
@@ -953,11 +896,11 @@ ags_audio_unit_devout_set_property(GObject *gobject,
       
       delay_factor = g_value_get_double(value);
 
-      pthread_mutex_lock(audio_unit_devout_mutex);
+      g_rec_mutex_lock(audio_unit_devout_mutex);
 
       audio_unit_devout->delay_factor = delay_factor;
 
-      pthread_mutex_unlock(audio_unit_devout_mutex);
+      g_rec_mutex_unlock(audio_unit_devout_mutex);
 
       ags_audio_unit_devout_adjust_delay_and_attack(audio_unit_devout);
     }
@@ -968,10 +911,10 @@ ags_audio_unit_devout_set_property(GObject *gobject,
 
       audio_unit_client = (AgsAudioUnitClient *) g_value_get_object(value);
 
-      pthread_mutex_lock(audio_unit_devout_mutex);
+      g_rec_mutex_lock(audio_unit_devout_mutex);
 
       if(audio_unit_devout->audio_unit_client == (GObject *) audio_unit_client){
-	pthread_mutex_unlock(audio_unit_devout_mutex);
+	g_rec_mutex_unlock(audio_unit_devout_mutex);
 
 	return;
       }
@@ -986,7 +929,7 @@ ags_audio_unit_devout_set_property(GObject *gobject,
       
       audio_unit_devout->audio_unit_client = (GObject *) audio_unit_client;
 
-      pthread_mutex_unlock(audio_unit_devout_mutex);
+      g_rec_mutex_unlock(audio_unit_devout_mutex);
     }
     break;
   case PROP_AUDIO_UNIT_PORT:
@@ -995,11 +938,11 @@ ags_audio_unit_devout_set_property(GObject *gobject,
 
       audio_unit_port = (AgsAudioUnitPort *) g_value_get_pointer(value);
 
-      pthread_mutex_lock(audio_unit_devout_mutex);
+      g_rec_mutex_lock(audio_unit_devout_mutex);
 
       if(!AGS_IS_AUDIO_UNIT_PORT(audio_unit_port) ||
 	 g_list_find(audio_unit_devout->audio_unit_port, audio_unit_port) != NULL){
-	pthread_mutex_unlock(audio_unit_devout_mutex);
+	g_rec_mutex_unlock(audio_unit_devout_mutex);
 
 	return;
       }
@@ -1008,7 +951,7 @@ ags_audio_unit_devout_set_property(GObject *gobject,
       audio_unit_devout->audio_unit_port = g_list_append(audio_unit_devout->audio_unit_port,
 					     audio_unit_port);
 
-      pthread_mutex_unlock(audio_unit_devout_mutex);
+      g_rec_mutex_unlock(audio_unit_devout_mutex);
     }
     break;
   default:
@@ -1025,7 +968,7 @@ ags_audio_unit_devout_get_property(GObject *gobject,
 {
   AgsAudioUnitDevout *audio_unit_devout;
 
-  pthread_mutex_t *audio_unit_devout_mutex;
+  GRecMutex *audio_unit_devout_mutex;
 
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(gobject);
 
@@ -1033,124 +976,115 @@ ags_audio_unit_devout_get_property(GObject *gobject,
   audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
   
   switch(prop_id){
-  case PROP_APPLICATION_CONTEXT:
-    {
-      pthread_mutex_lock(audio_unit_devout_mutex);
-
-      g_value_set_object(value, audio_unit_devout->application_context);
-
-      pthread_mutex_unlock(audio_unit_devout_mutex);
-    }
-    break;
   case PROP_DEVICE:
     {
-      pthread_mutex_lock(audio_unit_devout_mutex);
+      g_rec_mutex_lock(audio_unit_devout_mutex);
 
       g_value_set_string(value, audio_unit_devout->card_uri);
 
-      pthread_mutex_unlock(audio_unit_devout_mutex);
+      g_rec_mutex_unlock(audio_unit_devout_mutex);
     }
     break;
   case PROP_DSP_CHANNELS:
     {
-      pthread_mutex_lock(audio_unit_devout_mutex);
+      g_rec_mutex_lock(audio_unit_devout_mutex);
 
       g_value_set_uint(value, audio_unit_devout->dsp_channels);
 
-      pthread_mutex_unlock(audio_unit_devout_mutex);
+      g_rec_mutex_unlock(audio_unit_devout_mutex);
     }
     break;
   case PROP_PCM_CHANNELS:
     {
-      pthread_mutex_lock(audio_unit_devout_mutex);
+      g_rec_mutex_lock(audio_unit_devout_mutex);
 
       g_value_set_uint(value, audio_unit_devout->pcm_channels);
 
-      pthread_mutex_unlock(audio_unit_devout_mutex);
+      g_rec_mutex_unlock(audio_unit_devout_mutex);
     }
     break;
   case PROP_FORMAT:
     {
-      pthread_mutex_lock(audio_unit_devout_mutex);
+      g_rec_mutex_lock(audio_unit_devout_mutex);
 
       g_value_set_uint(value, audio_unit_devout->format);
 
-      pthread_mutex_unlock(audio_unit_devout_mutex);
+      g_rec_mutex_unlock(audio_unit_devout_mutex);
     }
     break;
   case PROP_BUFFER_SIZE:
     {
-      pthread_mutex_lock(audio_unit_devout_mutex);
+      g_rec_mutex_lock(audio_unit_devout_mutex);
 
       g_value_set_uint(value, audio_unit_devout->buffer_size);
 
-      pthread_mutex_unlock(audio_unit_devout_mutex);
+      g_rec_mutex_unlock(audio_unit_devout_mutex);
     }
     break;
   case PROP_SAMPLERATE:
     {
-      pthread_mutex_lock(audio_unit_devout_mutex);
+      g_rec_mutex_lock(audio_unit_devout_mutex);
 
       g_value_set_uint(value, audio_unit_devout->samplerate);
 
-      pthread_mutex_unlock(audio_unit_devout_mutex);
+      g_rec_mutex_unlock(audio_unit_devout_mutex);
     }
     break;
   case PROP_BUFFER:
     {
-      pthread_mutex_lock(audio_unit_devout_mutex);
+      g_rec_mutex_lock(audio_unit_devout_mutex);
 
-      g_value_set_pointer(value, audio_unit_devout->buffer);
+      g_value_set_pointer(value, audio_unit_devout->app_buffer);
 
-      pthread_mutex_unlock(audio_unit_devout_mutex);
+      g_rec_mutex_unlock(audio_unit_devout_mutex);
     }
     break;
   case PROP_BPM:
     {
-      pthread_mutex_lock(audio_unit_devout_mutex);
+      g_rec_mutex_lock(audio_unit_devout_mutex);
 
       g_value_set_double(value, audio_unit_devout->bpm);
 
-      pthread_mutex_unlock(audio_unit_devout_mutex);
+      g_rec_mutex_unlock(audio_unit_devout_mutex);
     }
     break;
   case PROP_DELAY_FACTOR:
     {
-      pthread_mutex_lock(audio_unit_devout_mutex);
+      g_rec_mutex_lock(audio_unit_devout_mutex);
 
       g_value_set_double(value, audio_unit_devout->delay_factor);
 
-      pthread_mutex_unlock(audio_unit_devout_mutex);
+      g_rec_mutex_unlock(audio_unit_devout_mutex);
     }
     break;
   case PROP_ATTACK:
     {
-      pthread_mutex_lock(audio_unit_devout_mutex);
+      g_rec_mutex_lock(audio_unit_devout_mutex);
 
       g_value_set_pointer(value, audio_unit_devout->attack);
 
-      pthread_mutex_unlock(audio_unit_devout_mutex);
+      g_rec_mutex_unlock(audio_unit_devout_mutex);
     }
     break;
   case PROP_AUDIO_UNIT_CLIENT:
     {
-      pthread_mutex_lock(audio_unit_devout_mutex);
+      g_rec_mutex_lock(audio_unit_devout_mutex);
 
       g_value_set_object(value, audio_unit_devout->audio_unit_client);
 
-      pthread_mutex_unlock(audio_unit_devout_mutex);
+      g_rec_mutex_unlock(audio_unit_devout_mutex);
     }
     break;
   case PROP_AUDIO_UNIT_PORT:
     {
-      pthread_mutex_lock(audio_unit_devout_mutex);
+      g_rec_mutex_lock(audio_unit_devout_mutex);
 
       g_value_set_pointer(value,
 			  g_list_copy_deep(audio_unit_devout->audio_unit_port,
 					   (GCopyFunc) g_object_ref,
 					   NULL));
 
-      pthread_mutex_unlock(audio_unit_devout_mutex);
+      g_rec_mutex_unlock(audio_unit_devout_mutex);
     }
     break;
   default:
@@ -1181,30 +1115,6 @@ ags_audio_unit_devout_dispose(GObject *gobject)
 
   audio_unit_devout->audio_unit_port = NULL;
 
-  /* notify soundcard */
-  if(audio_unit_devout->notify_soundcard != NULL){
-    AgsTaskThread *task_thread;
-    
-    task_thread = ags_concurrency_provider_get_task_thread(AGS_CONCURRENCY_PROVIDER(ags_application_context_get_instance()));
-      
-    ags_task_thread_remove_cyclic_task(task_thread,
-				       (AgsTask *) audio_unit_devout->notify_soundcard);
-    
-    g_object_unref(audio_unit_devout->notify_soundcard);
-
-    audio_unit_devout->notify_soundcard = NULL;
-
-    /* unref */
-    g_object_unref(task_thread);
-  }
-
-  /* application context */
-  if(audio_unit_devout->application_context != NULL){
-    g_object_unref(audio_unit_devout->application_context);
-
-    audio_unit_devout->application_context = NULL;
-  }
-
   /* call parent */
   G_OBJECT_CLASS(ags_audio_unit_devout_parent_class)->dispose(gobject);
 }
@@ -1214,30 +1124,44 @@ ags_audio_unit_devout_finalize(GObject *gobject)
 {
   AgsAudioUnitDevout *audio_unit_devout;
 
+  guint i;
+
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(gobject);
 
-  pthread_mutex_destroy(audio_unit_devout->obj_mutex);
-  free(audio_unit_devout->obj_mutex);
+  ags_uuid_free(audio_unit_devout->uuid);
 
-  pthread_mutexattr_destroy(audio_unit_devout->obj_mutexattr);
-  free(audio_unit_devout->obj_mutexattr);
+  for(i = 0; i < 8; i++){
+    g_rec_mutex_clear(audio_unit_devout->app_buffer_mutex[i]);
+
+    g_free(audio_unit_devout->app_buffer_mutex[i]);
+  }
+  
+  g_free(audio_unit_devout->app_buffer_mutex);
+  
+  for(i = 0; i < 8 * audio_unit_devout->sub_block_count * audio_unit_devout->pcm_channels; i++){
+    g_rec_mutex_clear(audio_unit_devout->sub_block_mutex[i]);
+
+    g_free(audio_unit_devout->sub_block_mutex[i]);
+  }
+
+  g_free(audio_unit_devout->sub_block_mutex);
 
   /* free output buffer */
-  free(audio_unit_devout->buffer[0]);
-  free(audio_unit_devout->buffer[1]);
-  free(audio_unit_devout->buffer[2]);
-  free(audio_unit_devout->buffer[3]);
-  free(audio_unit_devout->buffer[4]);
-  free(audio_unit_devout->buffer[5]);
-  free(audio_unit_devout->buffer[6]);
-  free(audio_unit_devout->buffer[7]);
+  g_free(audio_unit_devout->app_buffer[0]);
+  g_free(audio_unit_devout->app_buffer[1]);
+  g_free(audio_unit_devout->app_buffer[2]);
+  g_free(audio_unit_devout->app_buffer[3]);
+  g_free(audio_unit_devout->app_buffer[4]);
+  g_free(audio_unit_devout->app_buffer[5]);
+  g_free(audio_unit_devout->app_buffer[6]);
+  g_free(audio_unit_devout->app_buffer[7]);
 
   /* free buffer array */
-  free(audio_unit_devout->buffer);
+  g_free(audio_unit_devout->app_buffer);
 
-  /* free AgsAttack */
-  free(audio_unit_devout->attack);
-
+  g_free(audio_unit_devout->delay);
+  g_free(audio_unit_devout->attack);
+  
   /* audio_unit client */
   if(audio_unit_devout->audio_unit_client != NULL){
     g_object_unref(audio_unit_devout->audio_unit_client);
@@ -1246,26 +1170,6 @@ ags_audio_unit_devout_finalize(GObject *gobject)
   /* audio_unit port */
   g_list_free_full(audio_unit_devout->audio_unit_port,
 		   g_object_unref);
-
-  /* notify soundcard */
-  if(audio_unit_devout->notify_soundcard != NULL){
-    AgsTaskThread *task_thread;
-      
-    task_thread = ags_concurrency_provider_get_task_thread(AGS_CONCURRENCY_PROVIDER(ags_application_context_get_instance()));
-
-    ags_task_thread_remove_cyclic_task(task_thread,
-				       (AgsTask *) audio_unit_devout->notify_soundcard);
-    
-    g_object_unref(audio_unit_devout->notify_soundcard);
-
-    /* unref */
-    g_object_unref(task_thread);
-  }
-
-  /* application context */
-  if(audio_unit_devout->application_context != NULL){
-    g_object_unref(audio_unit_devout->application_context);
-  }  
 
   /* call parent */
   G_OBJECT_CLASS(ags_audio_unit_devout_parent_class)->finalize(gobject);
@@ -1278,7 +1182,7 @@ ags_audio_unit_devout_get_uuid(AgsConnectable *connectable)
   
   AgsUUID *ptr;
 
-  pthread_mutex_t *audio_unit_devout_mutex;
+  GRecMutex *audio_unit_devout_mutex;
 
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(connectable);
 
@@ -1286,11 +1190,11 @@ ags_audio_unit_devout_get_uuid(AgsConnectable *connectable)
   audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
 
   /* get UUID */
-  pthread_mutex_lock(audio_unit_devout_mutex);
+  g_rec_mutex_lock(audio_unit_devout_mutex);
 
   ptr = audio_unit_devout->uuid;
 
-  pthread_mutex_unlock(audio_unit_devout_mutex);
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
   
   return(ptr);
 }
@@ -1308,19 +1212,19 @@ ags_audio_unit_devout_is_ready(AgsConnectable *connectable)
   
   gboolean is_ready;
 
-  pthread_mutex_t *audio_unit_devout_mutex;
+  GRecMutex *audio_unit_devout_mutex;
 
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(connectable);
 
   /* get audio_unit devout mutex */
   audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
 
-  /* check is added */
-  pthread_mutex_lock(audio_unit_devout_mutex);
+  /* check is ready */
+  g_rec_mutex_lock(audio_unit_devout_mutex);
 
-  is_ready = (((AGS_AUDIO_UNIT_DEVOUT_ADDED_TO_REGISTRY & (audio_unit_devout->flags)) != 0) ? TRUE: FALSE);
+  is_ready = ((AGS_CONNECTABLE_ADDED_TO_REGISTRY & (audio_unit_devout->connectable_flags)) != 0) ? TRUE: FALSE;
 
-  pthread_mutex_unlock(audio_unit_devout_mutex);
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
   
   return(is_ready);
 }
@@ -1330,13 +1234,22 @@ ags_audio_unit_devout_add_to_registry(AgsConnectable *connectable)
 {
   AgsAudioUnitDevout *audio_unit_devout;
 
+  GRecMutex *audio_unit_devout_mutex;
+
   if(ags_connectable_is_ready(connectable)){
     return;
   }
   
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(connectable);
 
-  ags_audio_unit_devout_set_flags(audio_unit_devout, AGS_AUDIO_UNIT_DEVOUT_ADDED_TO_REGISTRY);
+  /* get audio_unit devout mutex */
+  audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
+
+  g_rec_mutex_lock(audio_unit_devout_mutex);
+
+  audio_unit_devout->connectable_flags |= AGS_CONNECTABLE_ADDED_TO_REGISTRY;
+  
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
 }
 
 void
@@ -1344,13 +1257,22 @@ ags_audio_unit_devout_remove_from_registry(AgsConnectable *connectable)
 {
   AgsAudioUnitDevout *audio_unit_devout;
 
+  GRecMutex *audio_unit_devout_mutex;
+
   if(!ags_connectable_is_ready(connectable)){
     return;
   }
 
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(connectable);
 
-  ags_audio_unit_devout_unset_flags(audio_unit_devout, AGS_AUDIO_UNIT_DEVOUT_ADDED_TO_REGISTRY);
+  /* get audio_unit devout mutex */
+  audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
+
+  g_rec_mutex_lock(audio_unit_devout_mutex);
+
+  audio_unit_devout->connectable_flags &= (~AGS_CONNECTABLE_ADDED_TO_REGISTRY);
+  
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
 }
 
 xmlNode*
@@ -1391,7 +1313,7 @@ ags_audio_unit_devout_is_connected(AgsConnectable *connectable)
   
   gboolean is_connected;
 
-  pthread_mutex_t *audio_unit_devout_mutex;
+  GRecMutex *audio_unit_devout_mutex;
 
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(connectable);
 
@@ -1399,11 +1321,11 @@ ags_audio_unit_devout_is_connected(AgsConnectable *connectable)
   audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
 
   /* check is connected */
-  pthread_mutex_lock(audio_unit_devout_mutex);
+  g_rec_mutex_lock(audio_unit_devout_mutex);
 
-  is_connected = (((AGS_AUDIO_UNIT_DEVOUT_CONNECTED & (audio_unit_devout->flags)) != 0) ? TRUE: FALSE);
-  
-  pthread_mutex_unlock(audio_unit_devout_mutex);
+  is_connected = ((AGS_CONNECTABLE_CONNECTED & (audio_unit_devout->connectable_flags)) != 0) ? TRUE: FALSE;
+
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
   
   return(is_connected);
 }
@@ -1412,6 +1334,8 @@ void
 ags_audio_unit_devout_connect(AgsConnectable *connectable)
 {
   AgsAudioUnitDevout *audio_unit_devout;
+
+  GRecMutex *audio_unit_devout_mutex;
   
   if(ags_connectable_is_connected(connectable)){
     return;
@@ -1419,37 +1343,37 @@ ags_audio_unit_devout_connect(AgsConnectable *connectable)
 
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(connectable);
 
-  ags_audio_unit_devout_set_flags(audio_unit_devout, AGS_AUDIO_UNIT_DEVOUT_CONNECTED);
+  /* get audio_unit devout mutex */
+  audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
+
+  g_rec_mutex_lock(audio_unit_devout_mutex);
+
+  audio_unit_devout->connectable_flags |= AGS_CONNECTABLE_CONNECTED;
+  
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
 }
 
 void
 ags_audio_unit_devout_disconnect(AgsConnectable *connectable)
 {
-
   AgsAudioUnitDevout *audio_unit_devout;
+
+  GRecMutex *audio_unit_devout_mutex;
 
   if(!ags_connectable_is_connected(connectable)){
     return;
   }
 
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(connectable);
-  
-  ags_audio_unit_devout_unset_flags(audio_unit_devout, AGS_AUDIO_UNIT_DEVOUT_CONNECTED);
-}
 
-/**
- * ags_audio_unit_devout_get_class_mutex:
- * 
- * Use this function's returned mutex to access mutex fields.
- *
- * Returns: the class mutex
- * 
- * Since: 2.3.14
- */
-pthread_mutex_t*
-ags_audio_unit_devout_get_class_mutex()
-{
-  return(&ags_audio_unit_devout_class_mutex);
+  /* get audio_unit devout mutex */
+  audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
+
+  g_rec_mutex_lock(audio_unit_devout_mutex);
+
+  audio_unit_devout->connectable_flags &= (~AGS_CONNECTABLE_CONNECTED);
+  
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
 }
 
 /**
@@ -1461,14 +1385,14 @@ ags_audio_unit_devout_get_class_mutex()
  * 
  * Returns: %TRUE if flags are set, else %FALSE
  *
- * Since: 2.3.14
+ * Since: 3.0.0
  */
 gboolean
 ags_audio_unit_devout_test_flags(AgsAudioUnitDevout *audio_unit_devout, guint flags)
 {
   gboolean retval;  
   
-  pthread_mutex_t *audio_unit_devout_mutex;
+  GRecMutex *audio_unit_devout_mutex;
 
   if(!AGS_IS_AUDIO_UNIT_DEVOUT(audio_unit_devout)){
     return(FALSE);
@@ -1478,11 +1402,11 @@ ags_audio_unit_devout_test_flags(AgsAudioUnitDevout *audio_unit_devout, guint fl
   audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
 
   /* test */
-  pthread_mutex_lock(audio_unit_devout_mutex);
+  g_rec_mutex_lock(audio_unit_devout_mutex);
 
   retval = (flags & (audio_unit_devout->flags)) ? TRUE: FALSE;
   
-  pthread_mutex_unlock(audio_unit_devout_mutex);
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
 
   return(retval);
 }
@@ -1494,12 +1418,12 @@ ags_audio_unit_devout_test_flags(AgsAudioUnitDevout *audio_unit_devout, guint fl
  *
  * Enable a feature of @audio_unit_devout.
  *
- * Since: 2.3.14
+ * Since: 3.0.0
  */
 void
 ags_audio_unit_devout_set_flags(AgsAudioUnitDevout *audio_unit_devout, guint flags)
 {
-  pthread_mutex_t *audio_unit_devout_mutex;
+  GRecMutex *audio_unit_devout_mutex;
 
   if(!AGS_IS_AUDIO_UNIT_DEVOUT(audio_unit_devout)){
     return;
@@ -1511,11 +1435,11 @@ ags_audio_unit_devout_set_flags(AgsAudioUnitDevout *audio_unit_devout, guint fla
   //TODO:JK: add more?
 
   /* set flags */
-  pthread_mutex_lock(audio_unit_devout_mutex);
+  g_rec_mutex_lock(audio_unit_devout_mutex);
 
   audio_unit_devout->flags |= flags;
   
-  pthread_mutex_unlock(audio_unit_devout_mutex);
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
 }
     
 /**
@@ -1525,12 +1449,12 @@ ags_audio_unit_devout_set_flags(AgsAudioUnitDevout *audio_unit_devout, guint fla
  *
  * Disable a feature of @audio_unit_devout.
  *
- * Since: 2.3.14
+ * Since: 3.0.0
  */
 void
 ags_audio_unit_devout_unset_flags(AgsAudioUnitDevout *audio_unit_devout, guint flags)
 {  
-  pthread_mutex_t *audio_unit_devout_mutex;
+  GRecMutex *audio_unit_devout_mutex;
 
   if(!AGS_IS_AUDIO_UNIT_DEVOUT(audio_unit_devout)){
     return;
@@ -1542,56 +1466,11 @@ ags_audio_unit_devout_unset_flags(AgsAudioUnitDevout *audio_unit_devout, guint f
   //TODO:JK: add more?
 
   /* unset flags */
-  pthread_mutex_lock(audio_unit_devout_mutex);
+  g_rec_mutex_lock(audio_unit_devout_mutex);
 
   audio_unit_devout->flags &= (~flags);
   
-  pthread_mutex_unlock(audio_unit_devout_mutex);
-}
-
-void
-ags_audio_unit_devout_set_application_context(AgsSoundcard *soundcard,
-				   AgsApplicationContext *application_context)
-{
-  AgsAudioUnitDevout *audio_unit_devout;
-
-  pthread_mutex_t *audio_unit_devout_mutex;
-
-  audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(soundcard);
-
-  /* get audio_unit devout mutex */
-  audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
-
-  /* set application context */
-  pthread_mutex_lock(audio_unit_devout_mutex);
-  
-  audio_unit_devout->application_context = application_context;
-  
-  pthread_mutex_unlock(audio_unit_devout_mutex);
-}
-
-AgsApplicationContext*
-ags_audio_unit_devout_get_application_context(AgsSoundcard *soundcard)
-{
-  AgsAudioUnitDevout *audio_unit_devout;
-
-  AgsApplicationContext *application_context;
-  
-  pthread_mutex_t *audio_unit_devout_mutex;
-
-  audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(soundcard);
-
-  /* get audio_unit devout mutex */
-  audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
-
-  /* get application context */
-  pthread_mutex_lock(audio_unit_devout_mutex);
-
-  application_context = audio_unit_devout->application_context;
-
-  pthread_mutex_unlock(audio_unit_devout_mutex);
-  
-  return(application_context);
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
 }
 
 void
@@ -1609,7 +1488,7 @@ ags_audio_unit_devout_set_device(AgsSoundcard *soundcard,
   guint nth_card;
   guint i;
   
-  pthread_mutex_t *audio_unit_devout_mutex;
+  GRecMutex *audio_unit_devout_mutex;
 
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(soundcard);
 
@@ -1617,19 +1496,19 @@ ags_audio_unit_devout_set_device(AgsSoundcard *soundcard,
   audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
 
   /* check device */
-  pthread_mutex_lock(audio_unit_devout_mutex);
+  g_rec_mutex_lock(audio_unit_devout_mutex);
 
   if(audio_unit_devout->card_uri == device ||
      !g_ascii_strcasecmp(audio_unit_devout->card_uri,
 			 device)){
-    pthread_mutex_unlock(audio_unit_devout_mutex);
+    g_rec_mutex_unlock(audio_unit_devout_mutex);
   
     return;
   }
 
   if(!g_str_has_prefix(device,
 		       "ags-audio_unit-devout-")){
-    pthread_mutex_unlock(audio_unit_devout_mutex);
+    g_rec_mutex_unlock(audio_unit_devout_mutex);
 
     g_warning("invalid audio_unitaudio device prefix");
 
@@ -1641,7 +1520,7 @@ ags_audio_unit_devout_set_device(AgsSoundcard *soundcard,
 	       &nth_card);
 
   if(ret != 1){
-    pthread_mutex_unlock(audio_unit_devout_mutex);
+    g_rec_mutex_unlock(audio_unit_devout_mutex);
 
     g_warning("invalid audio_unitaudio device specifier");
 
@@ -1652,12 +1531,12 @@ ags_audio_unit_devout_set_device(AgsSoundcard *soundcard,
   audio_unit_devout->card_uri = g_strdup(device);
 
   /* apply name to port */
-  pthread_mutex_lock(audio_unit_devout_mutex);
+  g_rec_mutex_lock(audio_unit_devout_mutex);
 
   audio_unit_port_start = 
     audio_unit_port = g_list_copy(audio_unit_devout->audio_unit_port);
 
-  pthread_mutex_unlock(audio_unit_devout_mutex);
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
   
   str = g_strdup_printf("ags-soundcard%d",
 			nth_card);
@@ -1677,7 +1556,7 @@ ags_audio_unit_devout_get_device(AgsSoundcard *soundcard)
   
   gchar *device;
 
-  pthread_mutex_t *audio_unit_devout_mutex;
+  GRecMutex *audio_unit_devout_mutex;
 
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(soundcard);
   
@@ -1687,11 +1566,11 @@ ags_audio_unit_devout_get_device(AgsSoundcard *soundcard)
   device = NULL;
 
   /* get device */
-  pthread_mutex_lock(audio_unit_devout_mutex);
+  g_rec_mutex_lock(audio_unit_devout_mutex);
 
   device = g_strdup(audio_unit_devout->card_uri);
 
-  pthread_mutex_unlock(audio_unit_devout_mutex);
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
   
   return(device);
 }
@@ -1724,7 +1603,7 @@ ags_audio_unit_devout_get_presets(AgsSoundcard *soundcard,
 {
   AgsAudioUnitDevout *audio_unit_devout;
 
-  pthread_mutex_t *audio_unit_devout_mutex;
+  GRecMutex *audio_unit_devout_mutex;
 
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(soundcard);
   
@@ -1732,7 +1611,7 @@ ags_audio_unit_devout_get_presets(AgsSoundcard *soundcard,
   audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
 
   /* get presets */
-  pthread_mutex_lock(audio_unit_devout_mutex);
+  g_rec_mutex_lock(audio_unit_devout_mutex);
 
   if(channels != NULL){
     *channels = audio_unit_devout->pcm_channels;
@@ -1750,7 +1629,7 @@ ags_audio_unit_devout_get_presets(AgsSoundcard *soundcard,
     *format = audio_unit_devout->format;
   }
 
-  pthread_mutex_unlock(audio_unit_devout_mutex);
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
 }
 
 void
@@ -1883,7 +1762,7 @@ ags_audio_unit_devout_is_starting(AgsSoundcard *soundcard)
 
   gboolean is_starting;
   
-  pthread_mutex_t *audio_unit_devout_mutex;
+  GRecMutex *audio_unit_devout_mutex;
   
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(soundcard);
 
@@ -1891,11 +1770,11 @@ ags_audio_unit_devout_is_starting(AgsSoundcard *soundcard)
   audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
 
   /* check is starting */
-  pthread_mutex_lock(audio_unit_devout_mutex);
+  g_rec_mutex_lock(audio_unit_devout_mutex);
 
   is_starting = ((AGS_AUDIO_UNIT_DEVOUT_START_PLAY & (audio_unit_devout->flags)) != 0) ? TRUE: FALSE;
 
-  pthread_mutex_unlock(audio_unit_devout_mutex);
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
   
   return(is_starting);
 }
@@ -1907,7 +1786,7 @@ ags_audio_unit_devout_is_playing(AgsSoundcard *soundcard)
 
   gboolean is_playing;
   
-  pthread_mutex_t *audio_unit_devout_mutex;
+  GRecMutex *audio_unit_devout_mutex;
 
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(soundcard);
   
@@ -1915,11 +1794,11 @@ ags_audio_unit_devout_is_playing(AgsSoundcard *soundcard)
   audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
 
   /* check is starting */
-  pthread_mutex_lock(audio_unit_devout_mutex);
+  g_rec_mutex_lock(audio_unit_devout_mutex);
 
   is_playing = ((AGS_AUDIO_UNIT_DEVOUT_PLAY & (audio_unit_devout->flags)) != 0) ? TRUE: FALSE;
 
-  pthread_mutex_unlock(audio_unit_devout_mutex);
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
 
   return(is_playing);
 }
@@ -1973,8 +1852,8 @@ ags_audio_unit_devout_port_init(AgsSoundcard *soundcard,
 
   guint format, word_size;
 
-  pthread_mutex_t *audio_unit_port_mutex;
-  pthread_mutex_t *audio_unit_devout_mutex;
+  GRecMutex *audio_unit_port_mutex;
+  GRecMutex *audio_unit_devout_mutex;
   
   if(ags_soundcard_is_playing(soundcard)){
     return;
@@ -1986,17 +1865,17 @@ ags_audio_unit_devout_port_init(AgsSoundcard *soundcard,
   audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
 
   /* port */
-  pthread_mutex_lock(audio_unit_devout_mutex);
+  g_rec_mutex_lock(audio_unit_devout_mutex);
 
   audio_unit_port = (AgsAudioUnitPort *) audio_unit_devout->audio_unit_port->data;
 
-  pthread_mutex_unlock(audio_unit_devout_mutex);
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
 
   /* get port mutex */
   audio_unit_port_mutex = AGS_AUDIO_UNIT_PORT_GET_OBJ_MUTEX(audio_unit_port);
 
   /* retrieve word size */
-  pthread_mutex_lock(audio_unit_devout_mutex);
+  g_rec_mutex_lock(audio_unit_devout_mutex);
 
   switch(audio_unit_devout->format){
   case AGS_SOUNDCARD_SIGNED_8_BIT:
@@ -2026,7 +1905,7 @@ ags_audio_unit_devout_port_init(AgsSoundcard *soundcard,
     }
     break;
   default:
-    pthread_mutex_unlock(audio_unit_devout_mutex);
+    g_rec_mutex_unlock(audio_unit_devout_mutex);
     
     g_warning("ags_audio_unit_devout_port_init(): unsupported word size");
     
@@ -2034,19 +1913,19 @@ ags_audio_unit_devout_port_init(AgsSoundcard *soundcard,
   }
   
   /* prepare for playback */
-  audio_unit_devout->flags |= (AGS_AUDIO_UNIT_DEVOUT_BUFFER7 |
-			       AGS_AUDIO_UNIT_DEVOUT_START_PLAY |
+  audio_unit_devout->app_buffer_mode = AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_7;
+  audio_unit_devout->flags |= (AGS_AUDIO_UNIT_DEVOUT_START_PLAY |
 			       AGS_AUDIO_UNIT_DEVOUT_PLAY |
 			       AGS_AUDIO_UNIT_DEVOUT_NONBLOCKING);
 
-  memset(audio_unit_devout->buffer[0], 0, audio_unit_devout->pcm_channels * audio_unit_devout->buffer_size * word_size);
-  memset(audio_unit_devout->buffer[1], 0, audio_unit_devout->pcm_channels * audio_unit_devout->buffer_size * word_size);
-  memset(audio_unit_devout->buffer[2], 0, audio_unit_devout->pcm_channels * audio_unit_devout->buffer_size * word_size);
-  memset(audio_unit_devout->buffer[3], 0, audio_unit_devout->pcm_channels * audio_unit_devout->buffer_size * word_size);
-  memset(audio_unit_devout->buffer[4], 0, audio_unit_devout->pcm_channels * audio_unit_devout->buffer_size * word_size);
-  memset(audio_unit_devout->buffer[5], 0, audio_unit_devout->pcm_channels * audio_unit_devout->buffer_size * word_size);
-  memset(audio_unit_devout->buffer[6], 0, audio_unit_devout->pcm_channels * audio_unit_devout->buffer_size * word_size);
-  memset(audio_unit_devout->buffer[7], 0, audio_unit_devout->pcm_channels * audio_unit_devout->buffer_size * word_size);
+  memset(audio_unit_devout->app_buffer[0], 0, audio_unit_devout->pcm_channels * audio_unit_devout->buffer_size * word_size);
+  memset(audio_unit_devout->app_buffer[1], 0, audio_unit_devout->pcm_channels * audio_unit_devout->buffer_size * word_size);
+  memset(audio_unit_devout->app_buffer[2], 0, audio_unit_devout->pcm_channels * audio_unit_devout->buffer_size * word_size);
+  memset(audio_unit_devout->app_buffer[3], 0, audio_unit_devout->pcm_channels * audio_unit_devout->buffer_size * word_size);
+  memset(audio_unit_devout->app_buffer[4], 0, audio_unit_devout->pcm_channels * audio_unit_devout->buffer_size * word_size);
+  memset(audio_unit_devout->app_buffer[5], 0, audio_unit_devout->pcm_channels * audio_unit_devout->buffer_size * word_size);
+  memset(audio_unit_devout->app_buffer[6], 0, audio_unit_devout->pcm_channels * audio_unit_devout->buffer_size * word_size);
+  memset(audio_unit_devout->app_buffer[7], 0, audio_unit_devout->pcm_channels * audio_unit_devout->buffer_size * word_size);
 
   /*  */
   audio_unit_devout->tact_counter = 0.0;
@@ -2060,7 +1939,7 @@ ags_audio_unit_devout_port_init(AgsSoundcard *soundcard,
   g_atomic_int_or(&(audio_unit_devout->sync_flags),
 		  AGS_AUDIO_UNIT_DEVOUT_INITIAL_CALLBACK);
 
-  pthread_mutex_unlock(audio_unit_devout_mutex);
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
 }
 
 void
@@ -2071,12 +1950,11 @@ ags_audio_unit_devout_port_play(AgsSoundcard *soundcard,
   AgsAudioUnitDevout *audio_unit_devout;
   AgsAudioUnitPort *audio_unit_port;
 
-  AgsNotifySoundcard *notify_soundcard;
   AgsTicDevice *tic_device;
   AgsClearBuffer *clear_buffer;
   AgsSwitchBufferFlag *switch_buffer_flag;
       
-  AgsTaskThread *task_thread;
+  AgsTaskLauncher *task_launcher;
 
   AgsApplicationContext *application_context;
 
@@ -2084,33 +1962,33 @@ ags_audio_unit_devout_port_play(AgsSoundcard *soundcard,
   guint word_size;
   gboolean audio_unit_client_activated;
 
-  pthread_mutex_t *audio_unit_devout_mutex;
-  pthread_mutex_t *audio_unit_client_mutex;
-  pthread_mutex_t *audio_unit_port_mutex;
-  pthread_mutex_t *callback_mutex;
-  pthread_mutex_t *callback_finish_mutex;
+  GRecMutex *audio_unit_devout_mutex;
+  GRecMutex *audio_unit_client_mutex;
+  GRecMutex *audio_unit_port_mutex;
+  GMutex *callback_mutex;
+  GMutex *callback_finish_mutex;
   
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(soundcard);
-  application_context = ags_soundcard_get_application_context(soundcard);
+  
+  application_context = ags_application_context_get_instance();
   
   /* get audio-unit devout mutex */
   audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
 
   /* client */
-  pthread_mutex_lock(audio_unit_devout_mutex);
+  g_rec_mutex_lock(audio_unit_devout_mutex);
 
   audio_unit_client = (AgsAudioUnitClient *) audio_unit_devout->audio_unit_client;
   audio_unit_port = (AgsAudioUnitPort *) audio_unit_devout->audio_unit_port->data;
   
-  callback_mutex = audio_unit_devout->callback_mutex;
-  callback_finish_mutex = audio_unit_devout->callback_finish_mutex;
+  callback_mutex = &(audio_unit_devout->callback_mutex);
+  callback_finish_mutex = &(audio_unit_devout->callback_finish_mutex);
 
   /* do playback */  
   audio_unit_devout->flags &= (~AGS_AUDIO_UNIT_DEVOUT_START_PLAY);
-  notify_soundcard = AGS_NOTIFY_SOUNDCARD(audio_unit_devout->notify_soundcard);
 
   if((AGS_AUDIO_UNIT_DEVOUT_INITIALIZED & (audio_unit_devout->flags)) == 0){
-    pthread_mutex_unlock(audio_unit_devout_mutex);
+    g_rec_mutex_unlock(audio_unit_devout_mutex);
     
     return;
   }
@@ -2133,25 +2011,25 @@ ags_audio_unit_devout_port_play(AgsSoundcard *soundcard,
     }
     break;
   default:
-    pthread_mutex_unlock(audio_unit_devout_mutex);
+    g_rec_mutex_unlock(audio_unit_devout_mutex);
     
     g_warning("ags_audio_unit_devout_port_play(): unsupported word size");
     
     return;
   }
 
-  pthread_mutex_unlock(audio_unit_devout_mutex);
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
 
   /* get client and port mutex */
   audio_unit_client_mutex = AGS_AUDIO_UNIT_CLIENT_GET_OBJ_MUTEX(audio_unit_client);
   audio_unit_port_mutex = AGS_AUDIO_UNIT_PORT_GET_OBJ_MUTEX(audio_unit_port);
 
   /* get activated */
-  pthread_mutex_lock(audio_unit_client_mutex);
+  g_rec_mutex_lock(audio_unit_client_mutex);
 
   audio_unit_client_activated = ((AGS_AUDIO_UNIT_CLIENT_ACTIVATED & (audio_unit_client->flags)) != 0) ? TRUE: FALSE;
 
-  pthread_mutex_unlock(audio_unit_client_mutex);
+  g_rec_mutex_unlock(audio_unit_client_mutex);
 
   if(audio_unit_client_activated){
     while((AGS_AUDIO_UNIT_DEVOUT_PASS_THROUGH & (g_atomic_int_get(&(audio_unit_devout->sync_flags)))) != 0){
@@ -2160,20 +2038,20 @@ ags_audio_unit_devout_port_play(AgsSoundcard *soundcard,
     
     /* signal */
     if((AGS_AUDIO_UNIT_DEVOUT_INITIAL_CALLBACK & (g_atomic_int_get(&(audio_unit_devout->sync_flags)))) == 0){
-      pthread_mutex_lock(callback_mutex);
+      g_mutex_lock(callback_mutex);
 
       g_atomic_int_or(&(audio_unit_devout->sync_flags),
 		      AGS_AUDIO_UNIT_DEVOUT_CALLBACK_DONE);
     
       if((AGS_AUDIO_UNIT_DEVOUT_CALLBACK_WAIT & (g_atomic_int_get(&(audio_unit_devout->sync_flags)))) != 0){
-	pthread_cond_signal(audio_unit_devout->callback_cond);
+	g_cond_signal(&(audio_unit_devout->callback_cond));
       }
 
-      pthread_mutex_unlock(callback_mutex);
+      g_mutex_unlock(callback_mutex);
       //    }
     
       /* wait callback */	
-      pthread_mutex_lock(callback_finish_mutex);
+      g_mutex_lock(callback_finish_mutex);
     
       if((AGS_AUDIO_UNIT_DEVOUT_CALLBACK_FINISH_DONE & (g_atomic_int_get(&(audio_unit_devout->sync_flags)))) == 0){
 	g_atomic_int_or(&(audio_unit_devout->sync_flags),
@@ -2181,7 +2059,7 @@ ags_audio_unit_devout_port_play(AgsSoundcard *soundcard,
     
 	while((AGS_AUDIO_UNIT_DEVOUT_CALLBACK_FINISH_DONE & (g_atomic_int_get(&(audio_unit_devout->sync_flags)))) == 0 &&
 	      (AGS_AUDIO_UNIT_DEVOUT_CALLBACK_FINISH_WAIT & (g_atomic_int_get(&(audio_unit_devout->sync_flags)))) != 0){
-	  pthread_cond_wait(audio_unit_devout->callback_finish_cond,
+	  g_cond_wait(&(audio_unit_devout->callback_finish_cond),
 			    callback_finish_mutex);
 	}
       }
@@ -2190,27 +2068,15 @@ ags_audio_unit_devout_port_play(AgsSoundcard *soundcard,
 		       (~(AGS_AUDIO_UNIT_DEVOUT_CALLBACK_FINISH_WAIT |
 			  AGS_AUDIO_UNIT_DEVOUT_CALLBACK_FINISH_DONE)));
     
-      pthread_mutex_unlock(callback_finish_mutex);
+      g_mutex_unlock(callback_finish_mutex);
     }else{
       g_atomic_int_and(&(audio_unit_devout->sync_flags),
 		       (~AGS_AUDIO_UNIT_DEVOUT_INITIAL_CALLBACK));
     }
   }
 
-  /* notify cyclic task */
-  pthread_mutex_lock(notify_soundcard->return_mutex);
-
-  g_atomic_int_or(&(notify_soundcard->flags),
-		  AGS_NOTIFY_SOUNDCARD_DONE_RETURN);
-  
-  if((AGS_NOTIFY_SOUNDCARD_WAIT_RETURN & (g_atomic_int_get(&(notify_soundcard->flags)))) != 0){
-    pthread_cond_signal(notify_soundcard->return_cond);
-  }
-
-  pthread_mutex_unlock(notify_soundcard->return_mutex);
-
   /* update soundcard */
-  task_thread = ags_concurrency_provider_get_task_thread(AGS_CONCURRENCY_PROVIDER(application_context));
+  task_launcher = ags_concurrency_provider_get_task_launcher(AGS_CONCURRENCY_PROVIDER(application_context));
 
   task = NULL;      
   
@@ -2230,11 +2096,11 @@ ags_audio_unit_devout_port_play(AgsSoundcard *soundcard,
 		       switch_buffer_flag);
 
   /* append tasks */
-  ags_task_thread_append_tasks((AgsTaskThread *) task_thread,
-			       task);
+  ags_task_launcher_add_task_all(task_launcher,
+				 task);
 
   /* unref */
-  g_object_unref(task_thread);
+  g_object_unref(task_launcher);
 }
 
 void
@@ -2243,15 +2109,13 @@ ags_audio_unit_devout_port_free(AgsSoundcard *soundcard)
   AgsAudioUnitPort *audio_unit_port;
   AgsAudioUnitDevout *audio_unit_devout;
 
-  AgsNotifySoundcard *notify_soundcard;
-
   guint pcm_channels;
   guint word_size;
 
-  pthread_mutex_t *audio_unit_port_mutex;
-  pthread_mutex_t *audio_unit_devout_mutex;
-  pthread_mutex_t *callback_mutex;
-  pthread_mutex_t *callback_finish_mutex;
+  GRecMutex *audio_unit_port_mutex;
+  GRecMutex *audio_unit_devout_mutex;
+  GMutex *callback_mutex;
+  GMutex *callback_finish_mutex;
 
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(soundcard);
   
@@ -2259,44 +2123,33 @@ ags_audio_unit_devout_port_free(AgsSoundcard *soundcard)
   audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
 
   /* port */
-  pthread_mutex_lock(audio_unit_devout_mutex);
+  g_rec_mutex_lock(audio_unit_devout_mutex);
 
   audio_unit_port = (AgsAudioUnitPort *) audio_unit_devout->audio_unit_port->data;
   pcm_channels = audio_unit_devout->pcm_channels;
   
-  pthread_mutex_unlock(audio_unit_devout_mutex);
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
 
   /* get port mutex */
   audio_unit_port_mutex = AGS_AUDIO_UNIT_PORT_GET_OBJ_MUTEX(audio_unit_port);
 
   /*  */
-  pthread_mutex_lock(audio_unit_devout_mutex);
-
-  notify_soundcard = AGS_NOTIFY_SOUNDCARD(audio_unit_devout->notify_soundcard);
+  g_rec_mutex_lock(audio_unit_devout_mutex);
 
   if((AGS_AUDIO_UNIT_DEVOUT_INITIALIZED & (audio_unit_devout->flags)) == 0){
-    pthread_mutex_unlock(audio_unit_devout_mutex);
+    g_rec_mutex_unlock(audio_unit_devout_mutex);
 
     return;
   }
 
-  g_object_ref(notify_soundcard);
-
-  callback_mutex = audio_unit_devout->callback_mutex;
-  callback_finish_mutex = audio_unit_devout->callback_finish_mutex;
+  callback_mutex = &(audio_unit_devout->callback_mutex);
+  callback_finish_mutex = &(audio_unit_devout->callback_finish_mutex);
   
   //  g_atomic_int_or(&(AGS_THREAD(application_context->main_loop)->flags),
   //		  AGS_THREAD_TIMING);
   
-  audio_unit_devout->flags &= (~(AGS_AUDIO_UNIT_DEVOUT_BUFFER0 |
-				 AGS_AUDIO_UNIT_DEVOUT_BUFFER1 |
-				 AGS_AUDIO_UNIT_DEVOUT_BUFFER2 |
-				 AGS_AUDIO_UNIT_DEVOUT_BUFFER3 |
-				 AGS_AUDIO_UNIT_DEVOUT_BUFFER4 |
-				 AGS_AUDIO_UNIT_DEVOUT_BUFFER5 |
-				 AGS_AUDIO_UNIT_DEVOUT_BUFFER6 |
-				 AGS_AUDIO_UNIT_DEVOUT_BUFFER7 |
-				 AGS_AUDIO_UNIT_DEVOUT_PLAY));
+  audio_unit_devout->app_buffer_mode = AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_0;
+  audio_unit_devout->flags &= (~(AGS_AUDIO_UNIT_DEVOUT_PLAY));
 
   g_atomic_int_or(&(audio_unit_devout->sync_flags),
 		  AGS_AUDIO_UNIT_DEVOUT_PASS_THROUGH);
@@ -2304,42 +2157,28 @@ ags_audio_unit_devout_port_free(AgsSoundcard *soundcard)
 		   (~AGS_AUDIO_UNIT_DEVOUT_INITIAL_CALLBACK));
 
   /* signal callback */
-  pthread_mutex_lock(callback_mutex);
+  g_mutex_lock(callback_mutex);
 
   g_atomic_int_or(&(audio_unit_devout->sync_flags),
 		  AGS_AUDIO_UNIT_DEVOUT_CALLBACK_DONE);
     
   if((AGS_AUDIO_UNIT_DEVOUT_CALLBACK_WAIT & (g_atomic_int_get(&(audio_unit_devout->sync_flags)))) != 0){
-    pthread_cond_signal(audio_unit_devout->callback_cond);
+    g_cond_signal(&(audio_unit_devout->callback_cond));
   }
 
-  pthread_mutex_unlock(callback_mutex);
+  g_mutex_unlock(callback_mutex);
 
   /* signal thread */
-  pthread_mutex_lock(callback_finish_mutex);
+  g_mutex_lock(callback_finish_mutex);
 
   g_atomic_int_or(&(audio_unit_devout->sync_flags),
 		  AGS_AUDIO_UNIT_DEVOUT_CALLBACK_FINISH_DONE);
     
   if((AGS_AUDIO_UNIT_DEVOUT_CALLBACK_FINISH_WAIT & (g_atomic_int_get(&(audio_unit_devout->sync_flags)))) != 0){
-    pthread_cond_signal(audio_unit_devout->callback_finish_cond);
+    g_cond_signal(&(audio_unit_devout->callback_finish_cond));
   }
 
-  pthread_mutex_unlock(callback_finish_mutex);
-
-  /* notify cyclic task */
-  pthread_mutex_lock(notify_soundcard->return_mutex);
-
-  g_atomic_int_or(&(notify_soundcard->flags),
-		  AGS_NOTIFY_SOUNDCARD_DONE_RETURN);
-  
-  if((AGS_NOTIFY_SOUNDCARD_WAIT_RETURN & (g_atomic_int_get(&(notify_soundcard->flags)))) != 0){
-    pthread_cond_signal(notify_soundcard->return_cond);
-  }
-  
-  pthread_mutex_unlock(notify_soundcard->return_mutex);
-
-  g_object_unref(notify_soundcard);
+  g_mutex_unlock(callback_finish_mutex);
   
   /*  */
   audio_unit_devout->note_offset = audio_unit_devout->start_note_offset;
@@ -2377,7 +2216,7 @@ ags_audio_unit_devout_port_free(AgsSoundcard *soundcard)
     g_critical("ags_audio_unit_devout_free(): unsupported word size");
   }
 
-  pthread_mutex_unlock(audio_unit_devout_mutex);
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
 
   if(audio_unit_devout->audio_unit_port != NULL){
     audio_unit_port = audio_unit_devout->audio_unit_port->data;
@@ -2385,18 +2224,18 @@ ags_audio_unit_devout_port_free(AgsSoundcard *soundcard)
     while(!g_atomic_int_get(&(audio_unit_port->is_empty))) usleep(500000);
   }
 
-  pthread_mutex_lock(audio_unit_devout_mutex);
+  g_rec_mutex_lock(audio_unit_devout_mutex);
   
-  memset(audio_unit_devout->buffer[0], 0, (size_t) audio_unit_devout->pcm_channels * audio_unit_devout->buffer_size * word_size);
-  memset(audio_unit_devout->buffer[1], 0, (size_t) audio_unit_devout->pcm_channels * audio_unit_devout->buffer_size * word_size);
-  memset(audio_unit_devout->buffer[2], 0, (size_t) audio_unit_devout->pcm_channels * audio_unit_devout->buffer_size * word_size);
-  memset(audio_unit_devout->buffer[3], 0, (size_t) audio_unit_devout->pcm_channels * audio_unit_devout->buffer_size * word_size);
-  memset(audio_unit_devout->buffer[4], 0, (size_t) audio_unit_devout->pcm_channels * audio_unit_devout->buffer_size * word_size);
-  memset(audio_unit_devout->buffer[5], 0, (size_t) audio_unit_devout->pcm_channels * audio_unit_devout->buffer_size * word_size);
-  memset(audio_unit_devout->buffer[6], 0, (size_t) audio_unit_devout->pcm_channels * audio_unit_devout->buffer_size * word_size);
-  memset(audio_unit_devout->buffer[7], 0, (size_t) audio_unit_devout->pcm_channels * audio_unit_devout->buffer_size * word_size);
+  memset(audio_unit_devout->app_buffer[0], 0, (size_t) audio_unit_devout->pcm_channels * audio_unit_devout->buffer_size * word_size);
+  memset(audio_unit_devout->app_buffer[1], 0, (size_t) audio_unit_devout->pcm_channels * audio_unit_devout->buffer_size * word_size);
+  memset(audio_unit_devout->app_buffer[2], 0, (size_t) audio_unit_devout->pcm_channels * audio_unit_devout->buffer_size * word_size);
+  memset(audio_unit_devout->app_buffer[3], 0, (size_t) audio_unit_devout->pcm_channels * audio_unit_devout->buffer_size * word_size);
+  memset(audio_unit_devout->app_buffer[4], 0, (size_t) audio_unit_devout->pcm_channels * audio_unit_devout->buffer_size * word_size);
+  memset(audio_unit_devout->app_buffer[5], 0, (size_t) audio_unit_devout->pcm_channels * audio_unit_devout->buffer_size * word_size);
+  memset(audio_unit_devout->app_buffer[6], 0, (size_t) audio_unit_devout->pcm_channels * audio_unit_devout->buffer_size * word_size);
+  memset(audio_unit_devout->app_buffer[7], 0, (size_t) audio_unit_devout->pcm_channels * audio_unit_devout->buffer_size * word_size);
 
-  pthread_mutex_unlock(audio_unit_devout_mutex);  
+  g_rec_mutex_unlock(audio_unit_devout_mutex);  
 }
 
 void
@@ -2411,7 +2250,7 @@ ags_audio_unit_devout_tic(AgsSoundcard *soundcard)
   guint loop_left, loop_right;
   gboolean do_loop;
   
-  pthread_mutex_t *audio_unit_devout_mutex;
+  GRecMutex *audio_unit_devout_mutex;
   
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(soundcard);
 
@@ -2419,7 +2258,7 @@ ags_audio_unit_devout_tic(AgsSoundcard *soundcard)
   audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
   
   /* determine if attack should be switched */
-  pthread_mutex_lock(audio_unit_devout_mutex);
+  g_rec_mutex_lock(audio_unit_devout_mutex);
 
   delay = audio_unit_devout->delay[audio_unit_devout->tic_counter];
   delay_counter = audio_unit_devout->delay_counter;
@@ -2432,9 +2271,9 @@ ags_audio_unit_devout_tic(AgsSoundcard *soundcard)
   
   do_loop = audio_unit_devout->do_loop;
 
-  pthread_mutex_unlock(audio_unit_devout_mutex);
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
 
-  if(delay_counter + 1.0 >= delay){
+  if(delay_counter + 1.0 >= floor(delay)){
     if(do_loop &&
        note_offset + 1 == loop_right){
       ags_soundcard_set_note_offset(soundcard,
@@ -2452,18 +2291,18 @@ ags_audio_unit_devout_tic(AgsSoundcard *soundcard)
 				 note_offset);
     
     /* reset - delay counter */
-    pthread_mutex_lock(audio_unit_devout_mutex);
+    g_rec_mutex_lock(audio_unit_devout_mutex);
     
     audio_unit_devout->delay_counter = delay_counter + 1.0 - delay;
     audio_unit_devout->tact_counter += 1.0;
 
-    pthread_mutex_unlock(audio_unit_devout_mutex);
+    g_rec_mutex_unlock(audio_unit_devout_mutex);
   }else{
-    pthread_mutex_lock(audio_unit_devout_mutex);
+    g_rec_mutex_lock(audio_unit_devout_mutex);
     
     audio_unit_devout->delay_counter += 1.0;
 
-    pthread_mutex_unlock(audio_unit_devout_mutex);
+    g_rec_mutex_unlock(audio_unit_devout_mutex);
   }
 }
 
@@ -2473,7 +2312,7 @@ ags_audio_unit_devout_offset_changed(AgsSoundcard *soundcard,
 {
   AgsAudioUnitDevout *audio_unit_devout;
   
-  pthread_mutex_t *audio_unit_devout_mutex;
+  GRecMutex *audio_unit_devout_mutex;
   
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(soundcard);
 
@@ -2481,7 +2320,7 @@ ags_audio_unit_devout_offset_changed(AgsSoundcard *soundcard,
   audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
 
   /* offset changed */
-  pthread_mutex_lock(audio_unit_devout_mutex);
+  g_rec_mutex_lock(audio_unit_devout_mutex);
 
   audio_unit_devout->tic_counter += 1;
 
@@ -2490,7 +2329,7 @@ ags_audio_unit_devout_offset_changed(AgsSoundcard *soundcard,
     audio_unit_devout->tic_counter = 0;
   }
 
-  pthread_mutex_unlock(audio_unit_devout_mutex);
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
 }
 
 void
@@ -2499,7 +2338,7 @@ ags_audio_unit_devout_set_bpm(AgsSoundcard *soundcard,
 {
   AgsAudioUnitDevout *audio_unit_devout;
 
-  pthread_mutex_t *audio_unit_devout_mutex;
+  GRecMutex *audio_unit_devout_mutex;
   
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(soundcard);
 
@@ -2507,11 +2346,11 @@ ags_audio_unit_devout_set_bpm(AgsSoundcard *soundcard,
   audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
 
   /* set bpm */
-  pthread_mutex_lock(audio_unit_devout_mutex);
+  g_rec_mutex_lock(audio_unit_devout_mutex);
 
   audio_unit_devout->bpm = bpm;
 
-  pthread_mutex_unlock(audio_unit_devout_mutex);
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
 
   ags_audio_unit_devout_adjust_delay_and_attack(audio_unit_devout);
 }
@@ -2523,7 +2362,7 @@ ags_audio_unit_devout_get_bpm(AgsSoundcard *soundcard)
 
   gdouble bpm;
   
-  pthread_mutex_t *audio_unit_devout_mutex;
+  GRecMutex *audio_unit_devout_mutex;
   
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(soundcard);
 
@@ -2531,11 +2370,11 @@ ags_audio_unit_devout_get_bpm(AgsSoundcard *soundcard)
   audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
 
   /* get bpm */
-  pthread_mutex_lock(audio_unit_devout_mutex);
+  g_rec_mutex_lock(audio_unit_devout_mutex);
 
   bpm = audio_unit_devout->bpm;
   
-  pthread_mutex_unlock(audio_unit_devout_mutex);
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
 
   return(bpm);
 }
@@ -2546,7 +2385,7 @@ ags_audio_unit_devout_set_delay_factor(AgsSoundcard *soundcard,
 {
   AgsAudioUnitDevout *audio_unit_devout;
 
-  pthread_mutex_t *audio_unit_devout_mutex;
+  GRecMutex *audio_unit_devout_mutex;
   
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(soundcard);
 
@@ -2554,11 +2393,11 @@ ags_audio_unit_devout_set_delay_factor(AgsSoundcard *soundcard,
   audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
 
   /* set delay factor */
-  pthread_mutex_lock(audio_unit_devout_mutex);
+  g_rec_mutex_lock(audio_unit_devout_mutex);
 
   audio_unit_devout->delay_factor = delay_factor;
 
-  pthread_mutex_unlock(audio_unit_devout_mutex);
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
 
   ags_audio_unit_devout_adjust_delay_and_attack(audio_unit_devout);
 }
@@ -2570,7 +2409,7 @@ ags_audio_unit_devout_get_delay_factor(AgsSoundcard *soundcard)
 
   gdouble delay_factor;
   
-  pthread_mutex_t *audio_unit_devout_mutex;
+  GRecMutex *audio_unit_devout_mutex;
   
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(soundcard);
 
@@ -2578,11 +2417,11 @@ ags_audio_unit_devout_get_delay_factor(AgsSoundcard *soundcard)
   audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
 
   /* get delay factor */
-  pthread_mutex_lock(audio_unit_devout_mutex);
+  g_rec_mutex_lock(audio_unit_devout_mutex);
 
   delay_factor = audio_unit_devout->delay_factor;
   
-  pthread_mutex_unlock(audio_unit_devout_mutex);
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
 
   return(delay_factor);
 }
@@ -2595,7 +2434,7 @@ ags_audio_unit_devout_get_delay(AgsSoundcard *soundcard)
   guint delay_index;
   gdouble delay;
   
-  pthread_mutex_t *audio_unit_devout_mutex;
+  GRecMutex *audio_unit_devout_mutex;
   
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(soundcard);
 
@@ -2603,13 +2442,13 @@ ags_audio_unit_devout_get_delay(AgsSoundcard *soundcard)
   audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
 
   /* get delay */
-  pthread_mutex_lock(audio_unit_devout_mutex);
+  g_rec_mutex_lock(audio_unit_devout_mutex);
 
   delay_index = audio_unit_devout->tic_counter;
 
   delay = audio_unit_devout->delay[delay_index];
   
-  pthread_mutex_unlock(audio_unit_devout_mutex);
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
   
   return(delay);
 }
@@ -2621,7 +2460,7 @@ ags_audio_unit_devout_get_absolute_delay(AgsSoundcard *soundcard)
 
   gdouble absolute_delay;
   
-  pthread_mutex_t *audio_unit_devout_mutex;
+  GRecMutex *audio_unit_devout_mutex;
   
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(soundcard);
   
@@ -2629,11 +2468,11 @@ ags_audio_unit_devout_get_absolute_delay(AgsSoundcard *soundcard)
   audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
 
   /* get absolute delay */
-  pthread_mutex_lock(audio_unit_devout_mutex);
+  g_rec_mutex_lock(audio_unit_devout_mutex);
 
   absolute_delay = (60.0 * (((gdouble) audio_unit_devout->samplerate / (gdouble) audio_unit_devout->buffer_size) / (gdouble) audio_unit_devout->bpm) * ((1.0 / 16.0) * (1.0 / (gdouble) audio_unit_devout->delay_factor)));
 
-  pthread_mutex_unlock(audio_unit_devout_mutex);
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
 
   return(absolute_delay);
 }
@@ -2646,7 +2485,7 @@ ags_audio_unit_devout_get_attack(AgsSoundcard *soundcard)
   guint attack_index;
   guint attack;
   
-  pthread_mutex_t *audio_unit_devout_mutex;  
+  GRecMutex *audio_unit_devout_mutex;  
 
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(soundcard);
   
@@ -2654,13 +2493,13 @@ ags_audio_unit_devout_get_attack(AgsSoundcard *soundcard)
   audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
 
   /* get attack */
-  pthread_mutex_lock(audio_unit_devout_mutex);
+  g_rec_mutex_lock(audio_unit_devout_mutex);
 
   attack_index = audio_unit_devout->tic_counter;
 
   attack = audio_unit_devout->attack[attack_index];
 
-  pthread_mutex_unlock(audio_unit_devout_mutex);
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
   
   return(attack);
 }
@@ -2671,28 +2510,37 @@ ags_audio_unit_devout_get_buffer(AgsSoundcard *soundcard)
   AgsAudioUnitDevout *audio_unit_devout;
 
   void *buffer;
+
+  GRecMutex *audio_unit_devout_mutex;  
   
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(soundcard);
+  
+  /* get audio_unit devout mutex */
+  audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
 
-  if(ags_audio_unit_devout_test_flags(audio_unit_devout, AGS_AUDIO_UNIT_DEVOUT_BUFFER0)){
-    buffer = audio_unit_devout->buffer[0];
-  }else if(ags_audio_unit_devout_test_flags(audio_unit_devout, AGS_AUDIO_UNIT_DEVOUT_BUFFER1)){
-    buffer = audio_unit_devout->buffer[1];
-  }else if(ags_audio_unit_devout_test_flags(audio_unit_devout, AGS_AUDIO_UNIT_DEVOUT_BUFFER2)){
-    buffer = audio_unit_devout->buffer[2];
-  }else if(ags_audio_unit_devout_test_flags(audio_unit_devout, AGS_AUDIO_UNIT_DEVOUT_BUFFER3)){
-    buffer = audio_unit_devout->buffer[3];
-  }else if(ags_audio_unit_devout_test_flags(audio_unit_devout, AGS_AUDIO_UNIT_DEVOUT_BUFFER4)){
-    buffer = audio_unit_devout->buffer[4];
-  }else if(ags_audio_unit_devout_test_flags(audio_unit_devout, AGS_AUDIO_UNIT_DEVOUT_BUFFER5)){
-    buffer = audio_unit_devout->buffer[5];
-  }else if(ags_audio_unit_devout_test_flags(audio_unit_devout, AGS_AUDIO_UNIT_DEVOUT_BUFFER6)){
-    buffer = audio_unit_devout->buffer[6];
-  }else if(ags_audio_unit_devout_test_flags(audio_unit_devout, AGS_AUDIO_UNIT_DEVOUT_BUFFER7)){
-    buffer = audio_unit_devout->buffer[7];
+  g_rec_mutex_lock(audio_unit_devout_mutex);
+
+  if(audio_unit_devout->app_buffer_mode == AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_0){
+    buffer = audio_unit_devout->app_buffer[0];
+  }else if(audio_unit_devout->app_buffer_mode == AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_1){
+    buffer = audio_unit_devout->app_buffer[1];
+  }else if(audio_unit_devout->app_buffer_mode == AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_2){
+    buffer = audio_unit_devout->app_buffer[2];
+  }else if(audio_unit_devout->app_buffer_mode == AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_3){
+    buffer = audio_unit_devout->app_buffer[3];
+  }else if(audio_unit_devout->app_buffer_mode == AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_4){
+    buffer = audio_unit_devout->app_buffer[4];
+  }else if(audio_unit_devout->app_buffer_mode == AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_5){
+    buffer = audio_unit_devout->app_buffer[5];
+  }else if(audio_unit_devout->app_buffer_mode == AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_6){
+    buffer = audio_unit_devout->app_buffer[6];
+  }else if(audio_unit_devout->app_buffer_mode == AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_7){
+    buffer = audio_unit_devout->app_buffer[7];
   }else{
     buffer = NULL;
   }
+  
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
 
   return(buffer);
 }
@@ -2703,28 +2551,37 @@ ags_audio_unit_devout_get_next_buffer(AgsSoundcard *soundcard)
   AgsAudioUnitDevout *audio_unit_devout;
 
   void *buffer;
+
+  GRecMutex *audio_unit_devout_mutex;  
   
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(soundcard);
+  
+  /* get audio_unit devout mutex */
+  audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
 
-  if(ags_audio_unit_devout_test_flags(audio_unit_devout, AGS_AUDIO_UNIT_DEVOUT_BUFFER0)){
-    buffer = audio_unit_devout->buffer[1];
-  }else if(ags_audio_unit_devout_test_flags(audio_unit_devout, AGS_AUDIO_UNIT_DEVOUT_BUFFER1)){
-    buffer = audio_unit_devout->buffer[2];
-  }else if(ags_audio_unit_devout_test_flags(audio_unit_devout, AGS_AUDIO_UNIT_DEVOUT_BUFFER2)){
-    buffer = audio_unit_devout->buffer[3];
-  }else if(ags_audio_unit_devout_test_flags(audio_unit_devout, AGS_AUDIO_UNIT_DEVOUT_BUFFER3)){
-    buffer = audio_unit_devout->buffer[4];
-  }else if(ags_audio_unit_devout_test_flags(audio_unit_devout, AGS_AUDIO_UNIT_DEVOUT_BUFFER4)){
-    buffer = audio_unit_devout->buffer[5];
-  }else if(ags_audio_unit_devout_test_flags(audio_unit_devout, AGS_AUDIO_UNIT_DEVOUT_BUFFER5)){
-    buffer = audio_unit_devout->buffer[6];
-  }else if(ags_audio_unit_devout_test_flags(audio_unit_devout, AGS_AUDIO_UNIT_DEVOUT_BUFFER6)){
-    buffer = audio_unit_devout->buffer[7];
-  }else if(ags_audio_unit_devout_test_flags(audio_unit_devout, AGS_AUDIO_UNIT_DEVOUT_BUFFER7)){
-    buffer = audio_unit_devout->buffer[0];
+  g_rec_mutex_lock(audio_unit_devout_mutex);
+
+  if(audio_unit_devout->app_buffer_mode == AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_0){
+    buffer = audio_unit_devout->app_buffer[1];
+  }else if(audio_unit_devout->app_buffer_mode == AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_1){
+    buffer = audio_unit_devout->app_buffer[2];
+  }else if(audio_unit_devout->app_buffer_mode == AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_2){
+    buffer = audio_unit_devout->app_buffer[3];
+  }else if(audio_unit_devout->app_buffer_mode == AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_3){
+    buffer = audio_unit_devout->app_buffer[4];
+  }else if(audio_unit_devout->app_buffer_mode == AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_4){
+    buffer = audio_unit_devout->app_buffer[5];
+  }else if(audio_unit_devout->app_buffer_mode == AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_5){
+    buffer = audio_unit_devout->app_buffer[6];
+  }else if(audio_unit_devout->app_buffer_mode == AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_6){
+    buffer = audio_unit_devout->app_buffer[7];
+  }else if(audio_unit_devout->app_buffer_mode == AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_7){
+    buffer = audio_unit_devout->app_buffer[0];
   }else{
     buffer = NULL;
   }
+  
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
 
   return(buffer);
 }
@@ -2735,28 +2592,37 @@ ags_audio_unit_devout_get_prev_buffer(AgsSoundcard *soundcard)
   AgsAudioUnitDevout *audio_unit_devout;
 
   void *buffer;
+
+  GRecMutex *audio_unit_devout_mutex;  
   
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(soundcard);
 
-  if(ags_audio_unit_devout_test_flags(audio_unit_devout, AGS_AUDIO_UNIT_DEVOUT_BUFFER0)){
-    buffer = audio_unit_devout->buffer[7];
-  }else if(ags_audio_unit_devout_test_flags(audio_unit_devout, AGS_AUDIO_UNIT_DEVOUT_BUFFER1)){
-    buffer = audio_unit_devout->buffer[0];
-  }else if(ags_audio_unit_devout_test_flags(audio_unit_devout, AGS_AUDIO_UNIT_DEVOUT_BUFFER2)){
-    buffer = audio_unit_devout->buffer[1];
-  }else if(ags_audio_unit_devout_test_flags(audio_unit_devout, AGS_AUDIO_UNIT_DEVOUT_BUFFER3)){
-    buffer = audio_unit_devout->buffer[2];
-  }else if(ags_audio_unit_devout_test_flags(audio_unit_devout, AGS_AUDIO_UNIT_DEVOUT_BUFFER4)){
-    buffer = audio_unit_devout->buffer[3];
-  }else if(ags_audio_unit_devout_test_flags(audio_unit_devout, AGS_AUDIO_UNIT_DEVOUT_BUFFER5)){
-    buffer = audio_unit_devout->buffer[4];
-  }else if(ags_audio_unit_devout_test_flags(audio_unit_devout, AGS_AUDIO_UNIT_DEVOUT_BUFFER6)){
-    buffer = audio_unit_devout->buffer[5];
-  }else if(ags_audio_unit_devout_test_flags(audio_unit_devout, AGS_AUDIO_UNIT_DEVOUT_BUFFER7)){
-    buffer = audio_unit_devout->buffer[6];
+  /* get audio_unit devout mutex */
+  audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
+
+  g_rec_mutex_lock(audio_unit_devout_mutex);
+
+  if(audio_unit_devout->app_buffer_mode == AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_0){
+    buffer = audio_unit_devout->app_buffer[7];
+  }else if(audio_unit_devout->app_buffer_mode == AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_1){
+    buffer = audio_unit_devout->app_buffer[0];
+  }else if(audio_unit_devout->app_buffer_mode == AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_2){
+    buffer = audio_unit_devout->app_buffer[1];
+  }else if(audio_unit_devout->app_buffer_mode == AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_3){
+    buffer = audio_unit_devout->app_buffer[2];
+  }else if(audio_unit_devout->app_buffer_mode == AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_4){
+    buffer = audio_unit_devout->app_buffer[3];
+  }else if(audio_unit_devout->app_buffer_mode == AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_5){
+    buffer = audio_unit_devout->app_buffer[4];
+  }else if(audio_unit_devout->app_buffer_mode == AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_6){
+    buffer = audio_unit_devout->app_buffer[5];
+  }else if(audio_unit_devout->app_buffer_mode == AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_7){
+    buffer = audio_unit_devout->app_buffer[6];
   }else{
     buffer = NULL;
   }
+  
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
 
   return(buffer);
 }
@@ -2767,34 +2633,34 @@ ags_audio_unit_devout_lock_buffer(AgsSoundcard *soundcard,
 {
   AgsAudioUnitDevout *audio_unit_devout;
 
-  pthread_mutex_t *buffer_mutex;
+  GRecMutex *buffer_mutex;
   
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(soundcard);
 
   buffer_mutex = NULL;
 
-  if(audio_unit_devout->buffer != NULL){
-    if(buffer == audio_unit_devout->buffer[0]){
-      buffer_mutex = audio_unit_devout->buffer_mutex[0];
-    }else if(buffer == audio_unit_devout->buffer[1]){
-      buffer_mutex = audio_unit_devout->buffer_mutex[1];
-    }else if(buffer == audio_unit_devout->buffer[2]){
-      buffer_mutex = audio_unit_devout->buffer_mutex[2];
-    }else if(buffer == audio_unit_devout->buffer[3]){
-      buffer_mutex = audio_unit_devout->buffer_mutex[3];
-    }else if(buffer == audio_unit_devout->buffer[4]){
-      buffer_mutex = audio_unit_devout->buffer_mutex[4];
-    }else if(buffer == audio_unit_devout->buffer[5]){
-      buffer_mutex = audio_unit_devout->buffer_mutex[5];
-    }else if(buffer == audio_unit_devout->buffer[6]){
-      buffer_mutex = audio_unit_devout->buffer_mutex[6];
-    }else if(buffer == audio_unit_devout->buffer[7]){
-      buffer_mutex = audio_unit_devout->buffer_mutex[7];
+  if(audio_unit_devout->app_buffer != NULL){
+    if(buffer == audio_unit_devout->app_buffer[0]){
+      buffer_mutex = audio_unit_devout->app_buffer_mutex[0];
+    }else if(buffer == audio_unit_devout->app_buffer[1]){
+      buffer_mutex = audio_unit_devout->app_buffer_mutex[1];
+    }else if(buffer == audio_unit_devout->app_buffer[2]){
+      buffer_mutex = audio_unit_devout->app_buffer_mutex[2];
+    }else if(buffer == audio_unit_devout->app_buffer[3]){
+      buffer_mutex = audio_unit_devout->app_buffer_mutex[3];
+    }else if(buffer == audio_unit_devout->app_buffer[4]){
+      buffer_mutex = audio_unit_devout->app_buffer_mutex[4];
+    }else if(buffer == audio_unit_devout->app_buffer[5]){
+      buffer_mutex = audio_unit_devout->app_buffer_mutex[5];
+    }else if(buffer == audio_unit_devout->app_buffer[6]){
+      buffer_mutex = audio_unit_devout->app_buffer_mutex[6];
+    }else if(buffer == audio_unit_devout->app_buffer[7]){
+      buffer_mutex = audio_unit_devout->app_buffer_mutex[7];
     }
   }
   
   if(buffer_mutex != NULL){
-    pthread_mutex_lock(buffer_mutex);
+    g_rec_mutex_lock(buffer_mutex);
   }
 }
 
@@ -2804,34 +2670,34 @@ ags_audio_unit_devout_unlock_buffer(AgsSoundcard *soundcard,
 {
   AgsAudioUnitDevout *audio_unit_devout;
 
-  pthread_mutex_t *buffer_mutex;
+  GRecMutex *buffer_mutex;
   
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(soundcard);
 
   buffer_mutex = NULL;
 
-  if(audio_unit_devout->buffer != NULL){
-    if(buffer == audio_unit_devout->buffer[0]){
-      buffer_mutex = audio_unit_devout->buffer_mutex[0];
-    }else if(buffer == audio_unit_devout->buffer[1]){
-      buffer_mutex = audio_unit_devout->buffer_mutex[1];
-    }else if(buffer == audio_unit_devout->buffer[2]){
-      buffer_mutex = audio_unit_devout->buffer_mutex[2];
-    }else if(buffer == audio_unit_devout->buffer[3]){
-      buffer_mutex = audio_unit_devout->buffer_mutex[3];
-    }else if(buffer == audio_unit_devout->buffer[4]){
-      buffer_mutex = audio_unit_devout->buffer_mutex[4];
-    }else if(buffer == audio_unit_devout->buffer[5]){
-      buffer_mutex = audio_unit_devout->buffer_mutex[5];
-    }else if(buffer == audio_unit_devout->buffer[6]){
-      buffer_mutex = audio_unit_devout->buffer_mutex[6];
-    }else if(buffer == audio_unit_devout->buffer[7]){
-      buffer_mutex = audio_unit_devout->buffer_mutex[7];
+  if(audio_unit_devout->app_buffer != NULL){
+    if(buffer == audio_unit_devout->app_buffer[0]){
+      buffer_mutex = audio_unit_devout->app_buffer_mutex[0];
+    }else if(buffer == audio_unit_devout->app_buffer[1]){
+      buffer_mutex = audio_unit_devout->app_buffer_mutex[1];
+    }else if(buffer == audio_unit_devout->app_buffer[2]){
+      buffer_mutex = audio_unit_devout->app_buffer_mutex[2];
+    }else if(buffer == audio_unit_devout->app_buffer[3]){
+      buffer_mutex = audio_unit_devout->app_buffer_mutex[3];
+    }else if(buffer == audio_unit_devout->app_buffer[4]){
+      buffer_mutex = audio_unit_devout->app_buffer_mutex[4];
+    }else if(buffer == audio_unit_devout->app_buffer[5]){
+      buffer_mutex = audio_unit_devout->app_buffer_mutex[5];
+    }else if(buffer == audio_unit_devout->app_buffer[6]){
+      buffer_mutex = audio_unit_devout->app_buffer_mutex[6];
+    }else if(buffer == audio_unit_devout->app_buffer[7]){
+      buffer_mutex = audio_unit_devout->app_buffer_mutex[7];
     }
   }
 
   if(buffer_mutex != NULL){
-    pthread_mutex_unlock(buffer_mutex);
+    g_rec_mutex_unlock(buffer_mutex);
   }
 }
 
@@ -2842,7 +2708,7 @@ ags_audio_unit_devout_get_delay_counter(AgsSoundcard *soundcard)
 
   guint delay_counter;
   
-  pthread_mutex_t *audio_unit_devout_mutex;  
+  GRecMutex *audio_unit_devout_mutex;  
 
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(soundcard);
   
@@ -2850,11 +2716,11 @@ ags_audio_unit_devout_get_delay_counter(AgsSoundcard *soundcard)
   audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
 
   /* delay counter */
-  pthread_mutex_lock(audio_unit_devout_mutex);
+  g_rec_mutex_lock(audio_unit_devout_mutex);
 
   delay_counter = audio_unit_devout->delay_counter;
   
-  pthread_mutex_unlock(audio_unit_devout_mutex);
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
 
   return(delay_counter);
 }
@@ -2865,7 +2731,7 @@ ags_audio_unit_devout_set_start_note_offset(AgsSoundcard *soundcard,
 {
   AgsAudioUnitDevout *audio_unit_devout;
 
-  pthread_mutex_t *audio_unit_devout_mutex;  
+  GRecMutex *audio_unit_devout_mutex;  
 
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(soundcard);
 
@@ -2873,11 +2739,11 @@ ags_audio_unit_devout_set_start_note_offset(AgsSoundcard *soundcard,
   audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
 
   /* set note offset */
-  pthread_mutex_lock(audio_unit_devout_mutex);
+  g_rec_mutex_lock(audio_unit_devout_mutex);
 
   audio_unit_devout->start_note_offset = start_note_offset;
 
-  pthread_mutex_unlock(audio_unit_devout_mutex);
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
 }
 
 guint
@@ -2887,7 +2753,7 @@ ags_audio_unit_devout_get_start_note_offset(AgsSoundcard *soundcard)
 
   guint start_note_offset;
   
-  pthread_mutex_t *audio_unit_devout_mutex;  
+  GRecMutex *audio_unit_devout_mutex;  
 
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(soundcard);
 
@@ -2895,11 +2761,11 @@ ags_audio_unit_devout_get_start_note_offset(AgsSoundcard *soundcard)
   audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
 
   /* set note offset */
-  pthread_mutex_lock(audio_unit_devout_mutex);
+  g_rec_mutex_lock(audio_unit_devout_mutex);
 
   start_note_offset = audio_unit_devout->start_note_offset;
 
-  pthread_mutex_unlock(audio_unit_devout_mutex);
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
 
   return(start_note_offset);
 }
@@ -2910,7 +2776,7 @@ ags_audio_unit_devout_set_note_offset(AgsSoundcard *soundcard,
 {
   AgsAudioUnitDevout *audio_unit_devout;
 
-  pthread_mutex_t *audio_unit_devout_mutex;  
+  GRecMutex *audio_unit_devout_mutex;  
 
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(soundcard);
 
@@ -2918,11 +2784,11 @@ ags_audio_unit_devout_set_note_offset(AgsSoundcard *soundcard,
   audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
 
   /* set note offset */
-  pthread_mutex_lock(audio_unit_devout_mutex);
+  g_rec_mutex_lock(audio_unit_devout_mutex);
 
   audio_unit_devout->note_offset = note_offset;
 
-  pthread_mutex_unlock(audio_unit_devout_mutex);
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
 }
 
 guint
@@ -2932,7 +2798,7 @@ ags_audio_unit_devout_get_note_offset(AgsSoundcard *soundcard)
 
   guint note_offset;
   
-  pthread_mutex_t *audio_unit_devout_mutex;  
+  GRecMutex *audio_unit_devout_mutex;  
 
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(soundcard);
 
@@ -2940,11 +2806,11 @@ ags_audio_unit_devout_get_note_offset(AgsSoundcard *soundcard)
   audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
 
   /* set note offset */
-  pthread_mutex_lock(audio_unit_devout_mutex);
+  g_rec_mutex_lock(audio_unit_devout_mutex);
 
   note_offset = audio_unit_devout->note_offset;
 
-  pthread_mutex_unlock(audio_unit_devout_mutex);
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
 
   return(note_offset);
 }
@@ -2955,7 +2821,7 @@ ags_audio_unit_devout_set_note_offset_absolute(AgsSoundcard *soundcard,
 {
   AgsAudioUnitDevout *audio_unit_devout;
   
-  pthread_mutex_t *audio_unit_devout_mutex;  
+  GRecMutex *audio_unit_devout_mutex;  
 
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(soundcard);
 
@@ -2963,11 +2829,11 @@ ags_audio_unit_devout_set_note_offset_absolute(AgsSoundcard *soundcard,
   audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
 
   /* set note offset */
-  pthread_mutex_lock(audio_unit_devout_mutex);
+  g_rec_mutex_lock(audio_unit_devout_mutex);
 
   audio_unit_devout->note_offset_absolute = note_offset_absolute;
 
-  pthread_mutex_unlock(audio_unit_devout_mutex);
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
 }
 
 guint
@@ -2977,7 +2843,7 @@ ags_audio_unit_devout_get_note_offset_absolute(AgsSoundcard *soundcard)
 
   guint note_offset_absolute;
   
-  pthread_mutex_t *audio_unit_devout_mutex;  
+  GRecMutex *audio_unit_devout_mutex;  
 
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(soundcard);
 
@@ -2985,11 +2851,11 @@ ags_audio_unit_devout_get_note_offset_absolute(AgsSoundcard *soundcard)
   audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
 
   /* set note offset */
-  pthread_mutex_lock(audio_unit_devout_mutex);
+  g_rec_mutex_lock(audio_unit_devout_mutex);
 
   note_offset_absolute = audio_unit_devout->note_offset_absolute;
 
-  pthread_mutex_unlock(audio_unit_devout_mutex);
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
 
   return(note_offset_absolute);
 }
@@ -3001,7 +2867,7 @@ ags_audio_unit_devout_set_loop(AgsSoundcard *soundcard,
 {
   AgsAudioUnitDevout *audio_unit_devout;
 
-  pthread_mutex_t *audio_unit_devout_mutex;  
+  GRecMutex *audio_unit_devout_mutex;  
 
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(soundcard);
 
@@ -3009,7 +2875,7 @@ ags_audio_unit_devout_set_loop(AgsSoundcard *soundcard,
   audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
 
   /* set loop */
-  pthread_mutex_lock(audio_unit_devout_mutex);
+  g_rec_mutex_lock(audio_unit_devout_mutex);
 
   audio_unit_devout->loop_left = loop_left;
   audio_unit_devout->loop_right = loop_right;
@@ -3019,7 +2885,7 @@ ags_audio_unit_devout_set_loop(AgsSoundcard *soundcard,
     audio_unit_devout->loop_offset = audio_unit_devout->note_offset;
   }
 
-  pthread_mutex_unlock(audio_unit_devout_mutex);
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
 }
 
 void
@@ -3029,7 +2895,7 @@ ags_audio_unit_devout_get_loop(AgsSoundcard *soundcard,
 {
   AgsAudioUnitDevout *audio_unit_devout;
 
-  pthread_mutex_t *audio_unit_devout_mutex;  
+  GRecMutex *audio_unit_devout_mutex;  
 
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(soundcard);
 
@@ -3037,7 +2903,7 @@ ags_audio_unit_devout_get_loop(AgsSoundcard *soundcard,
   audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
 
   /* get loop */
-  pthread_mutex_lock(audio_unit_devout_mutex);
+  g_rec_mutex_lock(audio_unit_devout_mutex);
 
   if(loop_left != NULL){
     *loop_left = audio_unit_devout->loop_left;
@@ -3051,7 +2917,7 @@ ags_audio_unit_devout_get_loop(AgsSoundcard *soundcard,
     *do_loop = audio_unit_devout->do_loop;
   }
 
-  pthread_mutex_unlock(audio_unit_devout_mutex);
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
 }
 
 guint
@@ -3061,7 +2927,7 @@ ags_audio_unit_devout_get_loop_offset(AgsSoundcard *soundcard)
 
   guint loop_offset;
   
-  pthread_mutex_t *audio_unit_devout_mutex;  
+  GRecMutex *audio_unit_devout_mutex;  
 
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(soundcard);
 
@@ -3069,11 +2935,11 @@ ags_audio_unit_devout_get_loop_offset(AgsSoundcard *soundcard)
   audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
 
   /* get loop offset */
-  pthread_mutex_lock(audio_unit_devout_mutex);
+  g_rec_mutex_lock(audio_unit_devout_mutex);
 
   loop_offset = audio_unit_devout->loop_offset;
   
-  pthread_mutex_unlock(audio_unit_devout_mutex);
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
 
   return(loop_offset);
 }
@@ -3085,7 +2951,7 @@ ags_audio_unit_devout_get_sub_block_count(AgsSoundcard *soundcard)
 
   guint sub_block_count;
   
-  pthread_mutex_t *audio_unit_devout_mutex;  
+  GRecMutex *audio_unit_devout_mutex;  
 
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(soundcard);
 
@@ -3093,11 +2959,11 @@ ags_audio_unit_devout_get_sub_block_count(AgsSoundcard *soundcard)
   audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
 
   /* get loop offset */
-  pthread_mutex_lock(audio_unit_devout_mutex);
+  g_rec_mutex_lock(audio_unit_devout_mutex);
 
   sub_block_count = audio_unit_devout->sub_block_count;
   
-  pthread_mutex_unlock(audio_unit_devout_mutex);
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
 
   return(sub_block_count);
 }
@@ -3112,8 +2978,8 @@ ags_audio_unit_devout_trylock_sub_block(AgsSoundcard *soundcard,
   guint sub_block_count;
   gboolean success;
   
-  pthread_mutex_t *audio_unit_devout_mutex;  
-  pthread_mutex_t *sub_block_mutex;
+  GRecMutex *audio_unit_devout_mutex;  
+  GRecMutex *sub_block_mutex;
 
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(soundcard);
 
@@ -3121,39 +2987,39 @@ ags_audio_unit_devout_trylock_sub_block(AgsSoundcard *soundcard,
   audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
 
   /* get loop offset */
-  pthread_mutex_lock(audio_unit_devout_mutex);
+  g_rec_mutex_lock(audio_unit_devout_mutex);
 
   pcm_channels = audio_unit_devout->pcm_channels;
   sub_block_count = audio_unit_devout->sub_block_count;
   
-  pthread_mutex_unlock(audio_unit_devout_mutex);
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
   
   sub_block_mutex = NULL;
 
   success = FALSE;
   
-  if(audio_unit_devout->buffer != NULL){
-    if(buffer == audio_unit_devout->buffer[0]){
+  if(audio_unit_devout->app_buffer != NULL){
+    if(buffer == audio_unit_devout->app_buffer[0]){
       sub_block_mutex = audio_unit_devout->sub_block_mutex[sub_block];
-    }else if(buffer == audio_unit_devout->buffer[1]){
+    }else if(buffer == audio_unit_devout->app_buffer[1]){
       sub_block_mutex = audio_unit_devout->sub_block_mutex[pcm_channels * sub_block_count + sub_block];
-    }else if(buffer == audio_unit_devout->buffer[2]){
+    }else if(buffer == audio_unit_devout->app_buffer[2]){
       sub_block_mutex = audio_unit_devout->sub_block_mutex[2 * pcm_channels * sub_block_count + sub_block];
-    }else if(buffer == audio_unit_devout->buffer[3]){
+    }else if(buffer == audio_unit_devout->app_buffer[3]){
       sub_block_mutex = audio_unit_devout->sub_block_mutex[3 * pcm_channels * sub_block_count + sub_block];
-    }else if(buffer == audio_unit_devout->buffer[4]){
+    }else if(buffer == audio_unit_devout->app_buffer[4]){
       sub_block_mutex = audio_unit_devout->sub_block_mutex[4 * pcm_channels * sub_block_count + sub_block];
-    }else if(buffer == audio_unit_devout->buffer[5]){
+    }else if(buffer == audio_unit_devout->app_buffer[5]){
       sub_block_mutex = audio_unit_devout->sub_block_mutex[5 * pcm_channels * sub_block_count + sub_block];
-    }else if(buffer == audio_unit_devout->buffer[6]){
+    }else if(buffer == audio_unit_devout->app_buffer[6]){
       sub_block_mutex = audio_unit_devout->sub_block_mutex[6 * pcm_channels * sub_block_count + sub_block];
-    }else if(buffer == audio_unit_devout->buffer[7]){
+    }else if(buffer == audio_unit_devout->app_buffer[7]){
       sub_block_mutex = audio_unit_devout->sub_block_mutex[7 * pcm_channels * sub_block_count + sub_block];
     }
   }
 
   if(sub_block_mutex != NULL){
-    if(pthread_mutex_trylock(sub_block_mutex) == 0){
+    if(g_rec_mutex_trylock(sub_block_mutex)){
       success = TRUE;
     }
   }
@@ -3170,8 +3036,8 @@ ags_audio_unit_devout_unlock_sub_block(AgsSoundcard *soundcard,
   guint pcm_channels;
   guint sub_block_count;
   
-  pthread_mutex_t *audio_unit_devout_mutex;  
-  pthread_mutex_t *sub_block_mutex;
+  GRecMutex *audio_unit_devout_mutex;  
+  GRecMutex *sub_block_mutex;
 
   audio_unit_devout = AGS_AUDIO_UNIT_DEVOUT(soundcard);
 
@@ -3179,37 +3045,37 @@ ags_audio_unit_devout_unlock_sub_block(AgsSoundcard *soundcard,
   audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
 
   /* get loop offset */
-  pthread_mutex_lock(audio_unit_devout_mutex);
+  g_rec_mutex_lock(audio_unit_devout_mutex);
 
   pcm_channels = audio_unit_devout->pcm_channels;
   sub_block_count = audio_unit_devout->sub_block_count;
   
-  pthread_mutex_unlock(audio_unit_devout_mutex);
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
   
   sub_block_mutex = NULL;
   
-  if(audio_unit_devout->buffer != NULL){
-    if(buffer == audio_unit_devout->buffer[0]){
+  if(audio_unit_devout->app_buffer != NULL){
+    if(buffer == audio_unit_devout->app_buffer[0]){
       sub_block_mutex = audio_unit_devout->sub_block_mutex[sub_block];
-    }else if(buffer == audio_unit_devout->buffer[1]){
+    }else if(buffer == audio_unit_devout->app_buffer[1]){
       sub_block_mutex = audio_unit_devout->sub_block_mutex[pcm_channels * sub_block_count + sub_block];
-    }else if(buffer == audio_unit_devout->buffer[2]){
+    }else if(buffer == audio_unit_devout->app_buffer[2]){
       sub_block_mutex = audio_unit_devout->sub_block_mutex[2 * pcm_channels * sub_block_count + sub_block];
-    }else if(buffer == audio_unit_devout->buffer[3]){
+    }else if(buffer == audio_unit_devout->app_buffer[3]){
       sub_block_mutex = audio_unit_devout->sub_block_mutex[3 * pcm_channels * sub_block_count + sub_block];
-    }else if(buffer == audio_unit_devout->buffer[4]){
+    }else if(buffer == audio_unit_devout->app_buffer[4]){
       sub_block_mutex = audio_unit_devout->sub_block_mutex[4 * pcm_channels * sub_block_count + sub_block];
-    }else if(buffer == audio_unit_devout->buffer[5]){
+    }else if(buffer == audio_unit_devout->app_buffer[5]){
       sub_block_mutex = audio_unit_devout->sub_block_mutex[5 * pcm_channels * sub_block_count + sub_block];
-    }else if(buffer == audio_unit_devout->buffer[6]){
+    }else if(buffer == audio_unit_devout->app_buffer[6]){
       sub_block_mutex = audio_unit_devout->sub_block_mutex[6 * pcm_channels * sub_block_count + sub_block];
-    }else if(buffer == audio_unit_devout->buffer[7]){
+    }else if(buffer == audio_unit_devout->app_buffer[7]){
       sub_block_mutex = audio_unit_devout->sub_block_mutex[7 * pcm_channels * sub_block_count + sub_block];
     }
   }
 
   if(sub_block_mutex != NULL){
-    pthread_mutex_unlock(sub_block_mutex);
+    g_rec_mutex_unlock(sub_block_mutex);
   }
 }
 
@@ -3219,12 +3085,12 @@ ags_audio_unit_devout_unlock_sub_block(AgsSoundcard *soundcard,
  *
  * The buffer flag indicates the currently played buffer.
  *
- * Since: 2.3.14
+ * Since: 3.0.0
  */
 void
 ags_audio_unit_devout_switch_buffer_flag(AgsAudioUnitDevout *audio_unit_devout)
 {
-  pthread_mutex_t *audio_unit_devout_mutex;
+  GRecMutex *audio_unit_devout_mutex;
   
   if(!AGS_IS_AUDIO_UNIT_DEVOUT(audio_unit_devout)){
     return;
@@ -3234,35 +3100,27 @@ ags_audio_unit_devout_switch_buffer_flag(AgsAudioUnitDevout *audio_unit_devout)
   audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
 
   /* switch buffer flag */
-  pthread_mutex_lock(audio_unit_devout_mutex);
+  g_rec_mutex_lock(audio_unit_devout_mutex);
 
-  if((AGS_AUDIO_UNIT_DEVOUT_BUFFER0 & (audio_unit_devout->flags)) != 0){
-    audio_unit_devout->flags &= (~AGS_AUDIO_UNIT_DEVOUT_BUFFER0);
-    audio_unit_devout->flags |= AGS_AUDIO_UNIT_DEVOUT_BUFFER1;
-  }else if((AGS_AUDIO_UNIT_DEVOUT_BUFFER1 & (audio_unit_devout->flags)) != 0){
-    audio_unit_devout->flags &= (~AGS_AUDIO_UNIT_DEVOUT_BUFFER1);
-    audio_unit_devout->flags |= AGS_AUDIO_UNIT_DEVOUT_BUFFER2;
-  }else if((AGS_AUDIO_UNIT_DEVOUT_BUFFER2 & (audio_unit_devout->flags)) != 0){
-    audio_unit_devout->flags &= (~AGS_AUDIO_UNIT_DEVOUT_BUFFER2);
-    audio_unit_devout->flags |= AGS_AUDIO_UNIT_DEVOUT_BUFFER3;
-  }else if((AGS_AUDIO_UNIT_DEVOUT_BUFFER3 & (audio_unit_devout->flags)) != 0){
-    audio_unit_devout->flags &= (~AGS_AUDIO_UNIT_DEVOUT_BUFFER3);
-    audio_unit_devout->flags |= AGS_AUDIO_UNIT_DEVOUT_BUFFER4;
-  }else if((AGS_AUDIO_UNIT_DEVOUT_BUFFER4 & (audio_unit_devout->flags)) != 0){
-    audio_unit_devout->flags &= (~AGS_AUDIO_UNIT_DEVOUT_BUFFER4);
-    audio_unit_devout->flags |= AGS_AUDIO_UNIT_DEVOUT_BUFFER5;
-  }else if((AGS_AUDIO_UNIT_DEVOUT_BUFFER5 & (audio_unit_devout->flags)) != 0){
-    audio_unit_devout->flags &= (~AGS_AUDIO_UNIT_DEVOUT_BUFFER5);
-    audio_unit_devout->flags |= AGS_AUDIO_UNIT_DEVOUT_BUFFER6;
-  }else if((AGS_AUDIO_UNIT_DEVOUT_BUFFER6 & (audio_unit_devout->flags)) != 0){
-    audio_unit_devout->flags &= (~AGS_AUDIO_UNIT_DEVOUT_BUFFER6);
-    audio_unit_devout->flags |= AGS_AUDIO_UNIT_DEVOUT_BUFFER7;
-  }else if((AGS_AUDIO_UNIT_DEVOUT_BUFFER7 & (audio_unit_devout->flags)) != 0){
-    audio_unit_devout->flags &= (~AGS_AUDIO_UNIT_DEVOUT_BUFFER7);
-    audio_unit_devout->flags |= AGS_AUDIO_UNIT_DEVOUT_BUFFER0;
+  if(audio_unit_devout->app_buffer_mode == AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_0){
+    audio_unit_devout->app_buffer_mode = AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_1;
+  }else if(audio_unit_devout->app_buffer_mode == AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_1){
+    audio_unit_devout->app_buffer_mode = AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_2;
+  }else if(audio_unit_devout->app_buffer_mode == AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_2){
+    audio_unit_devout->app_buffer_mode = AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_3;
+  }else if(audio_unit_devout->app_buffer_mode == AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_3){
+    audio_unit_devout->app_buffer_mode = AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_4;
+  }else if(audio_unit_devout->app_buffer_mode == AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_4){
+    audio_unit_devout->app_buffer_mode = AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_5;
+  }else if(audio_unit_devout->app_buffer_mode == AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_5){
+    audio_unit_devout->app_buffer_mode = AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_6;
+  }else if(audio_unit_devout->app_buffer_mode == AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_6){
+    audio_unit_devout->app_buffer_mode = AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_7;
+  }else if(audio_unit_devout->app_buffer_mode == AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_7){
+    audio_unit_devout->app_buffer_mode = AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_0;
   }
 
-  pthread_mutex_unlock(audio_unit_devout_mutex);
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
 }
 
 /**
@@ -3271,7 +3129,7 @@ ags_audio_unit_devout_switch_buffer_flag(AgsAudioUnitDevout *audio_unit_devout)
  *
  * Calculate delay and attack and reset it.
  *
- * Since: 2.3.14
+ * Since: 3.0.0
  */
 void
 ags_audio_unit_devout_adjust_delay_and_attack(AgsAudioUnitDevout *audio_unit_devout)
@@ -3283,7 +3141,7 @@ ags_audio_unit_devout_adjust_delay_and_attack(AgsAudioUnitDevout *audio_unit_dev
   gint next_attack;
   guint i;
 
-  pthread_mutex_t *audio_unit_devout_mutex;
+  GRecMutex *audio_unit_devout_mutex;
 
   if(!AGS_IS_AUDIO_UNIT_DEVOUT(audio_unit_devout)){
     return;
@@ -3299,7 +3157,7 @@ ags_audio_unit_devout_adjust_delay_and_attack(AgsAudioUnitDevout *audio_unit_dev
   g_message("delay : %f", delay);
 #endif
   
-  pthread_mutex_lock(audio_unit_devout_mutex);
+  g_rec_mutex_lock(audio_unit_devout_mutex);
 
   default_tact_frames = (guint) (delay * audio_unit_devout->buffer_size);
   delay_tact_frames = (guint) (floor(delay) * audio_unit_devout->buffer_size);
@@ -3389,7 +3247,7 @@ ags_audio_unit_devout_adjust_delay_and_attack(AgsAudioUnitDevout *audio_unit_dev
 
   audio_unit_devout->delay[i] = ((gdouble) (default_tact_frames + audio_unit_devout->attack[i] - audio_unit_devout->attack[0])) / (gdouble) audio_unit_devout->buffer_size;
 
-  pthread_mutex_unlock(audio_unit_devout_mutex);
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
 }
 
 /**
@@ -3398,7 +3256,7 @@ ags_audio_unit_devout_adjust_delay_and_attack(AgsAudioUnitDevout *audio_unit_dev
  *
  * Reallocate the internal audio buffer.
  *
- * Since: 2.3.14
+ * Since: 3.0.0
  */
 void
 ags_audio_unit_devout_realloc_buffer(AgsAudioUnitDevout *audio_unit_devout)
@@ -3408,7 +3266,7 @@ ags_audio_unit_devout_realloc_buffer(AgsAudioUnitDevout *audio_unit_devout)
   guint format;
   guint word_size;
 
-  pthread_mutex_t *audio_unit_devout_mutex;  
+  GRecMutex *audio_unit_devout_mutex;  
 
   if(!AGS_IS_AUDIO_UNIT_DEVOUT(audio_unit_devout)){
     return;
@@ -3418,14 +3276,14 @@ ags_audio_unit_devout_realloc_buffer(AgsAudioUnitDevout *audio_unit_devout)
   audio_unit_devout_mutex = AGS_AUDIO_UNIT_DEVOUT_GET_OBJ_MUTEX(audio_unit_devout);
 
   /* get word size */  
-  pthread_mutex_lock(audio_unit_devout_mutex);
+  g_rec_mutex_lock(audio_unit_devout_mutex);
 
   pcm_channels = audio_unit_devout->pcm_channels;
   buffer_size = audio_unit_devout->buffer_size;
 
   format = audio_unit_devout->format;
   
-  pthread_mutex_unlock(audio_unit_devout_mutex);
+  g_rec_mutex_unlock(audio_unit_devout_mutex);
 
   switch(format){
   case AGS_SOUNDCARD_SIGNED_16_BIT:
@@ -3448,80 +3306,78 @@ ags_audio_unit_devout_realloc_buffer(AgsAudioUnitDevout *audio_unit_devout)
     return;
   }
   
-  /* AGS_AUDIO_UNIT_DEVOUT_BUFFER_0 */
-  if(audio_unit_devout->buffer[0] != NULL){
-    free(audio_unit_devout->buffer[0]);
+  /* AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_0 */
+  if(audio_unit_devout->app_buffer[0] != NULL){
+    g_free(audio_unit_devout->app_buffer[0]);
   }
   
-  audio_unit_devout->buffer[0] = (void *) malloc(pcm_channels * buffer_size * word_size);
+  audio_unit_devout->app_buffer[0] = (void *) g_malloc(pcm_channels * buffer_size * word_size);
   
-  /* AGS_AUDIO_UNIT_DEVOUT_BUFFER_1 */
-  if(audio_unit_devout->buffer[1] != NULL){
-    free(audio_unit_devout->buffer[1]);
-  }
-
-  audio_unit_devout->buffer[1] = (void *) malloc(pcm_channels * buffer_size * word_size);
-  
-  /* AGS_AUDIO_UNIT_DEVOUT_BUFFER_2 */
-  if(audio_unit_devout->buffer[2] != NULL){
-    free(audio_unit_devout->buffer[2]);
+  /* AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_1 */
+  if(audio_unit_devout->app_buffer[1] != NULL){
+    g_free(audio_unit_devout->app_buffer[1]);
   }
 
-  audio_unit_devout->buffer[2] = (void *) malloc(pcm_channels * buffer_size * word_size);
+  audio_unit_devout->app_buffer[1] = (void *) g_malloc(pcm_channels * buffer_size * word_size);
   
-  /* AGS_AUDIO_UNIT_DEVOUT_BUFFER_3 */
-  if(audio_unit_devout->buffer[3] != NULL){
-    free(audio_unit_devout->buffer[3]);
+  /* AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_2 */
+  if(audio_unit_devout->app_buffer[2] != NULL){
+    g_free(audio_unit_devout->app_buffer[2]);
   }
-  
-  audio_unit_devout->buffer[3] = (void *) malloc(pcm_channels * buffer_size * word_size);
 
-  /* AGS_AUDIO_UNIT_DEVOUT_BUFFER_4 */
-  if(audio_unit_devout->buffer[4] != NULL){
-    free(audio_unit_devout->buffer[4]);
+  audio_unit_devout->app_buffer[2] = (void *) g_malloc(pcm_channels * buffer_size * word_size);
+  
+  /* AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_3 */
+  if(audio_unit_devout->app_buffer[3] != NULL){
+    g_free(audio_unit_devout->app_buffer[3]);
   }
   
-  audio_unit_devout->buffer[4] = (void *) malloc(pcm_channels * buffer_size * word_size);
+  audio_unit_devout->app_buffer[3] = (void *) g_malloc(pcm_channels * buffer_size * word_size);
 
-  /* AGS_AUDIO_UNIT_DEVOUT_BUFFER_5 */
-  if(audio_unit_devout->buffer[5] != NULL){
-    free(audio_unit_devout->buffer[5]);
+  /* AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_4 */
+  if(audio_unit_devout->app_buffer[4] != NULL){
+    g_free(audio_unit_devout->app_buffer[4]);
   }
   
-  audio_unit_devout->buffer[5] = (void *) malloc(pcm_channels * buffer_size * word_size);
+  audio_unit_devout->app_buffer[4] = (void *) g_malloc(pcm_channels * buffer_size * word_size);
 
-  /* AGS_AUDIO_UNIT_DEVOUT_BUFFER_6 */
-  if(audio_unit_devout->buffer[6] != NULL){
-    free(audio_unit_devout->buffer[6]);
+  /* AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_5 */
+  if(audio_unit_devout->app_buffer[5] != NULL){
+    g_free(audio_unit_devout->app_buffer[5]);
   }
   
-  audio_unit_devout->buffer[6] = (void *) malloc(pcm_channels * buffer_size * word_size);
+  audio_unit_devout->app_buffer[5] = (void *) g_malloc(pcm_channels * buffer_size * word_size);
 
-  /* AGS_AUDIO_UNIT_DEVOUT_BUFFER_7 */
-  if(audio_unit_devout->buffer[7] != NULL){
-    free(audio_unit_devout->buffer[7]);
+  /* AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_6 */
+  if(audio_unit_devout->app_buffer[6] != NULL){
+    g_free(audio_unit_devout->app_buffer[6]);
   }
   
-  audio_unit_devout->buffer[7] = (void *) malloc(pcm_channels * buffer_size * word_size);
+  audio_unit_devout->app_buffer[6] = (void *) g_malloc(pcm_channels * buffer_size * word_size);
+
+  /* AGS_AUDIO_UNIT_DEVOUT_APP_BUFFER_7 */
+  if(audio_unit_devout->app_buffer[7] != NULL){
+    g_free(audio_unit_devout->app_buffer[7]);
+  }
+  
+  audio_unit_devout->app_buffer[7] = (void *) g_malloc(pcm_channels * buffer_size * word_size);
 }
 
 /**
  * ags_audio_unit_devout_new:
- * @application_context: the #AgsApplicationContext
  *
  * Creates a new instance of #AgsAudioUnitDevout.
  *
  * Returns: a new #AgsAudioUnitDevout
  *
- * Since: 2.3.14
+ * Since: 3.0.0
  */
 AgsAudioUnitDevout*
-ags_audio_unit_devout_new(AgsApplicationContext *application_context)
+ags_audio_unit_devout_new()
 {
   AgsAudioUnitDevout *audio_unit_devout;
 
   audio_unit_devout = (AgsAudioUnitDevout *) g_object_new(AGS_TYPE_AUDIO_UNIT_DEVOUT,
-							  "application-context", application_context,
 							  NULL);
   
   return(audio_unit_devout);

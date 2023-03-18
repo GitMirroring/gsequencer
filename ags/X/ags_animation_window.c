@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2023 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -137,7 +137,7 @@ ags_animation_window_init(AgsAnimationWindow *animation_window)
       }
     }
 #else
-    filename = g_strdup_printf("%s%s", DESTDIR, "/gsequencer/images/ags_supermoon-800x450.png");
+    filename = g_strdup_printf("%s%s", AGS_DATA_DIR, "/gsequencer/images/ags_supermoon-800x450.png");
 #endif
   }else{
     filename = g_strdup(filename);
@@ -274,13 +274,13 @@ ags_animation_window_draw(AgsAnimationWindow *animation_window)
   for(i = 0; i < i_stop; i++){
     gchar *str;
     
-    pthread_mutex_lock(log->mutex);
+    g_rec_mutex_lock(AGS_LOG_GET_OBJ_MUTEX(log));
 
     str = g_strdup(list->data);
     
     list = list->next;
 
-    pthread_mutex_unlock(log->mutex);
+    g_rec_mutex_unlock(AGS_LOG_GET_OBJ_MUTEX(log));
 
     /* text */
     layout = pango_cairo_create_layout(cr);

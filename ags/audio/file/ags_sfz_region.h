@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -25,6 +25,8 @@
 
 #include <ags/libags.h>
 
+G_BEGIN_DECLS
+
 #define AGS_TYPE_SFZ_REGION                (ags_sfz_region_get_type())
 #define AGS_SFZ_REGION(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_SFZ_REGION, AgsSFZRegion))
 #define AGS_SFZ_REGION_CLASS(class)        (G_TYPE_CHECK_CLASS_CAST((class), AGS_TYPE_SFZ_REGION, AgsSFZRegionClass))
@@ -32,32 +34,19 @@
 #define AGS_IS_SFZ_REGION_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE ((class), AGS_TYPE_SFZ_REGION))
 #define AGS_SFZ_REGION_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS ((obj), AGS_TYPE_SFZ_REGION, AgsSFZRegionClass))
 
-#define AGS_SFZ_REGION_GET_OBJ_MUTEX(obj) (((AgsSFZRegion *) obj)->obj_mutex)
+#define AGS_SFZ_REGION_GET_OBJ_MUTEX(obj) (&(((AgsSFZRegion *) obj)->obj_mutex))
 
 typedef struct _AgsSFZRegion AgsSFZRegion;
 typedef struct _AgsSFZRegionClass AgsSFZRegionClass;
-
-/**
- * AgsSFZRegionFlags:
- * @AGS_SFZ_REGION_ADDED_TO_REGISTRY: the sfz region was added to registry, see #AgsConnectable::add_to_registry()
- * @AGS_SFZ_REGION_CONNECTED: indicates the sfz region was connected by calling #AgsConnectable::connect()
- * 
- * Enum values to control the behavior or indicate internal state of #AgsSFZRegion by
- * enable/disable as flags.
- */
-typedef enum{
-  AGS_SFZ_REGION_ADDED_TO_REGISTRY    = 1,
-  AGS_SFZ_REGION_CONNECTED            = 1 <<  1,
-}AgsSFZRegionFlags;
 
 struct _AgsSFZRegion
 {
   GObject gobject;
 
   guint flags;
+  guint connectable_flags;
 
-  pthread_mutex_t *obj_mutex;
-  pthread_mutexattr_t *obj_mutexattr;
+  GRecMutex obj_mutex;
 
   AgsUUID *uuid;
 
@@ -76,12 +65,19 @@ struct _AgsSFZRegionClass
 
 GType ags_sfz_region_get_type();
 
-pthread_mutex_t* ags_sfz_region_get_class_mutex();
-
 gboolean ags_sfz_region_test_flags(AgsSFZRegion *sfz_region, guint flags);
 void ags_sfz_region_set_flags(AgsSFZRegion *sfz_region, guint flags);
 void ags_sfz_region_unset_flags(AgsSFZRegion *sfz_region, guint flags);
 
+GObject* ags_sfz_region_get_group(AgsSFZRegion *sfz_region);
+void ags_sfz_region_set_group(AgsSFZRegion *sfz_region,
+			      GObject *group);
+
+GObject* ags_sfz_region_get_sample(AgsSFZRegion *sfz_region);
+void ags_sfz_region_set_sample(AgsSFZRegion *sfz_region,
+			       GObject *sample);
+
+GList* ags_sfz_region_get_control(AgsSFZRegion *sfz_region);
 void ags_sfz_region_insert_control(AgsSFZRegion *sfz_region,
 				   gchar *key,
 				   gchar *value);
@@ -90,5 +86,7 @@ gchar* ags_sfz_region_lookup_control(AgsSFZRegion *sfz_region,
 
 /* instantiate */
 AgsSFZRegion* ags_sfz_region_new();
+
+G_END_DECLS
 
 #endif /*__AGS_SFZ_REGION_H__*/

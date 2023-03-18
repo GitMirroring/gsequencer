@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2018 Joël Krähemann
+ * Copyright (C) 2005-2020 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -140,7 +140,7 @@ ags_apply_presets_class_init(AgsApplyPresetsClass *apply_presets)
    *
    * The assigned #GObject
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_object("scope",
 				   i18n_pspec("scope of apply presets"),
@@ -156,7 +156,7 @@ ags_apply_presets_class_init(AgsApplyPresetsClass *apply_presets)
    *
    * The count of pcm-channels to apply.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("pcm-channels",
 				 i18n_pspec("pcm channel count"),
@@ -174,7 +174,7 @@ ags_apply_presets_class_init(AgsApplyPresetsClass *apply_presets)
    *
    * The count of samplerate to apply.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("samplerate",
 				 i18n_pspec("samplerate"),
@@ -193,7 +193,7 @@ ags_apply_presets_class_init(AgsApplyPresetsClass *apply_presets)
    *
    * The count of buffer-size to apply.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("buffer-size",
 				 i18n_pspec("buffer size"),
@@ -211,7 +211,7 @@ ags_apply_presets_class_init(AgsApplyPresetsClass *apply_presets)
    *
    * The count of format to apply.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("format",
 				 i18n_pspec("format"),
@@ -435,10 +435,12 @@ ags_apply_presets_soundcard(AgsApplyPresets *apply_presets,
 			    apply_presets->format);
 
   /* reset audio loop frequency */
-  g_object_set(G_OBJECT(main_loop),
-	       "frequency", freq,
-	       NULL);
-    
+  if(main_loop != NULL){
+    g_object_set(G_OBJECT(main_loop),
+		 "frequency", freq,
+		 NULL);
+  }
+  
   /* reset export thread frequency */
   export_thread = ags_thread_find_type(main_loop,
 				       AGS_TYPE_EXPORT_THREAD);
@@ -495,7 +497,9 @@ ags_apply_presets_soundcard(AgsApplyPresets *apply_presets,
 		   g_object_unref);
 
   /* unref */
-  g_object_unref(main_loop);
+  if(main_loop != NULL){
+    g_object_unref(main_loop);
+  }
 }
 
 void
@@ -543,7 +547,7 @@ ags_apply_presets_audio_signal(AgsApplyPresets *apply_presets,
  *
  * Returns: the new #AgsApplyPresets.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 AgsApplyPresets*
 ags_apply_presets_new(GObject *scope,

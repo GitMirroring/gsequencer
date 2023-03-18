@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2020 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -25,11 +25,11 @@
 
 #include <libxml/tree.h>
 
-#include <pthread.h>
-
 #include <ags/libags.h>
 
 #include <ags/audio/ags_track.h>
+
+G_BEGIN_DECLS
 
 #define AGS_TYPE_MIDI                (ags_midi_get_type())
 #define AGS_MIDI(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_MIDI, AgsMidi))
@@ -38,7 +38,7 @@
 #define AGS_IS_MIDI_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE ((class), AGS_TYPE_MIDI))
 #define AGS_MIDI_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS (obj, AGS_TYPE_MIDI, AgsMidiClass))
 
-#define AGS_MIDI_GET_OBJ_MUTEX(obj) (((AgsMidi *) obj)->obj_mutex)
+#define AGS_MIDI_GET_OBJ_MUTEX(obj) (&(((AgsMidi *) obj)->obj_mutex))
 
 #define AGS_MIDI_DEFAULT_BPM (120.0)
 
@@ -47,7 +47,7 @@
 
 #define AGS_MIDI_DEFAULT_LENGTH (65535.0 / AGS_MIDI_TICS_PER_BEAT - AGS_MIDI_MINIMUM_TRACK_LENGTH)
 #define AGS_MIDI_DEFAULT_JIFFIE (60.0 / AGS_MIDI_DEFAULT_BPM / AGS_MIDI_TICS_PER_BEAT)
-#define AGS_MIDI_DEFAULT_DURATION (AGS_MIDI_DEFAULT_LENGTH * AGS_MIDI_DEFAULT_JIFFIE * USEC_PER_SEC)
+#define AGS_MIDI_DEFAULT_DURATION (AGS_MIDI_DEFAULT_LENGTH * AGS_MIDI_DEFAULT_JIFFIE * AGS_USEC_PER_SEC)
 #define AGS_MIDI_DEFAULT_OFFSET (64 * (1 / AGS_MIDI_MINIMUM_TRACK_LENGTH))
 
 #define AGS_MIDI_CLIPBOARD_VERSION "1.4.0"
@@ -74,8 +74,7 @@ struct _AgsMidi
 
   guint flags;
 
-  pthread_mutex_t *obj_mutex;
-  pthread_mutexattr_t *obj_mutexattr;
+  GRecMutex obj_mutex;
 
   GObject *audio;
   guint audio_channel;
@@ -93,7 +92,7 @@ struct _AgsMidiClass
 
 GType ags_midi_get_type(void);
 
-pthread_mutex_t* ags_midi_get_class_mutex();
+GRecMutex* ags_midi_get_obj_mutex(AgsMidi *midi);
 
 gboolean ags_midi_test_flags(AgsMidi *midi, guint flags);
 void ags_midi_set_flags(AgsMidi *midi, guint flags);
@@ -101,6 +100,25 @@ void ags_midi_unset_flags(AgsMidi *midi, guint flags);
 
 GList* ags_midi_find_near_timestamp(GList *midi, guint audio_channel,
 				    AgsTimestamp *timestamp);
+
+gint ags_midi_sort_func(gconstpointer a,
+			gconstpointer b);
+
+GObject* ags_midi_get_audio(AgsMidi *midi);
+void ags_midi_set_audio(AgsMidi *midi,
+			GObject *audio);
+
+guint ags_midi_get_audio_channel(AgsMidi *midi);
+void ags_midi_set_audio_channel(AgsMidi *midi,
+				guint audio_channel);
+
+AgsTimestamp* ags_midi_get_timestamp(AgsMidi *midi);
+void ags_midi_set_timestamp(AgsMidi *midi,
+			    AgsTimestamp *timestamp);
+
+GList* ags_midi_get_track(AgsMidi *midi);
+void ags_midi_set_track(AgsMidi *midi,
+			GList *track);
 
 GList* ags_midi_add(GList *midi,
 		    AgsMidi *new_midi);
@@ -114,5 +132,7 @@ void ags_midi_remove_track(AgsMidi *midi,
 
 AgsMidi* ags_midi_new(GObject *audio,
 		      guint audio_channel);
+
+G_END_DECLS
 
 #endif /*__AGS_MIDI_H__*/

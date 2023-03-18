@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -18,8 +18,6 @@
  */
 
 #include <ags/audio/file/ags_ipatch_sf2_reader.h>
-
-#include <ags/libags.h>
 
 #include <stdlib.h>
 
@@ -63,8 +61,6 @@ void ags_ipatch_sf2_reader_disconnect(AgsConnectable *connectable);
  */
 
 static gpointer ags_ipatch_sf2_reader_parent_class = NULL;
-
-static pthread_mutex_t ags_ipatch_sf2_reader_class_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 enum{
   PROP_0,
@@ -134,7 +130,7 @@ ags_ipatch_sf2_reader_class_init(AgsIpatchSF2ReaderClass *ipatch_sf2_reader)
    *
    * The assigned #AgsIpatch
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_object("ipatch",
 				   i18n_pspec("the ipatch"),
@@ -174,27 +170,11 @@ ags_ipatch_sf2_reader_init(AgsIpatchSF2Reader *ipatch_sf2_reader)
 {
   guint i;
 
-  pthread_mutex_t *mutex;
-  pthread_mutexattr_t *attr;
-
   ipatch_sf2_reader->flags = 0;
+  ipatch_sf2_reader->connectable_flags = 0;
 
   /* add audio file mutex */
-  ipatch_sf2_reader->obj_mutexattr = 
-    attr = (pthread_mutexattr_t *) malloc(sizeof(pthread_mutexattr_t));
-  pthread_mutexattr_init(attr);
-  pthread_mutexattr_settype(attr,
-			    PTHREAD_MUTEX_RECURSIVE);
-
-#ifdef __linux__
-  pthread_mutexattr_setprotocol(attr,
-				PTHREAD_PRIO_INHERIT);
-#endif
-
-  ipatch_sf2_reader->obj_mutex = 
-    mutex = (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t));
-  pthread_mutex_init(mutex,
-		     attr);  
+  g_rec_mutex_init(&(ipatch_sf2_reader->obj_mutex));
 
   /* uuid */
   ipatch_sf2_reader->uuid = ags_uuid_alloc();
@@ -233,7 +213,7 @@ ags_ipatch_sf2_reader_set_property(GObject *gobject,
 {
   AgsIpatchSF2Reader *ipatch_sf2_reader;
 
-  pthread_mutex_t *ipatch_sf2_reader_mutex;
+  GRecMutex *ipatch_sf2_reader_mutex;
 
   ipatch_sf2_reader = AGS_IPATCH_SF2_READER(gobject);
 
@@ -247,10 +227,10 @@ ags_ipatch_sf2_reader_set_property(GObject *gobject,
 
       ipatch = (AgsIpatch *) g_value_get_object(value);
 
-      pthread_mutex_lock(ipatch_sf2_reader_mutex);
+      g_rec_mutex_lock(ipatch_sf2_reader_mutex);
 
       if(ipatch_sf2_reader->ipatch == ipatch){
-	pthread_mutex_unlock(ipatch_sf2_reader_mutex);
+	g_rec_mutex_unlock(ipatch_sf2_reader_mutex);
 
 	return;
       }
@@ -265,7 +245,7 @@ ags_ipatch_sf2_reader_set_property(GObject *gobject,
 
       ipatch_sf2_reader->ipatch = ipatch;
 
-      pthread_mutex_unlock(ipatch_sf2_reader_mutex);
+      g_rec_mutex_unlock(ipatch_sf2_reader_mutex);
     }
     break;
   default:
@@ -282,7 +262,7 @@ ags_ipatch_sf2_reader_get_property(GObject *gobject,
 {
   AgsIpatchSF2Reader *ipatch_sf2_reader;
 
-  pthread_mutex_t *ipatch_sf2_reader_mutex;
+  GRecMutex *ipatch_sf2_reader_mutex;
 
   ipatch_sf2_reader = AGS_IPATCH_SF2_READER(gobject);
 
@@ -292,11 +272,11 @@ ags_ipatch_sf2_reader_get_property(GObject *gobject,
   switch(prop_id){
   case PROP_IPATCH:
     {
-      pthread_mutex_lock(ipatch_sf2_reader_mutex);
+      g_rec_mutex_lock(ipatch_sf2_reader_mutex);
 
       g_value_set_object(value, ipatch_sf2_reader->ipatch);
 
-      pthread_mutex_unlock(ipatch_sf2_reader_mutex);
+      g_rec_mutex_unlock(ipatch_sf2_reader_mutex);
     }
     break;
   default:
@@ -329,12 +309,6 @@ ags_ipatch_sf2_reader_finalize(GObject *gobject)
 
   ipatch_sf2_reader = AGS_IPATCH_SF2_READER(gobject);
 
-  pthread_mutex_destroy(ipatch_sf2_reader->obj_mutex);
-  free(ipatch_sf2_reader->obj_mutex);
-
-  pthread_mutexattr_destroy(ipatch_sf2_reader->obj_mutexattr);
-  free(ipatch_sf2_reader->obj_mutexattr);
-
   if(ipatch_sf2_reader->ipatch != NULL){
     g_object_unref(ipatch_sf2_reader->ipatch);
   }
@@ -350,7 +324,7 @@ ags_ipatch_sf2_reader_get_uuid(AgsConnectable *connectable)
   
   AgsUUID *ptr;
 
-  pthread_mutex_t *ipatch_sf2_reader_mutex;
+  GRecMutex *ipatch_sf2_reader_mutex;
 
   ipatch_sf2_reader = AGS_IPATCH_SF2_READER(connectable);
 
@@ -358,11 +332,11 @@ ags_ipatch_sf2_reader_get_uuid(AgsConnectable *connectable)
   ipatch_sf2_reader_mutex = AGS_IPATCH_SF2_READER_GET_OBJ_MUTEX(ipatch_sf2_reader);
 
   /* get UUID */
-  pthread_mutex_lock(ipatch_sf2_reader_mutex);
+  g_rec_mutex_lock(ipatch_sf2_reader_mutex);
 
   ptr = ipatch_sf2_reader->uuid;
 
-  pthread_mutex_unlock(ipatch_sf2_reader_mutex);
+  g_rec_mutex_unlock(ipatch_sf2_reader_mutex);
   
   return(ptr);
 }
@@ -380,20 +354,20 @@ ags_ipatch_sf2_reader_is_ready(AgsConnectable *connectable)
   
   gboolean is_ready;
 
-  pthread_mutex_t *ipatch_sf2_reader_mutex;
+  GRecMutex *ipatch_sf2_reader_mutex;
 
   ipatch_sf2_reader = AGS_IPATCH_SF2_READER(connectable);
 
-  /* get audio file mutex */
+  /* get ipatch_sf2_reader mutex */
   ipatch_sf2_reader_mutex = AGS_IPATCH_SF2_READER_GET_OBJ_MUTEX(ipatch_sf2_reader);
 
   /* check is ready */
-  pthread_mutex_lock(ipatch_sf2_reader_mutex);
-  
-  is_ready = (((AGS_IPATCH_SF2_READER_ADDED_TO_REGISTRY & (ipatch_sf2_reader->flags)) != 0) ? TRUE: FALSE);
-  
-  pthread_mutex_unlock(ipatch_sf2_reader_mutex);
+  g_rec_mutex_lock(ipatch_sf2_reader_mutex);
 
+  is_ready = ((AGS_CONNECTABLE_ADDED_TO_REGISTRY & (ipatch_sf2_reader->connectable_flags)) != 0) ? TRUE: FALSE;
+
+  g_rec_mutex_unlock(ipatch_sf2_reader_mutex);
+  
   return(is_ready);
 }
 
@@ -407,13 +381,22 @@ ags_ipatch_sf2_reader_add_to_registry(AgsConnectable *connectable)
 
   AgsApplicationContext *application_context;
 
+  GRecMutex *ipatch_sf2_reader_mutex;
+
   if(ags_connectable_is_ready(connectable)){
     return;
   }
 
   ipatch_sf2_reader = AGS_IPATCH_SF2_READER(connectable);
 
-  ags_ipatch_sf2_reader_set_flags(ipatch_sf2_reader, AGS_IPATCH_SF2_READER_ADDED_TO_REGISTRY);
+  /* get ipatch sf2 reader mutex */
+  ipatch_sf2_reader_mutex = AGS_IPATCH_SF2_READER_GET_OBJ_MUTEX(ipatch_sf2_reader);
+
+  g_rec_mutex_lock(ipatch_sf2_reader_mutex);
+
+  ipatch_sf2_reader->connectable_flags |= AGS_CONNECTABLE_ADDED_TO_REGISTRY;
+  
+  g_rec_mutex_unlock(ipatch_sf2_reader_mutex);
 
   application_context = ags_application_context_get_instance();
 
@@ -431,9 +414,24 @@ ags_ipatch_sf2_reader_add_to_registry(AgsConnectable *connectable)
 void
 ags_ipatch_sf2_reader_remove_from_registry(AgsConnectable *connectable)
 {
+  AgsIpatchSF2Reader *ipatch_sf2_reader;
+
+  GRecMutex *ipatch_sf2_reader_mutex;
+
   if(!ags_connectable_is_ready(connectable)){
     return;
   }
+
+  ipatch_sf2_reader = AGS_IPATCH_SF2_READER(connectable);
+
+  /* get ipatch sf2 reader mutex */
+  ipatch_sf2_reader_mutex = AGS_IPATCH_SF2_READER_GET_OBJ_MUTEX(ipatch_sf2_reader);
+
+  g_rec_mutex_lock(ipatch_sf2_reader_mutex);
+
+  ipatch_sf2_reader->connectable_flags &= (~AGS_CONNECTABLE_ADDED_TO_REGISTRY);
+  
+  g_rec_mutex_unlock(ipatch_sf2_reader_mutex);
 
   //TODO:JK: implement me
 }
@@ -476,20 +474,20 @@ ags_ipatch_sf2_reader_is_connected(AgsConnectable *connectable)
   
   gboolean is_connected;
 
-  pthread_mutex_t *ipatch_sf2_reader_mutex;
+  GRecMutex *ipatch_sf2_reader_mutex;
 
   ipatch_sf2_reader = AGS_IPATCH_SF2_READER(connectable);
 
-  /* get audio file mutex */
+  /* get ipatch sf2 reader mutex */
   ipatch_sf2_reader_mutex = AGS_IPATCH_SF2_READER_GET_OBJ_MUTEX(ipatch_sf2_reader);
 
   /* check is connected */
-  pthread_mutex_lock(ipatch_sf2_reader_mutex);
+  g_rec_mutex_lock(ipatch_sf2_reader_mutex);
 
-  is_connected = (((AGS_IPATCH_SF2_READER_CONNECTED & (ipatch_sf2_reader->flags)) != 0) ? TRUE: FALSE);
+  is_connected = ((AGS_CONNECTABLE_CONNECTED & (ipatch_sf2_reader->connectable_flags)) != 0) ? TRUE: FALSE;
+
+  g_rec_mutex_unlock(ipatch_sf2_reader_mutex);
   
-  pthread_mutex_unlock(ipatch_sf2_reader_mutex);
-
   return(is_connected);
 }
 
@@ -498,13 +496,22 @@ ags_ipatch_sf2_reader_connect(AgsConnectable *connectable)
 {
   AgsIpatchSF2Reader *ipatch_sf2_reader;
 
+  GRecMutex *ipatch_sf2_reader_mutex;
+
   if(ags_connectable_is_connected(connectable)){
     return;
   }
 
   ipatch_sf2_reader = AGS_IPATCH_SF2_READER(connectable);
+
+  /* get ipatch sf2 reader mutex */
+  ipatch_sf2_reader_mutex = AGS_IPATCH_SF2_READER_GET_OBJ_MUTEX(ipatch_sf2_reader);
+
+  g_rec_mutex_lock(ipatch_sf2_reader_mutex);
+
+  ipatch_sf2_reader->connectable_flags |= AGS_CONNECTABLE_CONNECTED;
   
-  ags_ipatch_sf2_reader_set_flags(ipatch_sf2_reader, AGS_IPATCH_SF2_READER_CONNECTED);
+  g_rec_mutex_unlock(ipatch_sf2_reader_mutex);
 }
 
 void
@@ -512,28 +519,22 @@ ags_ipatch_sf2_reader_disconnect(AgsConnectable *connectable)
 {
   AgsIpatchSF2Reader *ipatch_sf2_reader;
 
+  GRecMutex *ipatch_sf2_reader_mutex;
+
   if(!ags_connectable_is_connected(connectable)){
     return;
   }
 
   ipatch_sf2_reader = AGS_IPATCH_SF2_READER(connectable);
 
-  ags_ipatch_sf2_reader_unset_flags(ipatch_sf2_reader, AGS_IPATCH_SF2_READER_CONNECTED);
-}
+  /* get ipatch sf2 reader mutex */
+  ipatch_sf2_reader_mutex = AGS_IPATCH_SF2_READER_GET_OBJ_MUTEX(ipatch_sf2_reader);
 
-/**
- * ags_ipatch_sf2_reader_get_class_mutex:
- * 
- * Use this function's returned mutex to access mutex fields.
- *
- * Returns: the class mutex
- * 
- * Since: 2.0.36
- */
-pthread_mutex_t*
-ags_ipatch_sf2_reader_get_class_mutex()
-{
-  return(&ags_ipatch_sf2_reader_class_mutex);
+  g_rec_mutex_lock(ipatch_sf2_reader_mutex);
+
+  ipatch_sf2_reader->connectable_flags &= (~AGS_CONNECTABLE_CONNECTED);
+  
+  g_rec_mutex_unlock(ipatch_sf2_reader_mutex);
 }
 
 /**
@@ -545,28 +546,28 @@ ags_ipatch_sf2_reader_get_class_mutex()
  * 
  * Returns: %TRUE if flags are set, else %FALSE
  *
- * Since: 2.0.36
+ * Since: 3.0.0
  */
 gboolean
 ags_ipatch_sf2_reader_test_flags(AgsIpatchSF2Reader *ipatch_sf2_reader, guint flags)
 {
   gboolean retval;  
   
-  pthread_mutex_t *ipatch_sf2_reader_mutex;
+  GRecMutex *ipatch_sf2_reader_mutex;
 
   if(!AGS_IS_IPATCH_SF2_READER(ipatch_sf2_reader)){
     return(FALSE);
   }
 
-  /* get ipatch_sf2_reader mutex */
+  /* get ipatch sf2 reader mutex */
   ipatch_sf2_reader_mutex = AGS_IPATCH_SF2_READER_GET_OBJ_MUTEX(ipatch_sf2_reader);
 
   /* test */
-  pthread_mutex_lock(ipatch_sf2_reader_mutex);
+  g_rec_mutex_lock(ipatch_sf2_reader_mutex);
 
   retval = (flags & (ipatch_sf2_reader->flags)) ? TRUE: FALSE;
   
-  pthread_mutex_unlock(ipatch_sf2_reader_mutex);
+  g_rec_mutex_unlock(ipatch_sf2_reader_mutex);
 
   return(retval);
 }
@@ -578,28 +579,28 @@ ags_ipatch_sf2_reader_test_flags(AgsIpatchSF2Reader *ipatch_sf2_reader, guint fl
  *
  * Enable a feature of @ipatch_sf2_reader.
  *
- * Since: 2.0.36
+ * Since: 3.0.0
  */
 void
 ags_ipatch_sf2_reader_set_flags(AgsIpatchSF2Reader *ipatch_sf2_reader, guint flags)
 {
-  pthread_mutex_t *ipatch_sf2_reader_mutex;
+  GRecMutex *ipatch_sf2_reader_mutex;
 
   if(!AGS_IS_IPATCH_SF2_READER(ipatch_sf2_reader)){
     return;
   }
 
-  /* get ipatch_sf2_reader mutex */
+  /* get ipatch sf2 reader mutex */
   ipatch_sf2_reader_mutex = AGS_IPATCH_SF2_READER_GET_OBJ_MUTEX(ipatch_sf2_reader);
 
   //TODO:JK: add more?
 
   /* set flags */
-  pthread_mutex_lock(ipatch_sf2_reader_mutex);
+  g_rec_mutex_lock(ipatch_sf2_reader_mutex);
 
   ipatch_sf2_reader->flags |= flags;
   
-  pthread_mutex_unlock(ipatch_sf2_reader_mutex);
+  g_rec_mutex_unlock(ipatch_sf2_reader_mutex);
 }
     
 /**
@@ -609,28 +610,28 @@ ags_ipatch_sf2_reader_set_flags(AgsIpatchSF2Reader *ipatch_sf2_reader, guint fla
  *
  * Disable a feature of @ipatch_sf2_reader.
  *
- * Since: 2.0.36
+ * Since: 3.0.0
  */
 void
 ags_ipatch_sf2_reader_unset_flags(AgsIpatchSF2Reader *ipatch_sf2_reader, guint flags)
 {  
-  pthread_mutex_t *ipatch_sf2_reader_mutex;
+  GRecMutex *ipatch_sf2_reader_mutex;
 
   if(!AGS_IS_IPATCH_SF2_READER(ipatch_sf2_reader)){
     return;
   }
 
-  /* get ipatch_sf2_reader mutex */
+  /* get ipatch sf2 reader mutex */
   ipatch_sf2_reader_mutex = AGS_IPATCH_SF2_READER_GET_OBJ_MUTEX(ipatch_sf2_reader);
 
   //TODO:JK: add more?
 
   /* unset flags */
-  pthread_mutex_lock(ipatch_sf2_reader_mutex);
+  g_rec_mutex_lock(ipatch_sf2_reader_mutex);
 
   ipatch_sf2_reader->flags &= (~flags);
   
-  pthread_mutex_unlock(ipatch_sf2_reader_mutex);
+  g_rec_mutex_unlock(ipatch_sf2_reader_mutex);
 }
 
 /**
@@ -642,76 +643,108 @@ ags_ipatch_sf2_reader_unset_flags(AgsIpatchSF2Reader *ipatch_sf2_reader, guint f
  * 
  * Returns: %TRUE on success, else %FALSE on failure
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gboolean
 ags_ipatch_sf2_reader_load(AgsIpatchSF2Reader *ipatch_sf2_reader,
 			   IpatchFileHandle *handle)
 {
+  IpatchSF2Reader *reader;
+
+  GError *error;
+  
+  GRecMutex *ipatch_sf2_reader_mutex;
+
   if(!AGS_IS_IPATCH_SF2_READER(ipatch_sf2_reader)){
     return(FALSE);
   }
 
-  ipatch_sf2_reader->reader = ipatch_sf2_reader_new(handle);
+  /* get ipatch sf2 reader mutex */
+  ipatch_sf2_reader_mutex = AGS_IPATCH_SF2_READER_GET_OBJ_MUTEX(ipatch_sf2_reader);
 
-  ipatch_sf2_reader->error = NULL;
-  ipatch_sf2_reader->base = (IpatchBase *) ipatch_sf2_reader_load(ipatch_sf2_reader->reader,
-								  &(ipatch_sf2_reader->error));
+  g_rec_mutex_lock(ipatch_sf2_reader_mutex);
 
-  if(ipatch_sf2_reader->error != NULL){
-    g_warning("%s", ipatch_sf2_reader->error->message);
+  reader = 
+    ipatch_sf2_reader->reader = ipatch_sf2_reader_new(handle);
+
+  error = NULL;
+  ipatch_sf2_reader->base = (IpatchBase *) ipatch_sf2_reader_load(reader,
+								  &error);
+
+  g_rec_mutex_unlock(ipatch_sf2_reader_mutex);
+
+  if(error != NULL){
+    g_warning("%s", error->message);
+
+    g_rec_mutex_lock(ipatch_sf2_reader_mutex);
+
+    ipatch_sf2_reader->error = error;
+    
+    g_rec_mutex_unlock(ipatch_sf2_reader_mutex);
+        
+    return(FALSE);
+  }
+
+  g_rec_mutex_lock(ipatch_sf2_reader_mutex);
+  
+  error = NULL;
+  ipatch_sf2_reader->sf2 = (IpatchSF2 *) ipatch_convert_object_to_type((GObject *) handle->file,
+								       IPATCH_TYPE_SF2,
+								       &error);
+
+  g_rec_mutex_unlock(ipatch_sf2_reader_mutex);
+
+  if(error != NULL){
+    g_warning("%s", error->message);
+    
+    g_rec_mutex_lock(ipatch_sf2_reader_mutex);
+
+    ipatch_sf2_reader->error = error;
+    
+    g_rec_mutex_unlock(ipatch_sf2_reader_mutex);
     
     return(FALSE);
   }
   
-  ipatch_sf2_reader->error = NULL;
-  ipatch_sf2_reader->sf2 = (IpatchSF2 *) ipatch_convert_object_to_type((GObject *) handle->file,
-								       IPATCH_TYPE_SF2,
-								       &(ipatch_sf2_reader->error));
-
-  if(ipatch_sf2_reader->error != NULL){
-    g_warning("%s", ipatch_sf2_reader->error->message);
-    
-    return(FALSE);
-  }
-
-  while(g_static_rec_mutex_unlock_full(((IpatchItem *) (ipatch_sf2_reader->base))->mutex) != 0);
-
   return(TRUE);
 }
 
 /**
  * ags_ipatch_sf2_reader_select_preset:
- * @ipatch_sf2_reader: the #AgsSF2Reader
+ * @ipatch_sf2_reader: the #AgsIpatchSF2Reader
  * @preset_index: the preset index
  * 
  * Select preset.
  * 
  * Returns: %TRUE on success, else %FALSE on failure
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gboolean
 ags_ipatch_sf2_reader_select_preset(AgsIpatchSF2Reader *ipatch_sf2_reader,
 				    guint preset_index)
 {
-#ifdef AGS_WITH_LIBINSTPATCH
   IpatchSF2 *sf2;
   IpatchItem *ipatch_item;
   IpatchList *ipatch_list;
 
   IpatchIter preset_iter;
-#endif
   
   gboolean success;
   
+  GRecMutex *ipatch_sf2_reader_mutex;
+
   if(!AGS_IS_IPATCH_SF2_READER(ipatch_sf2_reader)){
     return(FALSE);
   }
 
+  /* get ipatch sf2 reader mutex */
+  ipatch_sf2_reader_mutex = AGS_IPATCH_SF2_READER_GET_OBJ_MUTEX(ipatch_sf2_reader);
+
   success = FALSE;
 
-#ifdef AGS_WITH_LIBINSTPATCH
+  g_rec_mutex_lock(ipatch_sf2_reader_mutex);
+
   sf2 = ipatch_sf2_reader->sf2;
   
   ipatch_list = ipatch_container_get_children((IpatchContainer *) sf2, IPATCH_TYPE_SF2_PRESET);
@@ -747,44 +780,55 @@ ags_ipatch_sf2_reader_select_preset(AgsIpatchSF2Reader *ipatch_sf2_reader,
       ipatch_sf2_reader->sample = NULL;
     }
   }
-#endif
+  
+  g_rec_mutex_unlock(ipatch_sf2_reader_mutex);
   
   return(success);
 }
 
 /**
  * ags_ipatch_sf2_reader_select_instrument:
- * @ipatch_sf2_reader: the #AgsSF2Reader
+ * @ipatch_sf2_reader: the #AgsIpatchSF2Reader
  * @instrument_index: the instrument index
  * 
  * Select instrument.
  * 
  * Returns: %TRUE on success, else %FALSE on failure
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gboolean
 ags_ipatch_sf2_reader_select_instrument(AgsIpatchSF2Reader *ipatch_sf2_reader,
 					guint instrument_index)
 {
-#ifdef AGS_WITH_LIBINSTPATCH
   IpatchSF2 *sf2;
   IpatchItem *ipatch_item;
   IpatchList *ipatch_list;
 
   IpatchIter instrument_iter;
-#endif
   
   gboolean success;
+
+  GRecMutex *ipatch_sf2_reader_mutex;
 
   if(!AGS_IS_IPATCH_SF2_READER(ipatch_sf2_reader)){
     return(FALSE);
   }
 
+  /* get ipatch sf2 reader mutex */
+  ipatch_sf2_reader_mutex = AGS_IPATCH_SF2_READER_GET_OBJ_MUTEX(ipatch_sf2_reader);
+
   success = FALSE;
 
-#ifdef AGS_WITH_LIBINSTPATCH
+  g_rec_mutex_lock(ipatch_sf2_reader_mutex);
+
   sf2 = ipatch_sf2_reader->sf2;
+
+  if(ipatch_sf2_reader->preset == NULL){
+    g_rec_mutex_unlock(ipatch_sf2_reader_mutex);
+
+    return(FALSE);
+  }
 
   ipatch_list = ipatch_sf2_preset_get_zones(ipatch_sf2_reader->preset);
 
@@ -814,45 +858,56 @@ ags_ipatch_sf2_reader_select_instrument(AgsIpatchSF2Reader *ipatch_sf2_reader,
       ipatch_sf2_reader->sample = NULL;
     }
   }
-#endif
+  
+  g_rec_mutex_unlock(ipatch_sf2_reader_mutex);
   
   return(success);
 }
 
 /**
  * ags_ipatch_sf2_reader_select_sample:
- * @ipatch_sf2_reader: the #AgsSF2Reader
+ * @ipatch_sf2_reader: the #AgsIpatchSF2Reader
  * @sample_index: the sample index
  * 
  * Select sample.
  * 
  * Returns: %TRUE on success, else %FALSE on failure
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gboolean
 ags_ipatch_sf2_reader_select_sample(AgsIpatchSF2Reader *ipatch_sf2_reader,
 				    guint sample_index)
 {
-#ifdef AGS_WITH_LIBINSTPATCH
   IpatchSF2 *sf2;
   IpatchItem *ipatch_item;
   IpatchList *ipatch_list;
 
   IpatchIter sample_iter;
-#endif
   
   gboolean success;
+
+  GRecMutex *ipatch_sf2_reader_mutex;
 
   if(!AGS_IS_IPATCH_SF2_READER(ipatch_sf2_reader)){
     return(FALSE);
   }
 
+  /* get ipatch sf2 reader mutex */
+  ipatch_sf2_reader_mutex = AGS_IPATCH_SF2_READER_GET_OBJ_MUTEX(ipatch_sf2_reader);
+
   success = FALSE;
 
-#ifdef AGS_WITH_LIBINSTPATCH
+  g_rec_mutex_lock(ipatch_sf2_reader_mutex);
+
   sf2 = ipatch_sf2_reader->sf2;
 
+  if(ipatch_sf2_reader->instrument == NULL){
+    g_rec_mutex_unlock(ipatch_sf2_reader_mutex);
+  
+    return(FALSE);
+  }
+  
   ipatch_list = ipatch_sf2_inst_get_zones(ipatch_sf2_reader->instrument);
 
   if(ipatch_list != NULL){
@@ -872,46 +927,58 @@ ags_ipatch_sf2_reader_select_sample(AgsIpatchSF2Reader *ipatch_sf2_reader,
 
       /* container */
       ipatch_sf2_reader->sample = (IpatchContainer *) ipatch_item;
+      g_object_ref(ipatch_sf2_reader->sample);
     }
   }
-#endif
+  
+  g_rec_mutex_unlock(ipatch_sf2_reader_mutex);
   
   return(success);
 }
 
 /**
  * ags_ipatch_sf2_reader_get_preset_all:
- * @ipatch_sf2_reader: the #AgsSF2Reader
+ * @ipatch_sf2_reader: the #AgsIpatchSF2Reader
  * 
  * Get all preset names.
  * 
- * Returns: the string vector cotaining preset names or %NULL on failure
+ * Returns: (element-type utf8) (array zero-terminated=1) (transfer full): the string vector cotaining preset names or %NULL on failure
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gchar**
 ags_ipatch_sf2_reader_get_preset_all(AgsIpatchSF2Reader *ipatch_sf2_reader)
 {
-#ifdef AGS_WITH_LIBINSTPATCH
   IpatchSF2 *sf2;
   IpatchItem *ipatch_item;
   IpatchList *ipatch_list;
   
   IpatchIter preset_iter;
-#endif
   
   gchar **preset;
   
   guint i, i_stop;
+
+  GRecMutex *ipatch_sf2_reader_mutex;
   
   if(!AGS_IS_IPATCH_SF2_READER(ipatch_sf2_reader)){
     return(NULL);
   }
+
+  /* get ipatch sf2 reader mutex */
+  ipatch_sf2_reader_mutex = AGS_IPATCH_SF2_READER_GET_OBJ_MUTEX(ipatch_sf2_reader);
   
   preset = NULL;
 
-#ifdef AGS_WITH_LIBINSTPATCH
+  g_rec_mutex_lock(ipatch_sf2_reader_mutex);
+
   sf2 = ipatch_sf2_reader->sf2;
+
+  if(sf2 == NULL){
+    g_rec_mutex_unlock(ipatch_sf2_reader_mutex);
+
+    return(NULL);
+  }
   
   ipatch_list = ipatch_container_get_children((IpatchContainer *) sf2, IPATCH_TYPE_SF2_PRESET);
   
@@ -937,46 +1004,54 @@ ags_ipatch_sf2_reader_get_preset_all(AgsIpatchSF2Reader *ipatch_sf2_reader)
     }
   }
   
-  //FIXME:JK: still needed?
-  while(g_static_rec_mutex_unlock_full(((IpatchItem *) (sf2))->mutex) != 0);
-#endif
+  g_rec_mutex_unlock(ipatch_sf2_reader_mutex);
   
   return(preset);
 }
 
 /**
  * ags_ipatch_sf2_reader_get_instrument_all:
- * @ipatch_sf2_reader: the #AgsSF2Reader
+ * @ipatch_sf2_reader: the #AgsIpatchSF2Reader
  * 
  * Get all instrument names.
  * 
- * Returns: the string vector cotaining instrument names or %NULL on failure
+ * Returns: (element-type utf8) (array zero-terminated=1) (transfer full): the string vector cotaining instrument names or %NULL on failure
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gchar**
 ags_ipatch_sf2_reader_get_instrument_all(AgsIpatchSF2Reader *ipatch_sf2_reader)
 {
-#ifdef AGS_WITH_LIBINSTPATCH
   IpatchSF2 *sf2;
   IpatchItem *ipatch_item;
   IpatchList *ipatch_list;
   
   IpatchIter instrument_iter;
-#endif
   
   gchar **instrument;
   
   guint i, i_stop;
   
+  GRecMutex *ipatch_sf2_reader_mutex;
+
   if(!AGS_IS_IPATCH_SF2_READER(ipatch_sf2_reader)){
     return(NULL);
   }
+
+  /* get ipatch sf2 reader mutex */
+  ipatch_sf2_reader_mutex = AGS_IPATCH_SF2_READER_GET_OBJ_MUTEX(ipatch_sf2_reader);
   
   instrument = NULL;
 
-#ifdef AGS_WITH_LIBINSTPATCH
+  g_rec_mutex_lock(ipatch_sf2_reader_mutex);
+
   sf2 = ipatch_sf2_reader->sf2;
+
+  if(sf2 == NULL){
+    g_rec_mutex_unlock(ipatch_sf2_reader_mutex);
+
+    return(NULL);
+  }
   
   ipatch_list = ipatch_container_get_children((IpatchContainer *) sf2, IPATCH_TYPE_SF2_INST);
   
@@ -1002,46 +1077,54 @@ ags_ipatch_sf2_reader_get_instrument_all(AgsIpatchSF2Reader *ipatch_sf2_reader)
     }
   }
   
-  //FIXME:JK: still needed?
-  while(g_static_rec_mutex_unlock_full(((IpatchItem *) (sf2))->mutex) != 0);
-#endif
+  g_rec_mutex_unlock(ipatch_sf2_reader_mutex);
   
   return(instrument);
 }
 
 /**
  * ags_ipatch_sf2_reader_get_sample_all:
- * @ipatch_sf2_reader: the #AgsSF2Reader
+ * @ipatch_sf2_reader: the #AgsIpatchSF2Reader
  * 
  * Get all sample names.
  * 
- * Returns: the string vector cotaining sample names or %NULL on failure
+ * Returns: (element-type utf8) (array zero-terminated=1) (transfer full): the string vector cotaining sample names or %NULL on failure
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gchar**
 ags_ipatch_sf2_reader_get_sample_all(AgsIpatchSF2Reader *ipatch_sf2_reader)
 {
-#ifdef AGS_WITH_LIBINSTPATCH
   IpatchSF2 *sf2;
   IpatchItem *ipatch_item;
   IpatchList *ipatch_list;
   
   IpatchIter sample_iter;
-#endif
   
   gchar **sample;
   
   guint i, i_stop;
+
+  GRecMutex *ipatch_sf2_reader_mutex;
   
   if(!AGS_IS_IPATCH_SF2_READER(ipatch_sf2_reader)){
     return(NULL);
   }
   
+  /* get ipatch sf2 reader mutex */
+  ipatch_sf2_reader_mutex = AGS_IPATCH_SF2_READER_GET_OBJ_MUTEX(ipatch_sf2_reader);
+
   sample = NULL;
 
-#ifdef AGS_WITH_LIBINSTPATCH
+  g_rec_mutex_lock(ipatch_sf2_reader_mutex);
+
   sf2 = ipatch_sf2_reader->sf2;
+
+  if(sf2 == NULL){
+    g_rec_mutex_unlock(ipatch_sf2_reader_mutex);
+
+    return(NULL);
+  }
   
   ipatch_list = ipatch_container_get_children((IpatchContainer *) sf2, IPATCH_TYPE_SF2_SAMPLE);
   
@@ -1067,29 +1150,26 @@ ags_ipatch_sf2_reader_get_sample_all(AgsIpatchSF2Reader *ipatch_sf2_reader)
     }
   }
   
-  //FIXME:JK: still needed?
-  while(g_static_rec_mutex_unlock_full(((IpatchItem *) (sf2))->mutex) != 0);
-#endif
+  g_rec_mutex_unlock(ipatch_sf2_reader_mutex);
   
   return(sample);
 }
 
 /**
  * ags_ipatch_sf2_reader_get_instrument_by_preset_index:
- * @ipatch_sf2_reader: the #AgsSF2Reader
+ * @ipatch_sf2_reader: the #AgsIpatchSF2Reader
  * @preset_index: the preset index
  * 
  * Get instrument by preset index.
  * 
- * Returns: the string vector cotaining instrument names or %NULL on failure
+ * Returns: (element-type utf8) (array zero-terminated=1) (transfer full): the string vector cotaining instrument names or %NULL on failure
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gchar**
 ags_ipatch_sf2_reader_get_instrument_by_preset_index(AgsIpatchSF2Reader *ipatch_sf2_reader,
 						     guint preset_index)
 {
-#ifdef AGS_WITH_LIBINSTPATCH
   IpatchSF2 *sf2;
   IpatchContainer *preset;  
   IpatchContainer *instrument;
@@ -1098,7 +1178,6 @@ ags_ipatch_sf2_reader_get_instrument_by_preset_index(AgsIpatchSF2Reader *ipatch_
   IpatchList *ipatch_list;
   
   IpatchIter preset_iter, instrument_iter, sample_iter;
-#endif
 
   gchar **instrument_strv;
 
@@ -1107,14 +1186,26 @@ ags_ipatch_sf2_reader_get_instrument_by_preset_index(AgsIpatchSF2Reader *ipatch_
   guint k, k_stop;
   guint count;
 
+  GRecMutex *ipatch_sf2_reader_mutex;
+
   if(!AGS_IS_IPATCH_SF2_READER(ipatch_sf2_reader)){
     return(NULL);
   }
+
+  /* get ipatch sf2 reader mutex */
+  ipatch_sf2_reader_mutex = AGS_IPATCH_SF2_READER_GET_OBJ_MUTEX(ipatch_sf2_reader);
   
   instrument_strv = NULL;
   
-#ifdef AGS_WITH_LIBINSTPATCH
+  g_rec_mutex_lock(ipatch_sf2_reader_mutex);
+
   sf2 = ipatch_sf2_reader->sf2;
+
+  if(sf2 == NULL){
+    g_rec_mutex_unlock(ipatch_sf2_reader_mutex);
+
+    return(NULL);
+  }
   
   /* presets */
   ipatch_list = ipatch_container_get_children((IpatchContainer *) sf2, IPATCH_TYPE_SF2_PRESET);
@@ -1156,30 +1247,27 @@ ags_ipatch_sf2_reader_get_instrument_by_preset_index(AgsIpatchSF2Reader *ipatch_
       }
     }
   }
-
-  //FIXME:JK: still needed?
-  while(g_static_rec_mutex_unlock_full(((IpatchItem *) (sf2))->mutex) != 0);
-#endif
+  
+  g_rec_mutex_unlock(ipatch_sf2_reader_mutex);
 
   return(instrument_strv);
 }
 
 /**
  * ags_ipatch_sf2_reader_get_sample_by_preset_index:
- * @ipatch_sf2_reader: the #AgsSF2Reader
+ * @ipatch_sf2_reader: the #AgsIpatchSF2Reader
  * @preset_index: the preset index
  * 
  * Get sample by preset index.
  * 
- * Returns: the string vector cotaining sample names or %NULL on failure
+ * Returns: (element-type utf8) (array zero-terminated=1) (transfer full): the string vector cotaining sample names or %NULL on failure
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gchar**
 ags_ipatch_sf2_reader_get_sample_by_preset_index(AgsIpatchSF2Reader *ipatch_sf2_reader,
 						 guint preset_index)
 {
-#ifdef AGS_WITH_LIBINSTPATCH
   IpatchSF2 *sf2;
   IpatchContainer *preset;  
   IpatchContainer *instrument;
@@ -1188,7 +1276,6 @@ ags_ipatch_sf2_reader_get_sample_by_preset_index(AgsIpatchSF2Reader *ipatch_sf2_
   IpatchList *ipatch_list;
   
   IpatchIter preset_iter, instrument_iter, sample_iter;
-#endif
 
   gchar **sample_strv;
 
@@ -1197,14 +1284,26 @@ ags_ipatch_sf2_reader_get_sample_by_preset_index(AgsIpatchSF2Reader *ipatch_sf2_
   guint k, k_stop;
   guint count;
 
+  GRecMutex *ipatch_sf2_reader_mutex;
+
   if(!AGS_IS_IPATCH_SF2_READER(ipatch_sf2_reader)){
     return(NULL);
   }
+
+  /* get ipatch sf2 reader mutex */
+  ipatch_sf2_reader_mutex = AGS_IPATCH_SF2_READER_GET_OBJ_MUTEX(ipatch_sf2_reader);
   
   sample_strv = NULL;
   
-#ifdef AGS_WITH_LIBINSTPATCH
+  g_rec_mutex_lock(ipatch_sf2_reader_mutex);
+
   sf2 = ipatch_sf2_reader->sf2;
+
+  if(sf2 == NULL){
+    g_rec_mutex_unlock(ipatch_sf2_reader_mutex);
+
+    return(NULL);
+  }
   
   /* presets */
   ipatch_list = ipatch_container_get_children((IpatchContainer *) sf2, IPATCH_TYPE_SF2_PRESET);
@@ -1270,29 +1369,27 @@ ags_ipatch_sf2_reader_get_sample_by_preset_index(AgsIpatchSF2Reader *ipatch_sf2_
     }
   }
 
-  //FIXME:JK: still needed?
-  while(g_static_rec_mutex_unlock_full(((IpatchItem *) (sf2))->mutex) != 0);
-#endif
+  g_rec_mutex_unlock(ipatch_sf2_reader_mutex);
 
   return(sample_strv);
 }
 
 /**
  * ags_ipatch_sf2_reader_get_sample_by_preset_and_instrument_index:
- * @ipatch_sf2_reader: the #AgsSF2Reader
+ * @ipatch_sf2_reader: the #AgsIpatchSF2Reader
  * @preset_index: the preset index
+ * @instrument_index: the instrument index
  * 
  * Get sample by preset and instrument index.
  * 
- * Returns: the string vector cotaining sample names or %NULL on failure
+ * Returns: (element-type utf8) (array zero-terminated=1) (transfer full): the string vector cotaining sample names or %NULL on failure
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gchar**
 ags_ipatch_sf2_reader_get_sample_by_preset_and_instrument_index(AgsIpatchSF2Reader *ipatch_sf2_reader,
 								guint preset_index, guint instrument_index)
 {
-#ifdef AGS_WITH_LIBINSTPATCH
   IpatchSF2 *sf2;
   IpatchContainer *preset;  
   IpatchContainer *instrument;
@@ -1301,7 +1398,6 @@ ags_ipatch_sf2_reader_get_sample_by_preset_and_instrument_index(AgsIpatchSF2Read
   IpatchList *ipatch_list;
   
   IpatchIter preset_iter, instrument_iter, sample_iter;
-#endif
 
   gchar **sample;
 
@@ -1310,14 +1406,26 @@ ags_ipatch_sf2_reader_get_sample_by_preset_and_instrument_index(AgsIpatchSF2Read
   guint k, k_stop;
   guint count;
 
+  GRecMutex *ipatch_sf2_reader_mutex;
+
   if(!AGS_IS_IPATCH_SF2_READER(ipatch_sf2_reader)){
     return(NULL);
   }
   
+  /* get ipatch sf2 reader mutex */
+  ipatch_sf2_reader_mutex = AGS_IPATCH_SF2_READER_GET_OBJ_MUTEX(ipatch_sf2_reader);
+
   sample = NULL;
   
-#ifdef AGS_WITH_LIBINSTPATCH
+  g_rec_mutex_lock(ipatch_sf2_reader_mutex);
+
   sf2 = ipatch_sf2_reader->sf2;
+
+  if(sf2 == NULL){
+    g_rec_mutex_unlock(ipatch_sf2_reader_mutex);
+
+    return(NULL);
+  }
   
   /* presets */
   ipatch_list = ipatch_container_get_children((IpatchContainer *) sf2, IPATCH_TYPE_SF2_PRESET);
@@ -1373,9 +1481,7 @@ ags_ipatch_sf2_reader_get_sample_by_preset_and_instrument_index(AgsIpatchSF2Read
     }
   }
 
-  //FIXME:JK: still needed?
-  while(g_static_rec_mutex_unlock_full(((IpatchItem *) (sf2))->mutex) != 0);
-#endif
+  g_rec_mutex_unlock(ipatch_sf2_reader_mutex);
 
   return(sample);
 }
@@ -1388,7 +1494,7 @@ ags_ipatch_sf2_reader_get_sample_by_preset_and_instrument_index(AgsIpatchSF2Read
  *
  * Returns: the new #AgsIpatchSF2Reader.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 AgsIpatchSF2Reader*
 ags_ipatch_sf2_reader_new(AgsIpatch *ipatch)

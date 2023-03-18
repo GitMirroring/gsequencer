@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -19,9 +19,55 @@
 
 #include <ags/audio/ags_diatonic_scale.h>
 
-#include <ags/libags.h>
-
 #include <string.h>
+
+gpointer ags_diatonic_scale_copy(gpointer ptr);
+void ags_diatonic_scale_free(gpointer ptr);
+
+/**
+ * SECTION:ags_diatonic_scale
+ * @short_description: diatonic scale
+ * @title: AgsDiatonicScale
+ * @section_id:
+ * @include: ags/audio/ags_diatonic_scale.h
+ *
+ * Functions to handle diatonic scale.
+ */
+
+GType
+ags_diatonic_scale_get_type(void)
+{
+  static volatile gsize g_define_type_id__volatile = 0;
+
+  if(g_once_init_enter (&g_define_type_id__volatile)){
+    GType ags_type_diatonic_scale = 0;
+
+    ags_type_diatonic_scale =
+      g_boxed_type_register_static("AgsDiatonicScale",
+				   (GBoxedCopyFunc) ags_diatonic_scale_copy,
+				   (GBoxedFreeFunc) ags_diatonic_scale_free);
+
+    g_once_init_leave(&g_define_type_id__volatile, ags_type_diatonic_scale);
+  }
+
+  return g_define_type_id__volatile;
+}
+
+gpointer
+ags_diatonic_scale_copy(gpointer ptr)
+{
+  gpointer retval;
+
+  retval = g_memdup(ptr, sizeof(AgsDiatonicScale));
+ 
+  return(retval);
+}
+
+void
+ags_diatonic_scale_free(gpointer ptr)
+{
+  g_free(ptr);
+}
 
 /**
  * ags_diatonic_scale_note_to_midi_key:
@@ -32,7 +78,7 @@
  * 
  * Returns: the number of chars read
  * 
- * Since: 2.3.0
+ * Since: 3.0.0
  */
 guint
 ags_diatonic_scale_note_to_midi_key(gchar *note,
@@ -177,7 +223,7 @@ ags_diatonic_scale_note_to_midi_key_COMPLETED:
  * 
  * Returns: the number of chars written
  * 
- * Since: 2.3.0
+ * Since: 3.0.0
  */
 guint
 ags_diatonic_scale_midi_key_to_note(glong key,

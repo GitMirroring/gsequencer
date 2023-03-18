@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2018 Joël Krähemann
+ * Copyright (C) 2005-2020 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -22,6 +22,10 @@
 
 #include <glib.h>
 #include <glib-object.h>
+
+#include <ags/libags.h>
+
+G_BEGIN_DECLS
 
 #define AGS_TYPE_SOUND_CONTAINER                    (ags_sound_container_get_type())
 #define AGS_SOUND_CONTAINER(obj)                    (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_SOUND_CONTAINER, AgsSoundContainer))
@@ -65,7 +69,7 @@ struct _AgsSoundContainerInterface
   GList* (*get_resource_current)(AgsSoundContainer *sound_container);
   
   /* close */
-  void (*close)(AgsSoundContainer *sound_resource);
+  void (*close)(AgsSoundContainer *sound_container);
 };
 
 GType ags_sound_container_get_type();
@@ -95,5 +99,7 @@ GList* ags_sound_container_get_resource_by_index(AgsSoundContainer *sound_contai
 GList* ags_sound_container_get_resource_current(AgsSoundContainer *sound_container);
 
 void ags_sound_container_close(AgsSoundContainer *sound_container);
+
+G_END_DECLS
 
 #endif /*__AGS_SOUND_CONTAINER_H__*/

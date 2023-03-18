@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2018 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -23,7 +23,7 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include <ags/config.h>
+#include <ags/ags_api_config.h>
 
 #ifdef AGS_WITH_JACK
 #include <jack/jslist.h>
@@ -34,6 +34,8 @@
 
 #include <ags/libags.h>
 
+G_BEGIN_DECLS
+
 #define AGS_TYPE_JACK_SERVER                (ags_jack_server_get_type())
 #define AGS_JACK_SERVER(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_JACK_SERVER, AgsJackServer))
 #define AGS_JACK_SERVER_CLASS(class)        (G_TYPE_CHECK_CLASS_CAST(class, AGS_TYPE_JACK_SERVER, AgsJackServer))
@@ -41,7 +43,7 @@
 #define AGS_IS_JACK_SERVER_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE ((class), AGS_TYPE_JACK_SERVER))
 #define AGS_JACK_SERVER_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS(obj, AGS_TYPE_JACK_SERVER, AgsJackServerClass))
 
-#define AGS_JACK_SERVER_GET_OBJ_MUTEX(obj) (((AgsJackServer *) obj)->obj_mutex)
+#define AGS_JACK_SERVER_GET_OBJ_MUTEX(obj) (&(((AgsJackServer *) obj)->obj_mutex))
 
 #define AGS_JACK_SERVER_DEFAULT_PROTOCOL "udp"
 #define AGS_JACK_SERVER_DEFAULT_HOST "localhost"
@@ -50,29 +52,14 @@
 typedef struct _AgsJackServer AgsJackServer;
 typedef struct _AgsJackServerClass AgsJackServerClass;
 
-/**
- * AgsJackServerFlags:
- * @AGS_JACK_SERVER_ADDED_TO_REGISTRY: the JACK server was added to registry, see #AgsConnectable::add_to_registry()
- * @AGS_JACK_SERVER_CONNECTED: indicates the server was connected by calling #AgsConnectable::connect()
- * 
- * Enum values to control the behavior or indicate internal state of #AgsJackServer by
- * enable/disable as flags.
- */
-typedef enum{
-  AGS_JACK_SERVER_ADDED_TO_REGISTRY  = 1,
-  AGS_JACK_SERVER_CONNECTED          = 1 <<  1,
-}AgsJackServerFlags;
-
 struct _AgsJackServer
 {
   GObject gobject;
 
   guint flags;
+  guint connectable_flags;
 
-  pthread_mutex_t *obj_mutex;
-  pthread_mutexattr_t *obj_mutexattr;
-
-  AgsApplicationContext *application_context;
+  GRecMutex obj_mutex;
 
   AgsUUID *uuid;
 
@@ -100,8 +87,6 @@ struct _AgsJackServerClass
 
 GType ags_jack_server_get_type();
 
-pthread_mutex_t* ags_jack_server_get_class_mutex();
-
 gboolean ags_jack_server_test_flags(AgsJackServer *jack_server, guint flags);
 void ags_jack_server_set_flags(AgsJackServer *jack_server, guint flags);
 void ags_jack_server_unset_flags(AgsJackServer *jack_server, guint flags);
@@ -123,7 +108,8 @@ void ags_jack_server_remove_client(AgsJackServer *jack_server,
 void ags_jack_server_connect_client(AgsJackServer *jack_server);
 void ags_jack_server_disconnect_client(AgsJackServer *jack_server);
 
-AgsJackServer* ags_jack_server_new(AgsApplicationContext *application_context,
-				   gchar *url);
+AgsJackServer* ags_jack_server_new(gchar *url);
+
+G_END_DECLS
 
 #endif /*__AGS_JACK_SERVER_H__*/

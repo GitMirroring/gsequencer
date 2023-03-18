@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2020 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -18,8 +18,6 @@
  */
 
 #include <ags/plugin/ags_lv2_plugin.h>
-
-#include <ags/libags.h>
 
 #include <lv2/lv2plug.in/ns/lv2ext/lv2_programs.h>
 
@@ -151,6 +149,27 @@ ags_lv2_plugin_get_type (void)
   return g_define_type_id__volatile;
 }
 
+GType
+ags_lv2_plugin_flags_get_type()
+{
+  static volatile gsize g_flags_type_id__volatile;
+
+  if(g_once_init_enter (&g_flags_type_id__volatile)){
+    static const GFlagsValue values[] = {
+      { AGS_LV2_PLUGIN_IS_SYNTHESIZER, "AGS_LV2_PLUGIN_IS_SYNTHESIZER", "lv2-plugin-is-synthesizer" },
+      { AGS_LV2_PLUGIN_NEEDS_WORKER, "AGS_LV2_PLUGIN_NEEDS_WORKER", "lv2-plugin-needs-worker" },
+      { AGS_LV2_PLUGIN_HAS_PROGRAM_INTERFACE, "AGS_LV2_PLUGIN_HAS_PROGRAM_INTERFACE", "lv2-plugin-has-program-interface" },
+      { 0, NULL, NULL }
+    };
+
+    GType g_flags_type_id = g_flags_register_static(g_intern_static_string("AgsLv2PluginFlags"), values);
+
+    g_once_init_leave (&g_flags_type_id__volatile, g_flags_type_id);
+  }
+  
+  return g_flags_type_id__volatile;
+}
+
 void
 ags_lv2_plugin_class_init(AgsLv2PluginClass *lv2_plugin)
 {
@@ -176,7 +195,7 @@ ags_lv2_plugin_class_init(AgsLv2PluginClass *lv2_plugin)
    *
    * The assigned pname.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_string("pname",
 				   i18n_pspec("pname of the plugin"),
@@ -192,7 +211,7 @@ ags_lv2_plugin_class_init(AgsLv2PluginClass *lv2_plugin)
    *
    * The assigned uri.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_string("uri",
 				   i18n_pspec("uri of the plugin"),
@@ -208,7 +227,7 @@ ags_lv2_plugin_class_init(AgsLv2PluginClass *lv2_plugin)
    *
    * The assigned ui-uri.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_string("ui-uri",
 				   i18n_pspec("ui-uri of the plugin"),
@@ -224,7 +243,7 @@ ags_lv2_plugin_class_init(AgsLv2PluginClass *lv2_plugin)
    *
    * The assigned manifest.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_object("manifest",
 				   i18n_pspec("manifest of the plugin"),
@@ -240,7 +259,7 @@ ags_lv2_plugin_class_init(AgsLv2PluginClass *lv2_plugin)
    *
    * The assigned turtle.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_object("turtle",
 				   i18n_pspec("turtle of the plugin"),
@@ -256,7 +275,7 @@ ags_lv2_plugin_class_init(AgsLv2PluginClass *lv2_plugin)
    *
    * The assigned doap name.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_string("doap-name",
 				   i18n_pspec("doap name"),
@@ -272,7 +291,7 @@ ags_lv2_plugin_class_init(AgsLv2PluginClass *lv2_plugin)
    *
    * The assigned foaf name.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_string("foaf-name",
 				   i18n_pspec("foaf name"),
@@ -288,7 +307,7 @@ ags_lv2_plugin_class_init(AgsLv2PluginClass *lv2_plugin)
    *
    * The assigned foaf homepage.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_string("foaf-homepage",
 				   i18n_pspec("foaf homepage"),
@@ -304,7 +323,7 @@ ags_lv2_plugin_class_init(AgsLv2PluginClass *lv2_plugin)
    *
    * The assigned foaf mbox.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_string("foaf-mbox",
 				   i18n_pspec("foaf mbox"),
@@ -316,11 +335,11 @@ ags_lv2_plugin_class_init(AgsLv2PluginClass *lv2_plugin)
 				  param_spec);
 
   /**
-   * AgsLv2Plugin:preset:
+   * AgsLv2Plugin:preset: (type GList(AgsLv2Preset)) (transfer full)
    *
    * The assigned preset.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_pointer("preset",
 				    i18n_pspec("preset of the plugin"),
@@ -356,7 +375,7 @@ ags_lv2_plugin_class_init(AgsLv2PluginClass *lv2_plugin)
    *
    * The ::change-program signal creates a new instance of plugin.
    *
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   lv2_plugin_signals[CHANGE_PROGRAM] =
     g_signal_new("change-program",
@@ -403,7 +422,7 @@ ags_lv2_plugin_set_property(GObject *gobject,
 {
   AgsLv2Plugin *lv2_plugin;
 
-  pthread_mutex_t *base_plugin_mutex;
+  GRecMutex *base_plugin_mutex;
 
   lv2_plugin = AGS_LV2_PLUGIN(gobject);
 
@@ -417,10 +436,10 @@ ags_lv2_plugin_set_property(GObject *gobject,
 
       pname = (gchar *) g_value_get_string(value);
 
-      pthread_mutex_lock(base_plugin_mutex);
+      g_rec_mutex_lock(base_plugin_mutex);
 
       if(lv2_plugin->pname == pname){
-	pthread_mutex_unlock(base_plugin_mutex);
+	g_rec_mutex_unlock(base_plugin_mutex);
 
 	return;
       }
@@ -431,7 +450,7 @@ ags_lv2_plugin_set_property(GObject *gobject,
 
       lv2_plugin->pname = g_strdup(pname);
 
-      pthread_mutex_unlock(base_plugin_mutex);
+      g_rec_mutex_unlock(base_plugin_mutex);
     }
     break;
   case PROP_URI:
@@ -440,10 +459,10 @@ ags_lv2_plugin_set_property(GObject *gobject,
 
       uri = (gchar *) g_value_get_string(value);
 
-      pthread_mutex_lock(base_plugin_mutex);
+      g_rec_mutex_lock(base_plugin_mutex);
 
       if(lv2_plugin->uri == uri){
-	pthread_mutex_unlock(base_plugin_mutex);
+	g_rec_mutex_unlock(base_plugin_mutex);
 
 	return;
       }
@@ -454,7 +473,7 @@ ags_lv2_plugin_set_property(GObject *gobject,
 
       lv2_plugin->uri = g_strdup(uri);
 
-      pthread_mutex_unlock(base_plugin_mutex);
+      g_rec_mutex_unlock(base_plugin_mutex);
     }
     break;
   case PROP_UI_URI:
@@ -463,10 +482,10 @@ ags_lv2_plugin_set_property(GObject *gobject,
 
       ui_uri = (gchar *) g_value_get_string(value);
 
-      pthread_mutex_lock(base_plugin_mutex);
+      g_rec_mutex_lock(base_plugin_mutex);
 
       if(lv2_plugin->ui_uri == ui_uri){
-	pthread_mutex_unlock(base_plugin_mutex);
+	g_rec_mutex_unlock(base_plugin_mutex);
 
 	return;
       }
@@ -477,7 +496,7 @@ ags_lv2_plugin_set_property(GObject *gobject,
 
       lv2_plugin->ui_uri = g_strdup(ui_uri);
 
-      pthread_mutex_unlock(base_plugin_mutex);
+      g_rec_mutex_unlock(base_plugin_mutex);
     }
     break;
   case PROP_MANIFEST:
@@ -486,10 +505,10 @@ ags_lv2_plugin_set_property(GObject *gobject,
 
       manifest = (AgsTurtle *) g_value_get_object(value);
 
-      pthread_mutex_lock(base_plugin_mutex);
+      g_rec_mutex_lock(base_plugin_mutex);
 
       if(lv2_plugin->manifest == manifest){
-	pthread_mutex_unlock(base_plugin_mutex);
+	g_rec_mutex_unlock(base_plugin_mutex);
 
 	return;
       }
@@ -504,7 +523,7 @@ ags_lv2_plugin_set_property(GObject *gobject,
       
       lv2_plugin->manifest = manifest;
 
-      pthread_mutex_unlock(base_plugin_mutex);
+      g_rec_mutex_unlock(base_plugin_mutex);
     }
     break;
   case PROP_TURTLE:
@@ -513,10 +532,10 @@ ags_lv2_plugin_set_property(GObject *gobject,
 
       turtle = (AgsTurtle *) g_value_get_object(value);
 
-      pthread_mutex_lock(base_plugin_mutex);
+      g_rec_mutex_lock(base_plugin_mutex);
 
       if(lv2_plugin->turtle == turtle){
-	pthread_mutex_unlock(base_plugin_mutex);
+	g_rec_mutex_unlock(base_plugin_mutex);
 
 	return;
       }
@@ -531,7 +550,7 @@ ags_lv2_plugin_set_property(GObject *gobject,
       
       lv2_plugin->turtle = turtle;
 
-      pthread_mutex_unlock(base_plugin_mutex);
+      g_rec_mutex_unlock(base_plugin_mutex);
     }
     break;
   case PROP_DOAP_NAME:
@@ -540,10 +559,10 @@ ags_lv2_plugin_set_property(GObject *gobject,
 
       doap_name = (gchar *) g_value_get_string(value);
 
-      pthread_mutex_lock(base_plugin_mutex);
+      g_rec_mutex_lock(base_plugin_mutex);
 
       if(lv2_plugin->doap_name == doap_name){
-	pthread_mutex_unlock(base_plugin_mutex);
+	g_rec_mutex_unlock(base_plugin_mutex);
 
 	return;
       }
@@ -554,7 +573,7 @@ ags_lv2_plugin_set_property(GObject *gobject,
 
       lv2_plugin->doap_name = g_strdup(doap_name);
 
-      pthread_mutex_unlock(base_plugin_mutex);
+      g_rec_mutex_unlock(base_plugin_mutex);
     }
     break;
   case PROP_FOAF_NAME:
@@ -563,10 +582,10 @@ ags_lv2_plugin_set_property(GObject *gobject,
 
       foaf_name = (gchar *) g_value_get_string(value);
 
-      pthread_mutex_lock(base_plugin_mutex);
+      g_rec_mutex_lock(base_plugin_mutex);
 
       if(lv2_plugin->foaf_name == foaf_name){
-	pthread_mutex_unlock(base_plugin_mutex);
+	g_rec_mutex_unlock(base_plugin_mutex);
 
 	return;
       }
@@ -577,7 +596,7 @@ ags_lv2_plugin_set_property(GObject *gobject,
 
       lv2_plugin->foaf_name = g_strdup(foaf_name);
 
-      pthread_mutex_unlock(base_plugin_mutex);
+      g_rec_mutex_unlock(base_plugin_mutex);
     }
     break;
   case PROP_FOAF_HOMEPAGE:
@@ -586,10 +605,10 @@ ags_lv2_plugin_set_property(GObject *gobject,
 
       foaf_homepage = (gchar *) g_value_get_string(value);
 
-      pthread_mutex_lock(base_plugin_mutex);
+      g_rec_mutex_lock(base_plugin_mutex);
 
       if(lv2_plugin->foaf_homepage == foaf_homepage){
-	pthread_mutex_unlock(base_plugin_mutex);
+	g_rec_mutex_unlock(base_plugin_mutex);
 
 	return;
       }
@@ -600,7 +619,7 @@ ags_lv2_plugin_set_property(GObject *gobject,
 
       lv2_plugin->foaf_homepage = g_strdup(foaf_homepage);
 
-      pthread_mutex_unlock(base_plugin_mutex);
+      g_rec_mutex_unlock(base_plugin_mutex);
     }
     break;
   case PROP_FOAF_MBOX:
@@ -609,10 +628,10 @@ ags_lv2_plugin_set_property(GObject *gobject,
 
       foaf_mbox = (gchar *) g_value_get_string(value);
 
-      pthread_mutex_lock(base_plugin_mutex);
+      g_rec_mutex_lock(base_plugin_mutex);
 
       if(lv2_plugin->foaf_mbox == foaf_mbox){
-	pthread_mutex_unlock(base_plugin_mutex);
+	g_rec_mutex_unlock(base_plugin_mutex);
 
 	return;
       }
@@ -623,7 +642,7 @@ ags_lv2_plugin_set_property(GObject *gobject,
 
       lv2_plugin->foaf_mbox = g_strdup(foaf_mbox);
 
-      pthread_mutex_unlock(base_plugin_mutex);
+      g_rec_mutex_unlock(base_plugin_mutex);
     }
     break;
   case PROP_PRESET:
@@ -632,11 +651,11 @@ ags_lv2_plugin_set_property(GObject *gobject,
 
       lv2_preset = g_value_get_pointer(value);
 
-      pthread_mutex_lock(base_plugin_mutex);
+      g_rec_mutex_lock(base_plugin_mutex);
 
       if(lv2_preset == NULL ||
 	 g_list_find(lv2_plugin->preset, lv2_preset) != NULL){
-	pthread_mutex_unlock(base_plugin_mutex);
+	g_rec_mutex_unlock(base_plugin_mutex);
       
 	return;
       }
@@ -645,7 +664,7 @@ ags_lv2_plugin_set_property(GObject *gobject,
 					 lv2_preset);
       g_object_ref(lv2_preset);
       
-      pthread_mutex_unlock(base_plugin_mutex);
+      g_rec_mutex_unlock(base_plugin_mutex);
     }
     break;
   default:
@@ -662,7 +681,7 @@ ags_lv2_plugin_get_property(GObject *gobject,
 {
   AgsLv2Plugin *lv2_plugin;
 
-  pthread_mutex_t *base_plugin_mutex;
+  GRecMutex *base_plugin_mutex;
 
   lv2_plugin = AGS_LV2_PLUGIN(gobject);
 
@@ -672,94 +691,94 @@ ags_lv2_plugin_get_property(GObject *gobject,
   switch(prop_id){
   case PROP_PNAME:
     {
-      pthread_mutex_lock(base_plugin_mutex);
+      g_rec_mutex_lock(base_plugin_mutex);
 
       g_value_set_string(value, lv2_plugin->pname);
 
-      pthread_mutex_unlock(base_plugin_mutex);
+      g_rec_mutex_unlock(base_plugin_mutex);
     }
     break;
   case PROP_URI:
     {
-      pthread_mutex_lock(base_plugin_mutex);
+      g_rec_mutex_lock(base_plugin_mutex);
 
       g_value_set_string(value, lv2_plugin->uri);
 
-      pthread_mutex_unlock(base_plugin_mutex);
+      g_rec_mutex_unlock(base_plugin_mutex);
     }
     break;
   case PROP_UI_URI:
     {
-      pthread_mutex_lock(base_plugin_mutex);
+      g_rec_mutex_lock(base_plugin_mutex);
 
       g_value_set_string(value, lv2_plugin->ui_uri);
 
-      pthread_mutex_unlock(base_plugin_mutex);
+      g_rec_mutex_unlock(base_plugin_mutex);
     }
     break;
   case PROP_MANIFEST:
     {
-      pthread_mutex_lock(base_plugin_mutex);
+      g_rec_mutex_lock(base_plugin_mutex);
 
       g_value_set_object(value, lv2_plugin->manifest);
 
-      pthread_mutex_unlock(base_plugin_mutex);
+      g_rec_mutex_unlock(base_plugin_mutex);
     }
     break;
   case PROP_TURTLE:
     {
-      pthread_mutex_lock(base_plugin_mutex);
+      g_rec_mutex_lock(base_plugin_mutex);
 
       g_value_set_object(value, lv2_plugin->turtle);
 
-      pthread_mutex_unlock(base_plugin_mutex);
+      g_rec_mutex_unlock(base_plugin_mutex);
     }
     break;
   case PROP_DOAP_NAME:
     {
-      pthread_mutex_lock(base_plugin_mutex);
+      g_rec_mutex_lock(base_plugin_mutex);
 
       g_value_set_string(value, lv2_plugin->doap_name);
 
-      pthread_mutex_unlock(base_plugin_mutex);
+      g_rec_mutex_unlock(base_plugin_mutex);
     }
     break;
   case PROP_FOAF_NAME:
     {
-      pthread_mutex_lock(base_plugin_mutex);
+      g_rec_mutex_lock(base_plugin_mutex);
 
       g_value_set_string(value, lv2_plugin->foaf_name);
 
-      pthread_mutex_unlock(base_plugin_mutex);
+      g_rec_mutex_unlock(base_plugin_mutex);
     }
     break;
   case PROP_FOAF_HOMEPAGE:
     {
-      pthread_mutex_lock(base_plugin_mutex);
+      g_rec_mutex_lock(base_plugin_mutex);
 
       g_value_set_string(value, lv2_plugin->foaf_homepage);
 
-      pthread_mutex_unlock(base_plugin_mutex);
+      g_rec_mutex_unlock(base_plugin_mutex);
     }
     break;
   case PROP_FOAF_MBOX:
     {
-      pthread_mutex_lock(base_plugin_mutex);
+      g_rec_mutex_lock(base_plugin_mutex);
 
       g_value_set_string(value, lv2_plugin->foaf_mbox);
 
-      pthread_mutex_unlock(base_plugin_mutex);
+      g_rec_mutex_unlock(base_plugin_mutex);
     }
     break;
   case PROP_PRESET:
     {
-      pthread_mutex_lock(base_plugin_mutex);
+      g_rec_mutex_lock(base_plugin_mutex);
 
       g_value_set_pointer(value, g_list_copy_deep(lv2_plugin->preset,
 						  (GCopyFunc) g_object_ref,
 						  NULL));
 
-      pthread_mutex_unlock(base_plugin_mutex);
+      g_rec_mutex_unlock(base_plugin_mutex);
     }
     break;
   default:
@@ -879,6 +898,7 @@ ags_lv2_plugin_instantiate(AgsBasePlugin *base_plugin,
   guint conf_samplerate;
   double rate;
   guint total_feature;
+  guint options_feature_position;
   guint nth;
   guint i;
   gboolean initial_call;
@@ -888,7 +908,7 @@ ags_lv2_plugin_instantiate(AgsBasePlugin *base_plugin,
 			    const char *bundle_path,
 			    const LV2_Feature *const *features);
 
-  pthread_mutex_t *base_plugin_mutex;
+  GRecMutex *base_plugin_mutex;
   
   lv2_plugin = AGS_LV2_PLUGIN(base_plugin);
     
@@ -898,7 +918,7 @@ ags_lv2_plugin_instantiate(AgsBasePlugin *base_plugin,
   //  xmlSaveFormatFileEnc("-", lv2_plugin->turtle->doc, "UTF-8", 1);
 
   /* get some fields */
-  pthread_mutex_lock(base_plugin_mutex);
+  g_rec_mutex_lock(base_plugin_mutex);
 
   plugin_so = base_plugin->plugin_so;
 
@@ -960,7 +980,7 @@ ags_lv2_plugin_instantiate(AgsBasePlugin *base_plugin,
 
   effect_index = base_plugin->effect_index;
   
-  pthread_mutex_unlock(base_plugin_mutex);
+  g_rec_mutex_unlock(base_plugin_mutex);
 
   if(plugin_so == NULL){
     g_free(path);
@@ -978,6 +998,8 @@ ags_lv2_plugin_instantiate(AgsBasePlugin *base_plugin,
 
   worker_handle = NULL;
 
+  options_feature_position = 0;
+  
   if(feature == NULL){    
     initial_call = TRUE;
 
@@ -1071,8 +1093,17 @@ ags_lv2_plugin_instantiate(AgsBasePlugin *base_plugin,
     options_interface->get = ags_lv2_option_manager_lv2_options_get;
   
     feature[nth] = (LV2_Feature *) malloc(sizeof(LV2_Feature));
-    feature[nth]->URI = LV2_OPTIONS_URI;
+    feature[nth]->URI = LV2_OPTIONS__interface;
     feature[nth]->data = options_interface;
+
+    nth++;
+
+    /* Options options */
+    options_feature_position = nth;
+    
+    feature[nth] = (LV2_Feature *) malloc(sizeof(LV2_Feature));
+    feature[nth]->URI = LV2_OPTIONS__options;
+    feature[nth]->data = NULL;
 
     nth++;
 
@@ -1081,15 +1112,15 @@ ags_lv2_plugin_instantiate(AgsBasePlugin *base_plugin,
       feature[nth] = NULL;
     }
   
-    pthread_mutex_lock(base_plugin_mutex);
+    g_rec_mutex_lock(base_plugin_mutex);
 
     lv2_plugin->feature = feature;
     
-    pthread_mutex_unlock(base_plugin_mutex);
+    g_rec_mutex_unlock(base_plugin_mutex);
   }
 
   instantiate = NULL;
-  
+
   if(plugin_so != NULL){
     gboolean success;
     
@@ -1108,99 +1139,106 @@ ags_lv2_plugin_instantiate(AgsBasePlugin *base_plugin,
 #endif
 
     if(success && lv2_descriptor){
-      pthread_mutex_lock(base_plugin_mutex);
+      g_rec_mutex_lock(base_plugin_mutex);
       
       base_plugin->plugin_descriptor = 
 	plugin_descriptor = lv2_descriptor(effect_index);
 
       instantiate = plugin_descriptor->instantiate;
       
-      pthread_mutex_unlock(base_plugin_mutex);
+      g_rec_mutex_unlock(base_plugin_mutex);
     }
   }
 
-  /* alloc handle */
-  lv2_handle = (LV2_Handle *) malloc(sizeof(LV2_Handle));
+  lv2_handle = NULL;
 
+  options = NULL;
+  
   /* instantiate */
   rate = (double) samplerate;
-  lv2_handle[0] = instantiate(plugin_descriptor,
-			      rate,
-			      path,
-			      feature);
-
+  
   if(initial_call){
     /* some options */
-    options = (LV2_Options_Option *) malloc(6 * sizeof(LV2_Options_Option));
+    options = (LV2_Options_Option *) malloc(7 * sizeof(LV2_Options_Option));
 
     /* samplerate */
     options[0].context = LV2_OPTIONS_INSTANCE;
     options[0].subject = 0;
-    options[0].key = ags_lv2_urid_manager_lookup(ags_lv2_urid_manager_get_instance(),
-						 LV2_PARAMETERS__sampleRate);
+    //FIXME:JK: bad cast
+    options[0].key = (uint32_t) ags_lv2_urid_manager_lookup(ags_lv2_urid_manager_get_instance(), 
+							    LV2_PARAMETERS__sampleRate);
 
     ptr_samplerate = (float *) malloc(sizeof(float));
     ptr_samplerate[0] = conf_samplerate;
   
     options[0].size = sizeof(float);
-    options[0].type = ags_lv2_urid_manager_lookup(ags_lv2_urid_manager_get_instance(),
-						  LV2_ATOM__Float);
+    //FIXME:JK: bad cast
+    options[0].type = (uint32_t) ags_lv2_urid_manager_lookup(ags_lv2_urid_manager_get_instance(),
+							     LV2_ATOM__Float);
     options[0].value = ptr_samplerate;
   
     /* min-block-length */
     options[1].context = LV2_OPTIONS_INSTANCE;
     options[1].subject = 0;
-    options[1].key = ags_lv2_urid_manager_lookup(ags_lv2_urid_manager_get_instance(),
-						 LV2_BUF_SIZE__minBlockLength);
+    //FIXME:JK: bad cast
+    options[1].key = (uint32_t) ags_lv2_urid_manager_lookup(ags_lv2_urid_manager_get_instance(),
+							    LV2_BUF_SIZE__minBlockLength);
 
     ptr_buffer_size = (float *) malloc(sizeof(float));
     ptr_buffer_size[0] = conf_buffer_size;
   
     options[1].size = sizeof(float);
-    options[1].type = ags_lv2_urid_manager_lookup(ags_lv2_urid_manager_get_instance(),
-						  LV2_ATOM__Int);
+    //FIXME:JK: bad cast
+    options[1].type = (uint32_t) ags_lv2_urid_manager_lookup(ags_lv2_urid_manager_get_instance(),
+							     LV2_ATOM__Int);
     options[1].value = ptr_buffer_size;
 
     /* max-block-length */
     options[2].context = LV2_OPTIONS_INSTANCE;
     options[2].subject = 0;
-    options[2].key = ags_lv2_urid_manager_lookup(ags_lv2_urid_manager_get_instance(),
-						 LV2_BUF_SIZE__maxBlockLength);
+    //FIXME:JK: bad cast
+    options[2].key = (uint32_t) ags_lv2_urid_manager_lookup(ags_lv2_urid_manager_get_instance(),
+							    LV2_BUF_SIZE__maxBlockLength);
 
     ptr_buffer_size = (float *) malloc(sizeof(float));
     ptr_buffer_size[0] = conf_buffer_size;
 
     options[2].size = sizeof(float);
-    options[2].type = ags_lv2_urid_manager_lookup(ags_lv2_urid_manager_get_instance(),
-						  LV2_ATOM__Int);
+    //FIXME:JK: bad cast
+    options[2].type = (uint32_t) ags_lv2_urid_manager_lookup(ags_lv2_urid_manager_get_instance(),
+							     LV2_ATOM__Int);
     options[2].value = ptr_buffer_size;
 
     /* bounded-block-length */
     options[3].context = LV2_OPTIONS_INSTANCE;
     options[3].subject = 0;
-    options[3].key = ags_lv2_urid_manager_lookup(ags_lv2_urid_manager_get_instance(),
-						 LV2_BUF_SIZE__boundedBlockLength);
+    //FIXME:JK: bad cast
+    options[3].key = (uint32_t) ags_lv2_urid_manager_lookup(ags_lv2_urid_manager_get_instance(),
+							    LV2_BUF_SIZE__boundedBlockLength);
 
     ptr_buffer_size = (float *) malloc(sizeof(float));
     ptr_buffer_size[0] = conf_buffer_size;
 
     options[3].size = sizeof(float);
-    options[3].type = ags_lv2_urid_manager_lookup(ags_lv2_urid_manager_get_instance(),
-						  LV2_ATOM__Int);
+    //FIXME:JK: bad cast
+    options[3].type = (uint32_t) ags_lv2_urid_manager_lookup(ags_lv2_urid_manager_get_instance(),
+							     LV2_ATOM__Int);
     options[3].value = ptr_buffer_size;
 
     /* fixed-block-length */
     options[4].context = LV2_OPTIONS_INSTANCE;
     options[4].subject = 0;
-    options[4].key = ags_lv2_urid_manager_lookup(ags_lv2_urid_manager_get_instance(),
-						 LV2_BUF_SIZE__fixedBlockLength);
+    //FIXME:JK: bad cast
+    options[4].key = (uint32_t) ags_lv2_urid_manager_lookup(ags_lv2_urid_manager_get_instance(),
+							    LV2_BUF_SIZE__fixedBlockLength);
 
     ptr_buffer_size = (float *) malloc(sizeof(float));
     ptr_buffer_size[0] = conf_buffer_size;
 
     options[4].size = sizeof(float);
-    options[4].type = ags_lv2_urid_manager_lookup(ags_lv2_urid_manager_get_instance(),
-						  LV2_ATOM__Int);
+    //FIXME:JK: bad cast
+    options[4].type = (uint32_t) ags_lv2_urid_manager_lookup(ags_lv2_urid_manager_get_instance(),
+							     LV2_ATOM__Int);
     options[4].value = ptr_buffer_size;
     
     /* instance */
@@ -1212,9 +1250,33 @@ ags_lv2_plugin_instantiate(AgsBasePlugin *base_plugin,
     options[5].type = 0;
     options[5].value = NULL;
     
+    /* zeroed */
+    options[6].context = 0;
+    options[6].subject = 0;
+    options[6].key = 0;
+    
+    options[6].size = 0;
+    options[6].type = 0;
+    options[6].value = NULL;
+
+    feature[options_feature_position]->data = options;
+  }
+
+  if(instantiate != NULL){
+    /* alloc handle */
+    lv2_handle = (LV2_Handle *) malloc(sizeof(LV2_Handle));
+
+    lv2_handle[0] = instantiate(plugin_descriptor,
+				rate,
+				path,
+				feature);
+    
     /* set options */
-    ags_lv2_option_manager_lv2_options_set(lv2_handle[0],
-					   options);
+    if(lv2_handle[0] != NULL &&
+       options != NULL){
+      ags_lv2_option_manager_lv2_options_set(lv2_handle[0],
+					     options);
+    }
   }
   
   /*  */  
@@ -1243,22 +1305,25 @@ ags_lv2_plugin_connect_port(AgsBasePlugin *base_plugin,
 		       uint32_t port,
 		       void *data_location);
 
-  pthread_mutex_t *base_plugin_mutex;
+  GRecMutex *base_plugin_mutex;
 
   /* get base plugin mutex */
   base_plugin_mutex = AGS_BASE_PLUGIN_GET_OBJ_MUTEX(base_plugin);
 
   /* get some fields */
-  pthread_mutex_lock(base_plugin_mutex);
+  g_rec_mutex_lock(base_plugin_mutex);
 
   connect_port = AGS_LV2_PLUGIN_DESCRIPTOR(base_plugin->plugin_descriptor)->connect_port;
 
-  pthread_mutex_unlock(base_plugin_mutex);
+  g_rec_mutex_unlock(base_plugin_mutex);
   
   /* connect port */
-  connect_port((LV2_Handle) plugin_handle,
-	       (uint32_t) port_index,
-	       (float *) data_location);
+  if(plugin_handle != NULL &&
+     connect_port != NULL){
+    connect_port((LV2_Handle) plugin_handle,
+		 (uint32_t) port_index,
+		 (float *) data_location);
+  }
 }
 
 void
@@ -1267,20 +1332,21 @@ ags_lv2_plugin_activate(AgsBasePlugin *base_plugin,
 {
   void (*activate)(LV2_Handle instance);
   
-  pthread_mutex_t *base_plugin_mutex;
+  GRecMutex *base_plugin_mutex;
 
   /* get base plugin mutex */
   base_plugin_mutex = AGS_BASE_PLUGIN_GET_OBJ_MUTEX(base_plugin);
 
   /* get some fields */
-  pthread_mutex_lock(base_plugin_mutex);
+  g_rec_mutex_lock(base_plugin_mutex);
 
   activate = AGS_LV2_PLUGIN_DESCRIPTOR(base_plugin->plugin_descriptor)->activate;
   
-  pthread_mutex_unlock(base_plugin_mutex);
+  g_rec_mutex_unlock(base_plugin_mutex);
 
   /* activate */
-  if(activate != NULL){
+  if(plugin_handle != NULL &&
+     activate != NULL){
     activate((LV2_Handle) plugin_handle);
   }
 }
@@ -1291,20 +1357,21 @@ ags_lv2_plugin_deactivate(AgsBasePlugin *base_plugin,
 {
   void (*deactivate)(LV2_Handle instance);
   
-  pthread_mutex_t *base_plugin_mutex;
+  GRecMutex *base_plugin_mutex;
 
   /* get base plugin mutex */
   base_plugin_mutex = AGS_BASE_PLUGIN_GET_OBJ_MUTEX(base_plugin);
 
   /* get some fields */
-  pthread_mutex_lock(base_plugin_mutex);
+  g_rec_mutex_lock(base_plugin_mutex);
 
   deactivate = AGS_LV2_PLUGIN_DESCRIPTOR(base_plugin->plugin_descriptor)->deactivate;
   
-  pthread_mutex_unlock(base_plugin_mutex);
+  g_rec_mutex_unlock(base_plugin_mutex);
 
   /* deactivate */
-  if(deactivate != NULL){
+  if(plugin_handle != NULL &&
+     deactivate != NULL){
     deactivate((LV2_Handle) plugin_handle);
   }
 }
@@ -1318,21 +1385,24 @@ ags_lv2_plugin_run(AgsBasePlugin *base_plugin,
   void (*run)(LV2_Handle instance,
 	      uint32_t sample_count);
   
-  pthread_mutex_t *base_plugin_mutex;
+  GRecMutex *base_plugin_mutex;
 
   /* get base plugin mutex */
   base_plugin_mutex = AGS_BASE_PLUGIN_GET_OBJ_MUTEX(base_plugin);
 
   /* get some fields */
-  pthread_mutex_lock(base_plugin_mutex);
+  g_rec_mutex_lock(base_plugin_mutex);
 
   run = AGS_LV2_PLUGIN_DESCRIPTOR(base_plugin->plugin_descriptor)->run;
   
-  pthread_mutex_unlock(base_plugin_mutex);
+  g_rec_mutex_unlock(base_plugin_mutex);
 
   /* run */
-  run((LV2_Handle) plugin_handle,
-      (uint32_t) frame_count);
+  if(plugin_handle != NULL &&
+     run != NULL){
+    run((LV2_Handle) plugin_handle,
+	(uint32_t) frame_count);
+  }
 }
 
 void
@@ -1350,14 +1420,14 @@ ags_lv2_plugin_load_plugin(AgsBasePlugin *base_plugin)
  * 
  * Returns: %TRUE if flags are set, else %FALSE
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gboolean
 ags_lv2_plugin_test_flags(AgsLv2Plugin *lv2_plugin, guint flags)
 {
   gboolean retval;
   
-  pthread_mutex_t *base_plugin_mutex;
+  GRecMutex *base_plugin_mutex;
 
   if(!AGS_IS_LV2_PLUGIN(lv2_plugin)){
     return(FALSE);
@@ -1367,11 +1437,11 @@ ags_lv2_plugin_test_flags(AgsLv2Plugin *lv2_plugin, guint flags)
   base_plugin_mutex = AGS_BASE_PLUGIN_GET_OBJ_MUTEX(lv2_plugin);
 
   /* test flags */
-  pthread_mutex_lock(base_plugin_mutex);
+  g_rec_mutex_lock(base_plugin_mutex);
 
   retval = ((flags & (lv2_plugin->flags)) != 0) ? TRUE: FALSE;
   
-  pthread_mutex_unlock(base_plugin_mutex);
+  g_rec_mutex_unlock(base_plugin_mutex);
 
   return(retval);
 }
@@ -1383,12 +1453,12 @@ ags_lv2_plugin_test_flags(AgsLv2Plugin *lv2_plugin, guint flags)
  *
  * Set flags.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_lv2_plugin_set_flags(AgsLv2Plugin *lv2_plugin, guint flags)
 {
-  pthread_mutex_t *base_plugin_mutex;
+  GRecMutex *base_plugin_mutex;
 
   if(!AGS_IS_LV2_PLUGIN(lv2_plugin)){
     return;
@@ -1398,11 +1468,11 @@ ags_lv2_plugin_set_flags(AgsLv2Plugin *lv2_plugin, guint flags)
   base_plugin_mutex = AGS_BASE_PLUGIN_GET_OBJ_MUTEX(lv2_plugin);
 
   /* set flags */
-  pthread_mutex_lock(base_plugin_mutex);
+  g_rec_mutex_lock(base_plugin_mutex);
 
   lv2_plugin->flags |= flags;
   
-  pthread_mutex_unlock(base_plugin_mutex);
+  g_rec_mutex_unlock(base_plugin_mutex);
 }
 
 /**
@@ -1412,12 +1482,12 @@ ags_lv2_plugin_set_flags(AgsLv2Plugin *lv2_plugin, guint flags)
  *
  * Unset flags.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_lv2_plugin_unset_flags(AgsLv2Plugin *lv2_plugin, guint flags)
 {
-  pthread_mutex_t *base_plugin_mutex;
+  GRecMutex *base_plugin_mutex;
 
   if(!AGS_IS_LV2_PLUGIN(lv2_plugin)){
     return;
@@ -1427,96 +1497,11 @@ ags_lv2_plugin_unset_flags(AgsLv2Plugin *lv2_plugin, guint flags)
   base_plugin_mutex = AGS_BASE_PLUGIN_GET_OBJ_MUTEX(lv2_plugin);
 
   /* unset flags */
-  pthread_mutex_lock(base_plugin_mutex);
+  g_rec_mutex_lock(base_plugin_mutex);
 
   lv2_plugin->flags &= (~flags);
   
-  pthread_mutex_unlock(base_plugin_mutex);
-}
-
-/**
- * ags_lv2_plugin_alloc_event_buffer:
- * @buffer_size: the allocated size
- *
- * Allocates a LV2_Event_Buffer
- * 
- * Returns: the new event buffer
- * 
- * Since: 2.0.0
- */
-void*
-ags_lv2_plugin_alloc_event_buffer(guint buffer_size)
-{
-  void *event_buffer;
-  
-  uint32_t padded_buffer_size;
-
-  if(buffer_size > G_MAXUINT16){
-    return(NULL);
-  }
-  
-  if(buffer_size < 8){
-    padded_buffer_size = 8;
-  }else{
-    padded_buffer_size = buffer_size;
-  }
-    
-  event_buffer = (void *) malloc(padded_buffer_size + sizeof(LV2_Event_Buffer));
-  memset(event_buffer, 0, padded_buffer_size + sizeof(LV2_Event_Buffer));
-
-  AGS_LV2_EVENT_BUFFER(event_buffer)->data = event_buffer + sizeof(LV2_Event_Buffer);
-
-  AGS_LV2_EVENT_BUFFER(event_buffer)->header_size = sizeof(LV2_Event_Buffer);
-
-  AGS_LV2_EVENT_BUFFER(event_buffer)->stamp_type = 0;
-  AGS_LV2_EVENT_BUFFER(event_buffer)->capacity = padded_buffer_size;
-
-  AGS_LV2_EVENT_BUFFER(event_buffer)->event_count = 0;
-  AGS_LV2_EVENT_BUFFER(event_buffer)->size = 0;
-
-  return(event_buffer);
-}
-
-/**
- * ags_lv2_plugin_concat_event_buffer:
- * @buffer0: the first buffer
- * @...: %NULL terminated variadict arguments
- *
- * Concats the event buffers.
- * 
- * Returns: The newly allocated event buffer
- * 
- * Since: 2.0.0
- */
-void*
-ags_lv2_plugin_concat_event_buffer(void *buffer0, ...)
-{
-  void *buffer;
-  void *current;
-  
-  va_list ap;
-
-  guint buffer_length, prev_length;
-
-  buffer_length = AGS_LV2_EVENT_BUFFER(buffer0)->capacity + sizeof(LV2_Event_Buffer);
-
-  buffer = (void *) malloc(buffer_length);
-  memcpy(buffer, buffer0, buffer_length);
-  
-  va_start(ap, buffer0);
-
-  while((current = va_arg(ap, void*)) != NULL){
-    prev_length = buffer_length;
-    buffer_length += (AGS_LV2_EVENT_BUFFER(current)->capacity + sizeof(LV2_Event_Buffer));
-    
-    buffer = (void *) realloc(buffer,
-			      buffer_length);
-    memcpy(buffer + prev_length, current, buffer_length - prev_length);
-  }
-
-  va_end(ap);
-
-  return(buffer);
+  g_rec_mutex_unlock(base_plugin_mutex);
 }
 
 /**
@@ -1525,9 +1510,9 @@ ags_lv2_plugin_concat_event_buffer(void *buffer0, ...)
  * 
  * Allocate LV2_Event_Buffer struct.
  * 
- * Returns: a new allocated LV2_Event_Buffer
+ * Returns: (type gpointer) (transfer none): a new allocated LV2_Event_Buffer
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 LV2_Event_Buffer*
 ags_lv2_plugin_event_buffer_alloc(guint buffer_size)
@@ -1566,13 +1551,31 @@ ags_lv2_plugin_event_buffer_alloc(guint buffer_size)
 }
 
 /**
+ * ags_lv2_plugin_event_buffer_free:
+ * @event_buffer: (type gpointer) (transfer none): the LV2_Event_Buffer struct
+ * 
+ * Free LV2_Event_Buffer struct.
+ * 
+ * Since: 3.3.0
+ */
+void
+ags_lv2_plugin_event_buffer_free(gpointer event_buffer)
+{
+  if(event_buffer == NULL){
+    return;
+  }
+
+  free(event_buffer);
+}
+
+/**
  * ags_lv2_plugin_event_buffer_realloc_data:
- * @event_buffer: the LV2_Event_Buffer struct
+ * @event_buffer: (type gpointer) (transfer none): the LV2_Event_Buffer struct
  * @buffer_size: the data's buffer size
  * 
  * Reallocate LV2_Event_Buffer struct's data field.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_lv2_plugin_event_buffer_realloc_data(LV2_Event_Buffer *event_buffer,
@@ -1601,14 +1604,14 @@ ags_lv2_plugin_event_buffer_realloc_data(LV2_Event_Buffer *event_buffer,
 
 /**
  * ags_lv2_plugin_event_buffer_concat:
- * @event_buffer: the first buffer
+ * @event_buffer: (type gpointer) (transfer none): the first buffer
  * @...: %NULL terminated variadict arguments
  *
  * Concats the event buffers.
  * 
- * Returns: The newly allocated event buffer
+ * Returns: (type gpointer) (transfer none): The newly allocated event buffer
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 LV2_Event_Buffer*
 ags_lv2_plugin_event_buffer_concat(LV2_Event_Buffer *event_buffer, ...)
@@ -1653,17 +1656,17 @@ ags_lv2_plugin_event_buffer_concat(LV2_Event_Buffer *event_buffer, ...)
  * ags_lv2_plugin_event_buffer_append_midi:
  * @event_buffer: the event buffer
  * @buffer_size: the event buffer size
- * @events: the events to write
+ * @events: (type gpointer) (transfer none): the events to write
  * @event_count: the number of events to write
  *
  * Append MIDI data to event buffer.
  *
  * Returns: %TRUE on success otherwise %FALSE
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gboolean
-ags_lv2_plugin_event_buffer_append_midi(void *event_buffer,
+ags_lv2_plugin_event_buffer_append_midi(gpointer event_buffer,
 					guint buffer_size,
 					snd_seq_event_t *events,
 					guint event_count)
@@ -1676,6 +1679,10 @@ ags_lv2_plugin_event_buffer_append_midi(void *event_buffer,
   guint count;
   guint i;
   gboolean success;
+
+  if(event_buffer == NULL){
+    return(FALSE);
+  }
 
   /* find offset */
   offset = AGS_LV2_EVENT_BUFFER(event_buffer)->data;
@@ -1731,10 +1738,10 @@ ags_lv2_plugin_event_buffer_append_midi(void *event_buffer,
  *
  * Returns: %TRUE on success otherwise %FALSE
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gboolean
-ags_lv2_plugin_event_buffer_remove_midi(void *event_buffer,
+ags_lv2_plugin_event_buffer_remove_midi(gpointer event_buffer,
 					guint buffer_size,
 					guint note)
 {
@@ -1744,6 +1751,10 @@ ags_lv2_plugin_event_buffer_remove_midi(void *event_buffer,
   guint count;
   guint i;
   gboolean success;
+
+  if(event_buffer == NULL){
+    return(FALSE);
+  }
 
   /* find offset */
   offset = AGS_LV2_EVENT_BUFFER(event_buffer)->data;
@@ -1800,16 +1811,20 @@ ags_lv2_plugin_event_buffer_remove_midi(void *event_buffer,
  *
  * Clear the event buffer.
  *
- * Since: 2.0.0 
+ * Since: 3.0.0 
  */
 void
-ags_lv2_plugin_clear_event_buffer(void *event_buffer,
+ags_lv2_plugin_clear_event_buffer(gpointer event_buffer,
 				  guint buffer_size)
 {
   void *offset;
 
   guint padded_buffer_size;
 
+  if(event_buffer == NULL){
+    return;
+  }
+  
   offset = AGS_LV2_EVENT_BUFFER(event_buffer)->data;
   
   if(buffer_size < 8){
@@ -1829,16 +1844,17 @@ ags_lv2_plugin_clear_event_buffer(void *event_buffer,
  * 
  * Returns: the new atom sequence
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
-void*
+gpointer
 ags_lv2_plugin_alloc_atom_sequence(guint sequence_size)
 {
   LV2_Atom_Sequence *aseq;
   LV2_Atom_Event *aev;
 
   aseq = (LV2_Atom_Sequence *) malloc(sizeof(LV2_Atom_Sequence) + sequence_size);
-
+  memset(aseq, 0, sizeof(LV2_Atom_Sequence) + sequence_size);
+  
   aseq->atom.size = sizeof(LV2_Atom_Sequence_Body);
   aseq->atom.type = ags_lv2_urid_manager_map(NULL,
 					     LV2_ATOM__Sequence);
@@ -1855,20 +1871,38 @@ ags_lv2_plugin_alloc_atom_sequence(guint sequence_size)
 }
 
 /**
+ * ags_lv2_plugin_atom_sequence_free:
+ * @atom_sequence: the atom sequence
+ *
+ * Free atom sequence.
+ *
+ * Since: 3.3.0
+ */
+void
+ags_lv2_plugin_atom_sequence_free(gpointer atom_sequence)
+{
+  if(atom_sequence == NULL){
+    return;
+  }
+  
+  free(atom_sequence);
+}
+
+/**
  * ags_lv2_plugin_atom_sequence_append_midi:
  * @atom_sequence: the atom sequence
  * @sequence_size: the atom sequence size
- * @events: the events to write
+ * @events: (type gpointer) (transfer none): the events to write
  * @event_count: the number of events to write
  *
  * Append MIDI data to atom sequence.
  *
  * Returns: %TRUE on success otherwise %FALSE
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gboolean
-ags_lv2_plugin_atom_sequence_append_midi(void *atom_sequence,
+ags_lv2_plugin_atom_sequence_append_midi(gpointer atom_sequence,
 					 guint sequence_size,
 					 snd_seq_event_t *events,
 					 guint event_count)
@@ -1876,7 +1910,7 @@ ags_lv2_plugin_atom_sequence_append_midi(void *atom_sequence,
   AgsLv2UriMapManager *uri_map_manager;
   
   LV2_Atom_Sequence *aseq;
-  LV2_Atom_Event *aev;
+  LV2_Atom_Event *start_aev, *aev;
   
   unsigned char midi_buffer[8];
 
@@ -1885,13 +1919,18 @@ ags_lv2_plugin_atom_sequence_append_midi(void *atom_sequence,
   guint i;
   gboolean success;
 
+  if(atom_sequence == NULL){
+    return(FALSE);
+  }
+  
   aseq = (LV2_Atom_Sequence *) atom_sequence;
   
   /* find offset */
-  aev = (LV2_Atom_Event*) ((char*) LV2_ATOM_CONTENTS(LV2_Atom_Sequence, aseq));
+  aev =
+    start_aev = (LV2_Atom_Event*) ((char*) LV2_ATOM_CONTENTS(LV2_Atom_Sequence, aseq));
   
-  while((void *) aev < atom_sequence + sequence_size){
-    if(aev->body.size == 0){
+  while((void *) aev < (void *) (aseq + sizeof(LV2_Atom_Sequence)) + sequence_size){
+    if(aev->body.size <= 0){
       break;
     }
     
@@ -1903,7 +1942,7 @@ ags_lv2_plugin_atom_sequence_append_midi(void *atom_sequence,
   success = TRUE;
 
   for(i = 0; i < event_count; i++){
-    if((void *) aev >= atom_sequence + sequence_size){
+    if((void *) aev >= (void *) (aseq + sizeof(LV2_Atom_Sequence)) + sequence_size){
       return(FALSE);
     }
   
@@ -1945,17 +1984,17 @@ ags_lv2_plugin_atom_sequence_append_midi(void *atom_sequence,
  *
  * Returns: %TRUE on success otherwise %FALSE
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gboolean
-ags_lv2_plugin_atom_sequence_remove_midi(void *atom_sequence,
+ags_lv2_plugin_atom_sequence_remove_midi(gpointer atom_sequence,
 					 guint sequence_size,
 					 guint note)
 {
   AgsLv2UriMapManager *uri_map_manager;
   
   LV2_Atom_Sequence *aseq;
-  LV2_Atom_Event *aev, *current_aev;
+  LV2_Atom_Event *start_aev, *end_aev, *aev, *current_aev;
   
   unsigned char midi_buffer[8];
 
@@ -1964,30 +2003,36 @@ ags_lv2_plugin_atom_sequence_remove_midi(void *atom_sequence,
   guint i;
   gboolean success;
 
+  if(atom_sequence == NULL){
+    return(FALSE);
+  }
+
   aseq = (LV2_Atom_Sequence *) atom_sequence;
   
   /* find offset */
-  aev = (LV2_Atom_Event*) ((char*) LV2_ATOM_CONTENTS(LV2_Atom_Sequence, aseq));
+  aev =
+    start_aev = (LV2_Atom_Event*) ((char*) LV2_ATOM_CONTENTS(LV2_Atom_Sequence, aseq));
 
   success = FALSE;
   
-  while((void *) aev < atom_sequence + sequence_size){
-    if(aev->body.size == 0){
+  while((void *) aev < (void *) (aseq + sizeof(LV2_Atom_Sequence)) + sequence_size){
+    if(aev->body.size <= 0){
       break;
     }
 
-    if(((unsigned char *) LV2_ATOM_BODY(&(aev->body)))[1] == (0x7f & note)){
+    if(!success &&
+       (0x7f & ((unsigned char *) LV2_ATOM_BODY(&(aev->body)))[1]) == (0x7f & note)){
       current_aev = aev;
       current_size = aev->body.size;
       
       success = TRUE;
-
-      break;
     }
-    
+
     size = aev->body.size;
     aev += ((size + 7) & (~7));
   }
+
+  end_aev = aev;
   
   /* remove midi */
   if(success){
@@ -1995,14 +2040,27 @@ ags_lv2_plugin_atom_sequence_remove_midi(void *atom_sequence,
     current_aev->body.size = 0;  
     current_aev->body.type = 0;
 
-    memmove(current_aev,
-	    current_aev + ((current_size + 7) & (~7)),
-	    (atom_sequence + sequence_size) - (((void *) current_aev) + ((current_size + 7) & (~7))));
-    
-    memset(atom_sequence + sequence_size - ((current_size + 7) & (~7)),
-	   0,
-	   ((current_size + 7) & (~7)));
+    if(((void *) end_aev - (void *) current_aev) - ((current_size + 7) & (~7)) >= 0 &&
+       ((void *) end_aev - (void *) current_aev) - ((current_size + 7) & (~7)) < sequence_size){
+#if 0
+      g_message("current size %d", ((current_size + 7) & (~7)));
+      g_message("current index %d", (void *) current_aev - (void *) start_aev);
+      g_message("sequence size %d", sequence_size);
+      g_message("count %d", ((void *) end_aev - (void *) current_aev) - ((current_size + 7) & (~7)));
+#endif
+      
+      memmove(current_aev,
+	      current_aev + ((current_size + 7) & (~7)),
+	      ((void *) end_aev - (void *) current_aev) - ((current_size + 7) & (~7)));
+    }
 
+    if(end_aev - ((current_size + 7) & (~7)) >= start_aev &&
+       end_aev - ((current_size + 7) & (~7)) < (void *) (aseq + sizeof(LV2_Atom_Sequence)) + sequence_size){
+      memset(end_aev - ((current_size + 7) & (~7)),
+	     0,
+	     ((current_size + 7) & (~7)));
+    }
+    
     aseq->atom.size -= ((current_size + 7) & (~7));    
   }
   
@@ -2016,25 +2074,29 @@ ags_lv2_plugin_atom_sequence_remove_midi(void *atom_sequence,
  *
  * Clear the atom sequence.
  *
- * Since: 2.0.0 
+ * Since: 3.0.0 
  */
 void
-ags_lv2_plugin_clear_atom_sequence(void *atom_sequence,
+ags_lv2_plugin_clear_atom_sequence(gpointer atom_sequence,
 				   guint sequence_size)
 {
+  if(atom_sequence == NULL){
+    return;
+  }
+  
   memset(atom_sequence, 0, sequence_size);
 }
 
 /**
  * ags_lv2_plugin_find_uri:
- * @lv2_plugin: a #GList-struct containig #AgsLv2Plugin
+ * @lv2_plugin: (element-type AgsAudio.Lv2Plugin) (transfer none): a #GList-struct containig #AgsLv2Plugin
  * @uri: the uri to find
  * 
  * Find uri in @lv2_plugin #GList-struct
  * 
- * Returns: the matching #GList-struct containing #AgsLv2Plugin
+ * Returns: (element-type AgsAudio.Lv2Plugin) (transfer none): the matching #GList-struct containing #AgsLv2Plugin
  * 
- * Since: 2.1.55
+ * Since: 3.0.0
  */
 GList*
 ags_lv2_plugin_find_uri(GList *lv2_plugin,
@@ -2042,7 +2104,7 @@ ags_lv2_plugin_find_uri(GList *lv2_plugin,
 {
   gboolean success;
   
-  pthread_mutex_t *base_plugin_mutex;
+  GRecMutex *base_plugin_mutex;
 
   if(uri == NULL){
     return(NULL);
@@ -2053,13 +2115,13 @@ ags_lv2_plugin_find_uri(GList *lv2_plugin,
     base_plugin_mutex = AGS_BASE_PLUGIN_GET_OBJ_MUTEX(lv2_plugin->data);
 
     /* check uri */
-    pthread_mutex_lock(base_plugin_mutex);
+    g_rec_mutex_lock(base_plugin_mutex);
     
     success = (AGS_LV2_PLUGIN(lv2_plugin->data)->uri != NULL &&
 	       !g_ascii_strcasecmp(uri,
 				   AGS_LV2_PLUGIN(lv2_plugin->data)->uri)) ? TRUE: FALSE;
 
-    pthread_mutex_unlock(base_plugin_mutex);
+    g_rec_mutex_unlock(base_plugin_mutex);
     
     if(success){
       return(lv2_plugin);
@@ -2073,14 +2135,14 @@ ags_lv2_plugin_find_uri(GList *lv2_plugin,
 
 /**
  * ags_lv2_plugin_find_pname:
- * @lv2_plugin: a #GList-struct containig #AgsLv2Plugin
+ * @lv2_plugin: (element-type AgsAudio.Lv2Plugin) (transfer none): a #GList-struct containig #AgsLv2Plugin
  * @pname: the pname to find
  * 
  * Find pname in @lv2_plugin #GList-struct
  * 
- * Returns: the matching #GList-struct containing #AgsLv2Plugin
+ * Returns: (element-type AgsAudio.Lv2Plugin) (transfer none): the matching #GList-struct containing #AgsLv2Plugin
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 GList*
 ags_lv2_plugin_find_pname(GList *lv2_plugin,
@@ -2088,7 +2150,7 @@ ags_lv2_plugin_find_pname(GList *lv2_plugin,
 {
   gboolean success;
   
-  pthread_mutex_t *base_plugin_mutex;
+  GRecMutex *base_plugin_mutex;
 
   if(pname == NULL){
     return(NULL);
@@ -2099,13 +2161,13 @@ ags_lv2_plugin_find_pname(GList *lv2_plugin,
     base_plugin_mutex = AGS_BASE_PLUGIN_GET_OBJ_MUTEX(lv2_plugin->data);
 
     /* check pname */
-    pthread_mutex_lock(base_plugin_mutex);
+    g_rec_mutex_lock(base_plugin_mutex);
     
     success = (AGS_LV2_PLUGIN(lv2_plugin->data)->pname != NULL &&
 	       !g_ascii_strcasecmp(pname,
 				   AGS_LV2_PLUGIN(lv2_plugin->data)->pname)) ? TRUE: FALSE;
 
-    pthread_mutex_unlock(base_plugin_mutex);
+    g_rec_mutex_unlock(base_plugin_mutex);
     
     if(success){
       return(lv2_plugin);
@@ -2146,7 +2208,7 @@ ags_lv2_plugin_real_change_program(AgsLv2Plugin *lv2_plugin,
  * 
  * Change program of @lv2_handle.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_lv2_plugin_change_program(AgsLv2Plugin *lv2_plugin,
@@ -2166,7 +2228,7 @@ ags_lv2_plugin_change_program(AgsLv2Plugin *lv2_plugin,
 
 /**
  * ags_lv2_plugin_new:
- * @turtle: the turtle
+ * @turtle: the #AgsTurtle
  * @filename: the plugin .so
  * @effect: the effect's string representation
  * @uri: the effect's uri
@@ -2176,7 +2238,7 @@ ags_lv2_plugin_change_program(AgsLv2Plugin *lv2_plugin,
  *
  * Returns: a new #AgsLv2Plugin
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 AgsLv2Plugin*
 ags_lv2_plugin_new(AgsTurtle *turtle, gchar *filename, gchar *effect, gchar *uri, guint effect_index)

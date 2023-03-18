@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -23,9 +23,9 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include <pthread.h>
-
 #include <ags/libags.h>
+
+G_BEGIN_DECLS
 
 #define AGS_TYPE_JACK_DEVOUT                (ags_jack_devout_get_type())
 #define AGS_JACK_DEVOUT(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_JACK_DEVOUT, AgsJackDevout))
@@ -34,48 +34,53 @@
 #define AGS_IS_JACK_DEVOUT_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE ((class), AGS_TYPE_JACK_DEVOUT))
 #define AGS_JACK_DEVOUT_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS(obj, AGS_TYPE_JACK_DEVOUT, AgsJackDevoutClass))
 
-#define AGS_JACK_DEVOUT_GET_OBJ_MUTEX(obj) (((AgsJackDevout *) obj)->obj_mutex)
+#define AGS_JACK_DEVOUT_GET_OBJ_MUTEX(obj) (&(((AgsJackDevout *) obj)->obj_mutex))
+
+#define AGS_JACK_DEVOUT_DEFAULT_APP_BUFFER_SIZE (4)
 
 typedef struct _AgsJackDevout AgsJackDevout;
 typedef struct _AgsJackDevoutClass AgsJackDevoutClass;
-
 /**
  * AgsJackDevoutFlags:
- * @AGS_JACK_DEVOUT_ADDED_TO_REGISTRY: the JACK devout was added to registry, see #AgsConnectable::add_to_registry()
- * @AGS_JACK_DEVOUT_CONNECTED: indicates the JACK devout was connected by calling #AgsConnectable::connect()
- * @AGS_JACK_DEVOUT_BUFFER0: ring-buffer 0
- * @AGS_JACK_DEVOUT_BUFFER1: ring-buffer 1
- * @AGS_JACK_DEVOUT_BUFFER2: ring-buffer 2
- * @AGS_JACK_DEVOUT_BUFFER3: ring-buffer 3
- * @AGS_JACK_DEVOUT_ATTACK_FIRST: use first attack, instead of second one
+ * @AGS_JACK_DEVOUT_INITIALIZED: the soundcard was initialized
+ * @AGS_JACK_DEVOUT_START_PLAY: playback starting
  * @AGS_JACK_DEVOUT_PLAY: do playback
  * @AGS_JACK_DEVOUT_SHUTDOWN: stop playback
- * @AGS_JACK_DEVOUT_START_PLAY: playback starting
  * @AGS_JACK_DEVOUT_NONBLOCKING: do non-blocking calls
- * @AGS_JACK_DEVOUT_INITIALIZED: the soundcard was initialized
+ * @AGS_JACK_DEVOUT_ATTACK_FIRST: use first attack, instead of second one
  *
  * Enum values to control the behavior or indicate internal state of #AgsJackDevout by
  * enable/disable as flags.
  */
 
 typedef enum{
-  AGS_JACK_DEVOUT_ADDED_TO_REGISTRY              = 1,
-  AGS_JACK_DEVOUT_CONNECTED                      = 1 <<  1,
+  AGS_JACK_DEVOUT_INITIALIZED                    = 1,
 
-  AGS_JACK_DEVOUT_BUFFER0                        = 1 <<  2,
-  AGS_JACK_DEVOUT_BUFFER1                        = 1 <<  3,
-  AGS_JACK_DEVOUT_BUFFER2                        = 1 <<  4,
-  AGS_JACK_DEVOUT_BUFFER3                        = 1 <<  5,
+  AGS_JACK_DEVOUT_START_PLAY                     = 1 <<  1,
+  AGS_JACK_DEVOUT_PLAY                           = 1 <<  2,
+  AGS_JACK_DEVOUT_SHUTDOWN                       = 1 <<  3,
 
-  AGS_JACK_DEVOUT_ATTACK_FIRST                   = 1 <<  6,
+  AGS_JACK_DEVOUT_NONBLOCKING                    = 1 <<  4,
 
-  AGS_JACK_DEVOUT_PLAY                           = 1 <<  7,
-  AGS_JACK_DEVOUT_SHUTDOWN                       = 1 <<  8,
-  AGS_JACK_DEVOUT_START_PLAY                     = 1 <<  9,
-
-  AGS_JACK_DEVOUT_NONBLOCKING                    = 1 << 10,
-  AGS_JACK_DEVOUT_INITIALIZED                    = 1 << 11,
+  AGS_JACK_DEVOUT_ATTACK_FIRST                   = 1 <<  5,
 }AgsJackDevoutFlags;
+
+/**
+ * AgsJackDevoutAppBufferMode:
+ * @AGS_JACK_DEVOUT_APP_BUFFER_0: ring-buffer 0
+ * @AGS_JACK_DEVOUT_APP_BUFFER_1: ring-buffer 1
+ * @AGS_JACK_DEVOUT_APP_BUFFER_2: ring-buffer 2
+ * @AGS_JACK_DEVOUT_APP_BUFFER_3: ring-buffer 3
+ * 
+ * Enum values to indicate internal state of #AgsJackDevout application buffer by
+ * setting mode.
+ */
+typedef enum{
+  AGS_JACK_DEVOUT_APP_BUFFER_0,
+  AGS_JACK_DEVOUT_APP_BUFFER_1,
+  AGS_JACK_DEVOUT_APP_BUFFER_2,
+  AGS_JACK_DEVOUT_APP_BUFFER_3,
+}AgsJackDevoutAppBufferMode;
 
 /**
  * AgsJackDevoutSyncFlags:
@@ -108,12 +113,10 @@ struct _AgsJackDevout
   GObject gobject;
 
   guint flags;
+  guint connectable_flags;
   volatile guint sync_flags;
   
-  pthread_mutex_t *obj_mutex;
-  pthread_mutexattr_t *obj_mutexattr;
-
-  AgsApplicationContext *application_context;
+  GRecMutex obj_mutex;
 
   AgsUUID *uuid;
 
@@ -123,12 +126,14 @@ struct _AgsJackDevout
   guint buffer_size;
   guint samplerate;
 
-  pthread_mutex_t **buffer_mutex;
+  guint app_buffer_mode;
+
+  GRecMutex **app_buffer_mutex;
 
   guint sub_block_count;
-  pthread_mutex_t **sub_block_mutex;
+  GRecMutex **sub_block_mutex;
 
-  void** buffer;
+  void** app_buffer;
 
   double bpm; // beats per minute
   gdouble delay_factor;
@@ -156,13 +161,11 @@ struct _AgsJackDevout
   gchar **port_name;
   GList *jack_port;
 
-  pthread_mutex_t *callback_mutex;
-  pthread_cond_t *callback_cond;
+  GMutex callback_mutex;
+  GCond callback_cond;
 
-  pthread_mutex_t *callback_finish_mutex;
-  pthread_cond_t *callback_finish_cond;
-
-  GObject *notify_soundcard;
+  GMutex callback_finish_mutex;
+  GCond callback_finish_cond;
 };
 
 struct _AgsJackDevoutClass
@@ -171,10 +174,9 @@ struct _AgsJackDevoutClass
 };
 
 GType ags_jack_devout_get_type();
+GType ags_jack_devout_flags_get_type();
 
 GQuark ags_jack_devout_error_quark();
-
-pthread_mutex_t* ags_jack_devout_get_class_mutex();
 
 gboolean ags_jack_devout_test_flags(AgsJackDevout *jack_devout, guint flags);
 void ags_jack_devout_set_flags(AgsJackDevout *jack_devout, guint flags);
@@ -185,6 +187,8 @@ void ags_jack_devout_switch_buffer_flag(AgsJackDevout *jack_devout);
 void ags_jack_devout_adjust_delay_and_attack(AgsJackDevout *jack_devout);
 void ags_jack_devout_realloc_buffer(AgsJackDevout *jack_devout);
 
-AgsJackDevout* ags_jack_devout_new(AgsApplicationContext *application_context);
+AgsJackDevout* ags_jack_devout_new();
+
+G_END_DECLS
 
 #endif /*__AGS_JACK_DEVOUT_H__*/

@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -23,11 +23,11 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include <pthread.h>
-
 #include <ladspa.h>
 
 #include <ags/libags.h>
+
+G_BEGIN_DECLS
 
 #define AGS_TYPE_PORT                (ags_port_get_type())
 #define AGS_PORT(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_PORT, AgsPort))
@@ -36,15 +36,13 @@
 #define AGS_IS_PORT_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE((class), AGS_TYPE_PORT))
 #define AGS_PORT_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS((obj), AGS_TYPE_PORT, AgsPortClass))
 
-#define AGS_PORT_GET_OBJ_MUTEX(obj) (((AgsPort *) obj)->obj_mutex)
+#define AGS_PORT_GET_OBJ_MUTEX(obj) (&(((AgsPort *) obj)->obj_mutex))
 
 typedef struct _AgsPort AgsPort;
 typedef struct _AgsPortClass AgsPortClass;
 
 /**
  * AgsPortFlags:
- * @AGS_PORT_ADDED_TO_REGISTRY: add to registry
- * @AGS_PORT_CONNECTED: indicates the port was connected by calling #AgsConnectable::connect()
  * @AGS_PORT_CONVERT_ALWAYS: convert always
  * @AGS_PORT_USE_LADSPA_FLOAT: use ladspa float
  * @AGS_PORT_IS_OUTPUT: is output
@@ -54,12 +52,10 @@ typedef struct _AgsPortClass AgsPortClass;
  * enable/disable as flags.
  */
 typedef enum{
-  AGS_PORT_ADDED_TO_REGISTRY  = 1,
-  AGS_PORT_CONNECTED          = 1 <<  1,
-  AGS_PORT_CONVERT_ALWAYS     = 1 <<  2,
-  AGS_PORT_USE_LADSPA_FLOAT   = 1 <<  3,
-  AGS_PORT_IS_OUTPUT          = 1 <<  4,
-  AGS_PORT_INFINITE_RANGE     = 1 <<  5,
+  AGS_PORT_CONVERT_ALWAYS     = 1,
+  AGS_PORT_USE_LADSPA_FLOAT   = 1 <<  1,
+  AGS_PORT_IS_OUTPUT          = 1 <<  2,
+  AGS_PORT_INFINITE_RANGE     = 1 <<  3,
 }AgsPortFlags;
 
 struct _AgsPort
@@ -67,9 +63,9 @@ struct _AgsPort
   GObject gobject;
 
   guint flags;
+  guint connectable_flags;
   
-  pthread_mutex_t *obj_mutex;
-  pthread_mutexattr_t *obj_mutexattr;
+  GRecMutex obj_mutex;
 
   AgsUUID *uuid;
 
@@ -121,8 +117,7 @@ struct _AgsPortClass
 };
 
 GType ags_port_get_type();
-
-pthread_mutex_t* ags_port_get_class_mutex();
+GType ags_port_flags_get_type();
 
 gboolean ags_port_test_flags(AgsPort *port, guint flags);
 void ags_port_set_flags(AgsPort *port, guint flags);
@@ -137,6 +132,7 @@ void ags_port_safe_get_property(AgsPort *port, gchar *property_name, GValue *val
 void ags_port_safe_set_property(AgsPort *port, gchar *property_name, GValue *value);
 
 GList* ags_port_find_specifier(GList *port, gchar *specifier);
+GList* ags_port_find_plugin_port(GList *port, GObject *plugin_port);
 
 void ags_port_add_automation(AgsPort *port,
 			     GObject *automation);
@@ -144,5 +140,7 @@ void ags_port_remove_automation(AgsPort *port,
 				GObject *automation);
 
 AgsPort* ags_port_new();
+
+G_END_DECLS
 
 #endif /*__AGS_PORT_H__*/

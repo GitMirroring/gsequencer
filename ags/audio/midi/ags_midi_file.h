@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -23,11 +23,11 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include <pthread.h>
-
-#include <ags/lib/ags_time.h>
+#include <ags/libags.h>
 
 #include <stdio.h>
+
+G_BEGIN_DECLS
 
 #define AGS_TYPE_MIDI_FILE                (ags_midi_file_get_type ())
 #define AGS_MIDI_FILE(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_MIDI_FILE, AgsMidiFile))
@@ -36,7 +36,7 @@
 #define AGS_IS_MIDI_FILE_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE ((class), AGS_TYPE_MIDI_FILE))
 #define AGS_MIDI_FILE_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS ((obj), AGS_TYPE_MIDI_FILE, AgsMidiFileClass))
 
-#define AGS_MIDI_FILE_GET_OBJ_MUTEX(obj) (((AgsMidiFile *) obj)->obj_mutex)
+#define AGS_MIDI_FILE_GET_OBJ_MUTEX(obj) (&(((AgsMidiFile *) obj)->obj_mutex))
 
 #define AGS_MIDI_FILE_TRACK(ptr) ((AgsMidiFileTrack *)(ptr))
 
@@ -93,8 +93,7 @@ struct _AgsMidiFile
 
   guint flags;
 
-  pthread_mutex_t *obj_mutex;
-  pthread_mutexattr_t *obj_mutexattr;
+  GRecMutex obj_mutex;
 
   gchar *filename;
   FILE *file;
@@ -136,8 +135,6 @@ struct _AgsMidiFileTrack
 GType ags_midi_file_get_type(void);
 
 GQuark ags_midi_file_error_quark();
-
-pthread_mutex_t* ags_midi_file_get_class_mutex();
 
 gboolean ags_midi_file_open(AgsMidiFile *midi_file,
 			    gchar *filename);
@@ -192,6 +189,8 @@ void ags_midi_file_write_track_data(AgsMidiFile *midi_file,
 void ags_midi_file_read_notation(AgsMidiFile *midi_file);
 void ags_mid_file_read_midi(AgsMidiFile *midi_file);
 
-AgsMidiFile* ags_midi_file_new(gchar *filename);
+AgsMidiFile* ags_midi_file_new();
+
+G_END_DECLS
 
 #endif /*__AGS_MIDI_FILE_H__*/

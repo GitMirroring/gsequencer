@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2018 Joël Krähemann
+ * Copyright (C) 2005-2021 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -23,6 +23,9 @@
 #include <string.h>
 #include <strings.h>
 
+gpointer ags_string_util_copy(gpointer ptr);
+void ags_string_util_free(gpointer ptr);
+
 /**
  * SECTION:ags_string_util
  * @short_description: string util
@@ -33,15 +36,50 @@
  * Common string utility functions.
  */
 
+GType
+ags_string_util_get_type(void)
+{
+  static volatile gsize g_define_type_id__volatile = 0;
+
+  if(g_once_init_enter (&g_define_type_id__volatile)){
+    GType ags_type_string_util = 0;
+
+    ags_type_string_util =
+      g_boxed_type_register_static("AgsStringUtil",
+				   (GBoxedCopyFunc) ags_string_util_copy,
+				   (GBoxedFreeFunc) ags_string_util_free);
+
+    g_once_init_leave(&g_define_type_id__volatile, ags_type_string_util);
+  }
+
+  return g_define_type_id__volatile;
+}
+
+gpointer
+ags_string_util_copy(gpointer ptr)
+{
+  gpointer retval;
+
+  retval = g_memdup(ptr, sizeof(AgsStringUtil));
+ 
+  return(retval);
+}
+
+void
+ags_string_util_free(gpointer ptr)
+{
+  g_free(ptr);
+}
+
 /**
  * ags_string_util_escape_single_quote:
  * @str: the string to escape
  * 
  * Escape all occurence of single quotes.
  * 
- * Returns: the newly allocated string
+ * Returns: (transfer full): the newly allocated string
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gchar*
 ags_string_util_escape_single_quote(gchar *str)
@@ -94,13 +132,13 @@ ags_string_util_escape_single_quote(gchar *str)
 
 /**
  * ags_strv_length:
- * @str_array: the string vector
+ * @str_array: (element-type utf8) (array zero-terminated=1) (transfer none): the string vector
  * 
  * Count the number of non-%NULL entries in the array.
  * 
  * Returns: the length of the vector
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 guint
 ags_strv_length(gchar **str_array)
@@ -118,14 +156,14 @@ ags_strv_length(gchar **str_array)
 
 /**
  * ags_strv_contains:
- * @str_array: the string vector
+ * @str_array: (element-type utf8) (array zero-terminated=1) (transfer none): the string vector
  * @str: the string to match
  * 
  * Check occurence of @str within @str_array
  * 
  * Returns: %TRUE if found, else %FALSE
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gboolean
 ags_strv_contains(gchar **str_array,
@@ -149,15 +187,15 @@ ags_strv_contains(gchar **str_array,
 }
 
 /**
- * ags_strv_contains:
- * @str_array: the string vector
+ * ags_strv_index:
+ * @str_array: (element-type utf8) (array zero-terminated=1) (transfer none): the string vector
  * @str: the string to match
  * 
  * Check by comparing @str against @str_array items.
  * 
  * Returns: the first matching position or -1, if not found
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gint
 ags_strv_index(gchar **str_array,
@@ -169,8 +207,8 @@ ags_strv_index(gchar **str_array,
     return(-1);
   }
 
-  for(i = 0; *str_array != NULL; i++, str_array++){
-    if(!g_strcmp0(*str_array, str)){
+  for(i = 0; str_array[0] != NULL; i++, str_array++){
+    if(!g_strcmp0(str_array[0], str)){
       return(i);
     }
   }
@@ -178,3 +216,49 @@ ags_strv_index(gchar **str_array,
   return(-1);
 }
 
+/**
+ * ags_strv_equal:
+ * @strv1: the string vector
+ * @strv2: an other string vector
+ * 
+ * Check @strv1 and @strv2 to be equal. The arrays don't have to be
+ * sorted.
+ * 
+ * Returns: %TRUE on success, otherwise %FALSE 
+ * 
+ * Since: 3.2.1
+ */
+gboolean
+ags_strv_equal(gchar **strv1,
+	       gchar **strv2)
+{
+  gchar **iter;
+
+  gboolean success;
+  
+  if(strv1 == NULL &&
+     strv2 == NULL){
+    return(TRUE);
+  }
+
+  if((strv1 == NULL &&
+      strv2 != NULL) ||
+     (strv1 != NULL &&
+      strv2 == NULL)){
+    return(FALSE);
+  }
+
+  if(g_strv_length(strv1) != g_strv_length(strv2)){
+    return(FALSE);
+  }
+
+  success = TRUE;
+  
+  for(iter = strv2; success && iter[0] != NULL; iter++){
+    if(!ags_strv_contains(strv1, iter[0])){
+      success = FALSE;
+    }
+  }
+
+  return(success);
+}

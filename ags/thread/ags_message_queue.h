@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2020 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -23,9 +23,9 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include <pthread.h>
-
 #include <libxml/tree.h>
+
+G_BEGIN_DECLS
 
 #define AGS_TYPE_MESSAGE_QUEUE                (ags_message_queue_get_type())
 #define AGS_MESSAGE_QUEUE(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_MESSAGE_QUEUE, AgsMessageQueue))
@@ -34,24 +34,21 @@
 #define AGS_IS_MESSAGE_QUEUE_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE ((class), AGS_TYPE_MESSAGE_QUEUE))
 #define AGS_MESSAGE_QUEUE_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS(obj, AGS_TYPE_MESSAGE_QUEUE, AgsMessageQueueClass))
 
-#define AGS_MESSAGE_QUEUE_GET_OBJ_MUTEX(obj) (((AgsMessageQueue *) obj)->obj_mutex)
-
-#define AGS_MESSAGE_ENVELOPE(ptr) ((AgsMessageEnvelope *)(ptr))
+#define AGS_MESSAGE_QUEUE_GET_OBJ_MUTEX(obj) (&(((AgsMessageQueue *) obj)->obj_mutex))
 
 typedef struct _AgsMessageQueue AgsMessageQueue;
 typedef struct _AgsMessageQueueClass AgsMessageQueueClass;
-typedef struct _AgsMessageEnvelope AgsMessageEnvelope;
 
 struct _AgsMessageQueue
 {
   GObject gobject;
+  
+  GRecMutex obj_mutex;
 
-  gchar *namespace;
-
-  pthread_mutexattr_t *obj_mutexattr;
-  pthread_mutex_t *obj_mutex;
-
-  GList *message;
+  gchar *sender_namespace;
+  gchar *recipient_namespace;
+  
+  GList *message_envelope;
 };
 
 struct _AgsMessageQueueClass
@@ -59,31 +56,24 @@ struct _AgsMessageQueueClass
   GObjectClass gobject; 
 };
 
-struct _AgsMessageEnvelope
-{
-  GObject *sender;
-  GObject *recipient;
-
-  xmlDoc *doc;
-  
-  guint n_params;
-  gchar **parameter_name;
-  GValue *value;
-};
-
 GType ags_message_queue_get_type();
 
-pthread_mutex_t* ags_message_queue_get_class_mutex();
+void ags_message_queue_set_sender_namespace(AgsMessageQueue *message_queue,
+					    gchar *sender_namespace);
+gchar* ags_message_queue_get_sender_namespace(AgsMessageQueue *message_queue);
 
-AgsMessageEnvelope* ags_message_envelope_alloc(GObject *sender,
-					       GObject *recipient,
-					       xmlDoc *doc);
-void ags_message_envelope_free(AgsMessageEnvelope *message);
+void ags_message_queue_set_recipient_namespace(AgsMessageQueue *message_queue,
+					       gchar *recipient_namespace);
+gchar* ags_message_queue_get_recipient_namespace(AgsMessageQueue *message_queue);
 
-void ags_message_queue_add_message(AgsMessageQueue *message_queue,
-				   gpointer message);
-void ags_message_queue_remove_message(AgsMessageQueue *message_queue,
-				      gpointer message);
+void ags_message_queue_set_message_envelope(AgsMessageQueue *message_queue,
+					    GList *message_envelope);
+GList* ags_message_queue_get_message_envelope(AgsMessageQueue *message_queue);
+
+void ags_message_queue_add_message_envelope(AgsMessageQueue *message_queue,
+					    GObject *message_envelope);
+void ags_message_queue_remove_message_envelope(AgsMessageQueue *message_queue,
+					       GObject *message_envelope);
 
 GList* ags_message_queue_find_sender(AgsMessageQueue *message_queue,
 				     GObject *sender);
@@ -93,6 +83,8 @@ GList* ags_message_queue_find_recipient(AgsMessageQueue *message_queue,
 GList* ags_message_queue_query_message(AgsMessageQueue *message_queue,
 				       gchar *xpath);
 
-AgsMessageQueue* ags_message_queue_new(gchar *namespace);
+AgsMessageQueue* ags_message_queue_new(gchar *sender_namespace);
+
+G_END_DECLS
 
 #endif /*__AGS_MESSAGE_QUEUE_H__*/

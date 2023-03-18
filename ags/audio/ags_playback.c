@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -19,9 +19,9 @@
 
 #include <ags/audio/ags_playback.h>
 
-#include <ags/libags.h>
-
 #include <ags/audio/ags_channel.h>
+#include <ags/audio/ags_output.h>
+#include <ags/audio/ags_input.h>
 #include <ags/audio/ags_playback_domain.h>
 #include <ags/audio/ags_note.h>
 
@@ -46,17 +46,18 @@ void ags_playback_finalize(GObject *gobject);
 
 /**
  * SECTION:ags_playback
- * @short_description: Outputting to soundcard context
+ * @short_description: Outputting channel to soundcard
  * @title: AgsPlayback
  * @section_id:
  * @include: ags/audio/ags_playback.h
  *
- * #AgsPlayback represents a context to output.
+ * #AgsPlayback represents a context to output. It provides you the channel processing threads
+ * per #AgsSoundScope-enum.
+ * 
+ * The assigned #AgsChannelThread calls ags_channel_recursive_run_stage() for you.
  */
 
 static gpointer ags_playback_parent_class = NULL;
-
-static pthread_mutex_t ags_playback_class_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 enum{
   PROP_0,
@@ -97,6 +98,26 @@ ags_playback_get_type (void)
   return g_define_type_id__volatile;
 }
 
+GType
+ags_playback_flags_get_type()
+{
+  static volatile gsize g_flags_type_id__volatile;
+
+  if(g_once_init_enter (&g_flags_type_id__volatile)){
+    static const GFlagsValue values[] = {
+      { AGS_PLAYBACK_SINGLE_THREADED, "AGS_PLAYBACK_SINGLE_THREADED", "playback-single-threaded" },
+      { AGS_PLAYBACK_SUPER_THREADED_CHANNEL, "AGS_PLAYBACK_SUPER_THREADED_CHANNEL", "playback-super-threaded-channel" },
+      { 0, NULL, NULL }
+    };
+
+    GType g_flags_type_id = g_flags_register_static(g_intern_static_string("AgsPlaybackFlags"), values);
+
+    g_once_init_leave (&g_flags_type_id__volatile, g_flags_type_id);
+  }
+  
+  return g_flags_type_id__volatile;
+}
+
 void
 ags_playback_class_init(AgsPlaybackClass *playback)
 {
@@ -120,7 +141,7 @@ ags_playback_class_init(AgsPlaybackClass *playback)
    *
    * The parent playback domain.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_object("playback-domain",
 				   i18n_pspec("parent playback domain"),
@@ -136,7 +157,7 @@ ags_playback_class_init(AgsPlaybackClass *playback)
    *
    * The assigned channel.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_object("channel",
 				   i18n_pspec("assigned channel"),
@@ -152,7 +173,7 @@ ags_playback_class_init(AgsPlaybackClass *playback)
    *
    * The assigned audio channel.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("audio-channel",
 				 i18n_pspec("assigned audio channel"),
@@ -170,7 +191,7 @@ ags_playback_class_init(AgsPlaybackClass *playback)
    *
    * The assigned note.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_object("play-note",
 				   i18n_pspec("assigned note to play"),
@@ -192,27 +213,11 @@ ags_playback_init(AgsPlayback *playback)
   gboolean super_threaded_channel;
   guint i;
   
-  pthread_mutex_t *mutex;
-  pthread_mutexattr_t *attr;
-
-  playback->flags = 0;
+  playback->flags = 0;  
+  playback->connectable_flags = 0;
   
   /* add playback mutex */
-  playback->obj_mutexattr = 
-    attr = (pthread_mutexattr_t *) malloc(sizeof(pthread_mutexattr_t));
-  pthread_mutexattr_init(attr);
-  pthread_mutexattr_settype(attr,
-			    PTHREAD_MUTEX_RECURSIVE);
-
-#ifdef __linux__
-  pthread_mutexattr_setprotocol(attr,
-				PTHREAD_PRIO_INHERIT);
-#endif
-
-  playback->obj_mutex = 
-    mutex = (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t));
-  pthread_mutex_init(mutex,
-		     attr);
+  g_rec_mutex_init(&(playback->obj_mutex)); 
 
   /* config */
   config = ags_config_get_instance();
@@ -281,7 +286,7 @@ ags_playback_set_property(GObject *gobject,
 {
   AgsPlayback *playback;
   
-  pthread_mutex_t *playback_mutex;
+  GRecMutex *playback_mutex;
 
   playback = AGS_PLAYBACK(gobject);
 
@@ -295,10 +300,10 @@ ags_playback_set_property(GObject *gobject,
 
       playback_domain = (GObject *) g_value_get_object(value);
 
-      pthread_mutex_lock(playback_mutex);
+      g_rec_mutex_lock(playback_mutex);
       
       if((GObject *) playback->playback_domain == playback_domain){  
-	pthread_mutex_unlock(playback_mutex);
+	g_rec_mutex_unlock(playback_mutex);
 	
 	return;
       }
@@ -313,7 +318,7 @@ ags_playback_set_property(GObject *gobject,
 
       playback->playback_domain = (GObject *) playback_domain;
 
-      pthread_mutex_unlock(playback_mutex);
+      g_rec_mutex_unlock(playback_mutex);
     }
     break;
   case PROP_CHANNEL:
@@ -322,10 +327,10 @@ ags_playback_set_property(GObject *gobject,
 
       channel = (GObject *) g_value_get_object(value);
 
-      pthread_mutex_lock(playback_mutex);
+      g_rec_mutex_lock(playback_mutex);
       
       if(channel == playback->channel){
-	pthread_mutex_unlock(playback_mutex);
+	g_rec_mutex_unlock(playback_mutex);
 
 	return;
       }
@@ -342,16 +347,16 @@ ags_playback_set_property(GObject *gobject,
 
       playback->channel = (GObject *) channel;
 
-      pthread_mutex_unlock(playback_mutex);
+      g_rec_mutex_unlock(playback_mutex);
     }
     break;
   case PROP_AUDIO_CHANNEL:
     {
-      pthread_mutex_lock(playback_mutex);
+      g_rec_mutex_lock(playback_mutex);
       
       playback->audio_channel = g_value_get_uint(value);
 
-      pthread_mutex_unlock(playback_mutex);
+      g_rec_mutex_unlock(playback_mutex);
     }
     break;
   case PROP_PLAY_NOTE:
@@ -360,10 +365,10 @@ ags_playback_set_property(GObject *gobject,
 
       note = (GObject *) g_value_get_object(value);
 
-      pthread_mutex_lock(playback_mutex);
+      g_rec_mutex_lock(playback_mutex);
       
       if(note == playback->play_note){
-	pthread_mutex_unlock(playback_mutex);
+	g_rec_mutex_unlock(playback_mutex);
 
 	return;
       }
@@ -378,7 +383,7 @@ ags_playback_set_property(GObject *gobject,
 
       playback->play_note = (GObject *) note;
 
-      pthread_mutex_unlock(playback_mutex);
+      g_rec_mutex_unlock(playback_mutex);
     }
     break;
   default:
@@ -395,7 +400,7 @@ ags_playback_get_property(GObject *gobject,
 {
   AgsPlayback *playback;
 
-  pthread_mutex_t *playback_mutex;
+  GRecMutex *playback_mutex;
 
   playback = AGS_PLAYBACK(gobject);
 
@@ -405,42 +410,42 @@ ags_playback_get_property(GObject *gobject,
   switch(prop_id){
   case PROP_PLAYBACK_DOMAIN:
     {
-      pthread_mutex_lock(playback_mutex);
+      g_rec_mutex_lock(playback_mutex);
       
       g_value_set_object(value,
 			 playback->playback_domain);
 
-      pthread_mutex_unlock(playback_mutex);
+      g_rec_mutex_unlock(playback_mutex);
     }
     break;
   case PROP_CHANNEL:
     {
-      pthread_mutex_lock(playback_mutex);
+      g_rec_mutex_lock(playback_mutex);
       
       g_value_set_object(value,
 			 playback->channel);
 
-      pthread_mutex_unlock(playback_mutex);
+      g_rec_mutex_unlock(playback_mutex);
     }
     break;
   case PROP_AUDIO_CHANNEL:
     {
-      pthread_mutex_lock(playback_mutex);
+      g_rec_mutex_lock(playback_mutex);
       
       g_value_set_uint(value,
 		       playback->audio_channel);      
 
-      pthread_mutex_unlock(playback_mutex);
+      g_rec_mutex_unlock(playback_mutex);
     }
     break;
   case PROP_PLAY_NOTE:
     {
-      pthread_mutex_lock(playback_mutex);
+      g_rec_mutex_lock(playback_mutex);
       
       g_value_set_object(value,
 			 playback->play_note);
 
-      pthread_mutex_unlock(playback_mutex);
+      g_rec_mutex_unlock(playback_mutex);
     }
     break;
   default:
@@ -460,16 +465,19 @@ ags_playback_dispose(GObject *gobject)
 
   /* playback domain */
   if(playback->playback_domain != NULL){
-    g_object_unref(playback->playback_domain);
-
-    playback->playback_domain = NULL;
+    ags_playback_domain_remove_playback(playback->playback_domain,
+					playback, ((AGS_IS_OUTPUT(playback->channel)) ? AGS_TYPE_OUTPUT: AGS_TYPE_INPUT));
   }
 
   /* channel */
   if(playback->channel != NULL){
-    g_object_unref(playback->channel);
+    AgsChannel *channel;
 
+    channel = playback->channel;
+    
     playback->channel = NULL;
+    
+    g_object_unref(channel);
   }
   
   /* channel thread */
@@ -508,20 +516,31 @@ ags_playback_finalize(GObject *gobject)
   
   playback = AGS_PLAYBACK(gobject);
 
-  pthread_mutex_destroy(playback->obj_mutex);
-  free(playback->obj_mutex);
-
-  pthread_mutexattr_destroy(playback->obj_mutexattr);
-  free(playback->obj_mutexattr);
-
   /* playback domain */
   if(playback->playback_domain != NULL){
-    g_object_unref(playback->playback_domain);
+    if(playback->channel != NULL){
+      ags_playback_domain_remove_playback(playback->playback_domain,
+					  playback, ((AGS_IS_OUTPUT(playback->channel)) ? AGS_TYPE_OUTPUT: AGS_TYPE_INPUT));
+    }else{
+      gpointer tmp;
+
+      tmp = playback->playback_domain;
+
+      playback->playback_domain = NULL;
+
+      g_object_unref(tmp);
+    }
   }
 
   /* channel */
   if(playback->channel != NULL){
-    g_object_unref(playback->channel);
+    AgsChannel *channel;
+
+    channel = playback->channel;
+    
+    playback->channel = NULL;
+    
+    g_object_unref(channel);
   }
   
   /* channel thread */
@@ -534,6 +553,8 @@ ags_playback_finalize(GObject *gobject)
     }
     
     free(playback->channel_thread);
+
+    playback->channel_thread = NULL;
   }
   
   /* recall id */
@@ -545,25 +566,12 @@ ags_playback_finalize(GObject *gobject)
     }
     
     free(playback->recall_id);
+
+    playback->recall_id = NULL;
   }
 
   /* call parent */
   G_OBJECT_CLASS(ags_playback_parent_class)->finalize(gobject);
-}
-
-/**
- * ags_playback_get_class_mutex:
- * 
- * Use this function's returned mutex to access mutex fields.
- *
- * Returns: the class mutex
- * 
- * Since: 2.0.0
- */
-pthread_mutex_t*
-ags_playback_get_class_mutex()
-{
-  return(&ags_playback_class_mutex);
 }
 
 /**
@@ -575,14 +583,14 @@ ags_playback_get_class_mutex()
  * 
  * Returns: %TRUE if flags are set, else %FALSE
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gboolean
 ags_playback_test_flags(AgsPlayback *playback, guint flags)
 {
   gboolean retval;  
   
-  pthread_mutex_t *playback_mutex;
+  GRecMutex *playback_mutex;
 
   if(!AGS_IS_PLAYBACK(playback)){
     return(FALSE);
@@ -592,11 +600,11 @@ ags_playback_test_flags(AgsPlayback *playback, guint flags)
   playback_mutex = AGS_PLAYBACK_GET_OBJ_MUTEX(playback);
 
   /* test */
-  pthread_mutex_lock(playback_mutex);
+  g_rec_mutex_lock(playback_mutex);
 
   retval = (flags & (playback->flags)) ? TRUE: FALSE;
   
-  pthread_mutex_unlock(playback_mutex);
+  g_rec_mutex_unlock(playback_mutex);
 
   return(retval);
 }
@@ -608,12 +616,12 @@ ags_playback_test_flags(AgsPlayback *playback, guint flags)
  *
  * Set flags.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_playback_set_flags(AgsPlayback *playback, guint flags)
 {
-  pthread_mutex_t *playback_mutex;
+  GRecMutex *playback_mutex;
 
   if(!AGS_IS_PLAYBACK(playback)){
     return;
@@ -623,11 +631,11 @@ ags_playback_set_flags(AgsPlayback *playback, guint flags)
   playback_mutex = AGS_PLAYBACK_GET_OBJ_MUTEX(playback);
 
   /* set flags */
-  pthread_mutex_lock(playback_mutex);
+  g_rec_mutex_lock(playback_mutex);
 
   playback->flags |= flags;
 
-  pthread_mutex_unlock(playback_mutex);
+  g_rec_mutex_unlock(playback_mutex);
 }
 
 /**
@@ -637,12 +645,12 @@ ags_playback_set_flags(AgsPlayback *playback, guint flags)
  *
  * Unset flags.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_playback_unset_flags(AgsPlayback *playback, guint flags)
 {
-  pthread_mutex_t *playback_mutex;
+  GRecMutex *playback_mutex;
 
   if(!AGS_IS_PLAYBACK(playback)){
     return;
@@ -652,11 +660,11 @@ ags_playback_unset_flags(AgsPlayback *playback, guint flags)
   playback_mutex = AGS_PLAYBACK_GET_OBJ_MUTEX(playback);
 
   /* set flags */
-  pthread_mutex_lock(playback_mutex);
+  g_rec_mutex_lock(playback_mutex);
 
   playback->flags &= (~flags);
 
-  pthread_mutex_unlock(playback_mutex);
+  g_rec_mutex_unlock(playback_mutex);
 }
 
 /**
@@ -667,14 +675,14 @@ ags_playback_unset_flags(AgsPlayback *playback, guint flags)
  * 
  * Set channel thread of appropriate scope.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_playback_set_channel_thread(AgsPlayback *playback,
 				AgsThread *thread,
 				gint sound_scope)
 {
-  pthread_mutex_t *playback_mutex;
+  GRecMutex *playback_mutex;
 
   if(!AGS_IS_PLAYBACK(playback) ||
      sound_scope >= AGS_SOUND_SCOPE_LAST){
@@ -685,10 +693,10 @@ ags_playback_set_channel_thread(AgsPlayback *playback,
   playback_mutex = AGS_PLAYBACK_GET_OBJ_MUTEX(playback);
 
   /* unset old */
-  pthread_mutex_lock(playback_mutex);
+  g_rec_mutex_lock(playback_mutex);
 
   if(playback->channel_thread[sound_scope] != NULL){
-    if(ags_thread_is_running(playback->channel_thread[sound_scope])){
+    if(ags_thread_test_status_flags(playback->channel_thread[sound_scope], AGS_THREAD_STATUS_RUNNING)){
       ags_thread_stop(playback->channel_thread[sound_scope]);
     }
     
@@ -703,7 +711,7 @@ ags_playback_set_channel_thread(AgsPlayback *playback,
   
   playback->channel_thread[sound_scope] = thread;
 
-  pthread_mutex_unlock(playback_mutex);
+  g_rec_mutex_unlock(playback_mutex);
 }
 
 /**
@@ -713,9 +721,9 @@ ags_playback_set_channel_thread(AgsPlayback *playback,
  * 
  * Get channel thread of appropriate scope.
  * 
- * Returns: the matching #AgsThread or %NULL
+ * Returns: (transfer full): the matching #AgsThread or %NULL
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 AgsThread*
 ags_playback_get_channel_thread(AgsPlayback *playback,
@@ -723,7 +731,7 @@ ags_playback_get_channel_thread(AgsPlayback *playback,
 {
   AgsThread *channel_thread;
   
-  pthread_mutex_t *playback_mutex;
+  GRecMutex *playback_mutex;
 
   if(!AGS_IS_PLAYBACK(playback) ||
      sound_scope >= AGS_SOUND_SCOPE_LAST){
@@ -734,7 +742,7 @@ ags_playback_get_channel_thread(AgsPlayback *playback,
   playback_mutex = AGS_PLAYBACK_GET_OBJ_MUTEX(playback);
 
   /* get channel thread */
-  pthread_mutex_lock(playback_mutex);
+  g_rec_mutex_lock(playback_mutex);
 
   channel_thread = (playback->channel_thread != NULL) ? playback->channel_thread[sound_scope]: NULL;
 
@@ -742,7 +750,7 @@ ags_playback_get_channel_thread(AgsPlayback *playback,
     g_object_ref(channel_thread);
   }
   
-  pthread_mutex_unlock(playback_mutex);
+  g_rec_mutex_unlock(playback_mutex);
   
   return(channel_thread);
 }
@@ -755,14 +763,14 @@ ags_playback_get_channel_thread(AgsPlayback *playback,
  * 
  * Set recall id of appropriate scope.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_playback_set_recall_id(AgsPlayback *playback,
 			   AgsRecallID *recall_id,
 			   gint sound_scope)
 {
-  pthread_mutex_t *playback_mutex;
+  GRecMutex *playback_mutex;
   
   if(!AGS_IS_PLAYBACK(playback) ||
      sound_scope >= AGS_SOUND_SCOPE_LAST){
@@ -773,7 +781,7 @@ ags_playback_set_recall_id(AgsPlayback *playback,
   playback_mutex = AGS_PLAYBACK_GET_OBJ_MUTEX(playback);
 
   /* unref old */
-  pthread_mutex_lock(playback_mutex);
+  g_rec_mutex_lock(playback_mutex);
 
   if(playback->recall_id[sound_scope] != NULL){
     g_object_unref(playback->recall_id[sound_scope]);
@@ -787,7 +795,7 @@ ags_playback_set_recall_id(AgsPlayback *playback,
   /* set recall id */
   playback->recall_id[sound_scope] = recall_id;
 
-  pthread_mutex_unlock(playback_mutex);
+  g_rec_mutex_unlock(playback_mutex);
 }
 
 /**
@@ -797,9 +805,9 @@ ags_playback_set_recall_id(AgsPlayback *playback,
  * 
  * Get recall id of appropriate scope.
  * 
- * Returns: the matching #AgsRecallID or %NULL
+ * Returns: (transfer full): the matching #AgsRecallID or %NULL
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 AgsRecallID*
 ags_playback_get_recall_id(AgsPlayback *playback,
@@ -807,7 +815,7 @@ ags_playback_get_recall_id(AgsPlayback *playback,
 {
   AgsRecallID *recall_id;
 
-  pthread_mutex_t *playback_mutex;
+  GRecMutex *playback_mutex;
   
   if(!AGS_IS_PLAYBACK(playback) ||
      sound_scope >= AGS_SOUND_SCOPE_LAST){
@@ -818,10 +826,10 @@ ags_playback_get_recall_id(AgsPlayback *playback,
   playback_mutex = AGS_PLAYBACK_GET_OBJ_MUTEX(playback);
 
   /* get recall id */
-  pthread_mutex_lock(playback_mutex);
+  g_rec_mutex_lock(playback_mutex);
 
   if(playback->recall_id == NULL){
-    pthread_mutex_unlock(playback_mutex);
+    g_rec_mutex_unlock(playback_mutex);
     
     return(NULL);
   }
@@ -832,42 +840,42 @@ ags_playback_get_recall_id(AgsPlayback *playback,
     g_object_ref(recall_id);
   }
 
-  pthread_mutex_unlock(playback_mutex);
+  g_rec_mutex_unlock(playback_mutex);
   
   return(recall_id);
 }
 
 /**
- * ags_playback_play_find_channel:
- * @playback: the #GList-struct containing #AgsPlayback
+ * ags_playback_find_channel:
+ * @playback: (element-type AgsAudio.Playback) (transfer none): the #GList-struct containing #AgsPlayback
  * @channel: the #AgsChannel
  * 
  * Find @channel in @playback.
  *
- * Returns: the matching playback
+ * Returns: (transfer none): the matching playback
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 AgsPlayback*
 ags_playback_find_channel(GList *playback,
 			  GObject *channel)
 {
-  pthread_mutex_t *playback_mutex;
+  GRecMutex *playback_mutex;
 
   while(playback != NULL){
     /* get playback mutex */
     playback_mutex = AGS_PLAYBACK_GET_OBJ_MUTEX(playback->data);
 
     /* check channel */
-    pthread_mutex_lock(playback_mutex);
+    g_rec_mutex_lock(playback_mutex);
     
     if(AGS_PLAYBACK(playback->data)->channel == channel){
-      pthread_mutex_unlock(playback_mutex);
+      g_rec_mutex_unlock(playback_mutex);
       
       return(playback->data);
     }
 
-    pthread_mutex_unlock(playback_mutex);
+    g_rec_mutex_unlock(playback_mutex);
 
     /* iterate */
     playback = playback->next;
@@ -884,7 +892,7 @@ ags_playback_find_channel(GList *playback,
  *
  * Returns: the new #AgsPlayback
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 AgsPlayback*
 ags_playback_new(GObject *channel)

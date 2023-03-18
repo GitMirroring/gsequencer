@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -19,12 +19,14 @@
 
 #include <ags/audio/thread/ags_sf2_loader.h>
 
-#include <ags/libags.h>
-
 #include <ags/audio/ags_input.h>
 
+#include <ags/audio/file/ags_audio_container.h>
+#include <ags/audio/file/ags_audio_container_manager.h>
 #include <ags/audio/file/ags_sound_container.h>
 #include <ags/audio/file/ags_ipatch.h>
+
+#include <ags/audio/task/ags_apply_sf2_synth.h>
 
 #include <ags/i18n.h>
 
@@ -63,8 +65,6 @@ enum{
 };
 
 static gpointer ags_sf2_loader_parent_class = NULL;
-
-static pthread_mutex_t ags_sf2_loader_class_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 GType
 ags_sf2_loader_get_type()
@@ -121,7 +121,7 @@ ags_sf2_loader_class_init(AgsSF2LoaderClass *sf2_loader)
    *
    * The assigned audio.
    * 
-   * Since: 2.4.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_object("audio",
 				   i18n_pspec("audio"),
@@ -137,7 +137,7 @@ ags_sf2_loader_class_init(AgsSF2LoaderClass *sf2_loader)
    *
    * The filename to open.
    * 
-   * Since: 2.4.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_string("filename",
 				   i18n_pspec("filename"),
@@ -153,7 +153,7 @@ ags_sf2_loader_class_init(AgsSF2LoaderClass *sf2_loader)
    *
    * The preset to open.
    * 
-   * Since: 2.4.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_string("preset",
 				   i18n_pspec("preset"),
@@ -169,7 +169,7 @@ ags_sf2_loader_class_init(AgsSF2LoaderClass *sf2_loader)
    *
    * The instrument to open.
    * 
-   * Since: 2.4.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_string("instrument",
 				   i18n_pspec("instrument"),
@@ -185,7 +185,7 @@ ags_sf2_loader_class_init(AgsSF2LoaderClass *sf2_loader)
    *
    * The audio container opened.
    * 
-   * Since: 2.4.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_object("audio-container",
 				   i18n_pspec("audio container"),
@@ -200,30 +200,14 @@ ags_sf2_loader_class_init(AgsSF2LoaderClass *sf2_loader)
 void
 ags_sf2_loader_init(AgsSF2Loader *sf2_loader)
 {
-  pthread_mutex_t *mutex;
-  pthread_mutexattr_t *attr;
-
   sf2_loader->flags = 0;
+  sf2_loader->connectable_flags = 0;
 
   /* add base plugin mutex */
-  sf2_loader->obj_mutexattr = 
-    attr = (pthread_mutexattr_t *) malloc(sizeof(pthread_mutexattr_t));
-  pthread_mutexattr_init(attr);
-  pthread_mutexattr_settype(attr,
-			    PTHREAD_MUTEX_RECURSIVE);
-
-#ifdef __linux__
-  pthread_mutexattr_setprotocol(attr,
-				PTHREAD_PRIO_INHERIT);
-#endif
-
-  sf2_loader->obj_mutex = 
-    mutex = (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t));
-  pthread_mutex_init(mutex,
-		     attr);
+  g_rec_mutex_init(&(sf2_loader->obj_mutex));
 
   /* fields */
-  sf2_loader->thread = (pthread_t *) malloc(sizeof(pthread_t));
+  sf2_loader->thread = NULL;
   
   sf2_loader->audio = NULL;
 
@@ -231,6 +215,9 @@ ags_sf2_loader_init(AgsSF2Loader *sf2_loader)
   sf2_loader->preset = NULL;
   sf2_loader->instrument = NULL;
   
+  sf2_loader->base_note = 0.0;
+  sf2_loader->count = 1;
+
   sf2_loader->audio_container = NULL;
 }
 
@@ -242,7 +229,7 @@ ags_sf2_loader_set_property(GObject *gobject,
 {
   AgsSF2Loader *sf2_loader;
 
-  pthread_mutex_t *sf2_loader_mutex;
+  GRecMutex *sf2_loader_mutex;
 
   sf2_loader = AGS_SF2_LOADER(gobject);
 
@@ -256,10 +243,10 @@ ags_sf2_loader_set_property(GObject *gobject,
 
     audio = g_value_get_object(value);
       
-    pthread_mutex_lock(sf2_loader_mutex);
+    g_rec_mutex_lock(sf2_loader_mutex);
 
     if(sf2_loader->audio == audio){
-      pthread_mutex_unlock(sf2_loader_mutex);
+      g_rec_mutex_unlock(sf2_loader_mutex);
 
       return;
     }
@@ -274,7 +261,7 @@ ags_sf2_loader_set_property(GObject *gobject,
 
     sf2_loader->audio = audio;
       
-    pthread_mutex_unlock(sf2_loader_mutex);
+    g_rec_mutex_unlock(sf2_loader_mutex);
   }
   break;
   case PROP_FILENAME:
@@ -283,10 +270,10 @@ ags_sf2_loader_set_property(GObject *gobject,
 
     filename = g_value_get_string(value);
       
-    pthread_mutex_lock(sf2_loader_mutex);
+    g_rec_mutex_lock(sf2_loader_mutex);
 
     if(sf2_loader->filename == filename){
-      pthread_mutex_unlock(sf2_loader_mutex);
+      g_rec_mutex_unlock(sf2_loader_mutex);
 
       return;
     }
@@ -297,7 +284,7 @@ ags_sf2_loader_set_property(GObject *gobject,
 
     sf2_loader->filename = g_strdup(filename);
       
-    pthread_mutex_unlock(sf2_loader_mutex);
+    g_rec_mutex_unlock(sf2_loader_mutex);
   }
   break;
   case PROP_PRESET:
@@ -306,10 +293,10 @@ ags_sf2_loader_set_property(GObject *gobject,
 
     preset = g_value_get_string(value);
       
-    pthread_mutex_lock(sf2_loader_mutex);
+    g_rec_mutex_lock(sf2_loader_mutex);
 
     if(sf2_loader->preset == preset){
-      pthread_mutex_unlock(sf2_loader_mutex);
+      g_rec_mutex_unlock(sf2_loader_mutex);
 
       return;
     }
@@ -320,7 +307,7 @@ ags_sf2_loader_set_property(GObject *gobject,
 
     sf2_loader->preset = g_strdup(preset);
       
-    pthread_mutex_unlock(sf2_loader_mutex);
+    g_rec_mutex_unlock(sf2_loader_mutex);
   }
   break;
   case PROP_INSTRUMENT:
@@ -329,10 +316,10 @@ ags_sf2_loader_set_property(GObject *gobject,
 
     instrument = g_value_get_string(value);
       
-    pthread_mutex_lock(sf2_loader_mutex);
+    g_rec_mutex_lock(sf2_loader_mutex);
 
     if(sf2_loader->instrument == instrument){
-      pthread_mutex_unlock(sf2_loader_mutex);
+      g_rec_mutex_unlock(sf2_loader_mutex);
 
       return;
     }
@@ -343,7 +330,7 @@ ags_sf2_loader_set_property(GObject *gobject,
 
     sf2_loader->instrument = g_strdup(instrument);
       
-    pthread_mutex_unlock(sf2_loader_mutex);
+    g_rec_mutex_unlock(sf2_loader_mutex);
   }
   break;
   case PROP_AUDIO_CONTAINER:
@@ -352,10 +339,10 @@ ags_sf2_loader_set_property(GObject *gobject,
 
     audio_container = g_value_get_object(value);
       
-    pthread_mutex_lock(sf2_loader_mutex);
+    g_rec_mutex_lock(sf2_loader_mutex);
 
     if(sf2_loader->audio_container == audio_container){
-      pthread_mutex_unlock(sf2_loader_mutex);
+      g_rec_mutex_unlock(sf2_loader_mutex);
 
       return;
     }
@@ -370,7 +357,7 @@ ags_sf2_loader_set_property(GObject *gobject,
 
     sf2_loader->audio_container = audio_container;
       
-    pthread_mutex_unlock(sf2_loader_mutex);
+    g_rec_mutex_unlock(sf2_loader_mutex);
   }
   break;
   default:
@@ -387,7 +374,7 @@ ags_sf2_loader_get_property(GObject *gobject,
 {
   AgsSF2Loader *sf2_loader;
 
-  pthread_mutex_t *sf2_loader_mutex;
+  GRecMutex *sf2_loader_mutex;
 
   sf2_loader = AGS_SF2_LOADER(gobject);
 
@@ -397,47 +384,47 @@ ags_sf2_loader_get_property(GObject *gobject,
   switch(prop_id){
   case PROP_AUDIO:
   {
-    pthread_mutex_lock(sf2_loader_mutex);
+    g_rec_mutex_lock(sf2_loader_mutex);
       
     g_value_set_object(value, sf2_loader->audio);
 
-    pthread_mutex_unlock(sf2_loader_mutex);
+    g_rec_mutex_unlock(sf2_loader_mutex);
   }
   break;
   case PROP_FILENAME:
   {
-    pthread_mutex_lock(sf2_loader_mutex);
+    g_rec_mutex_lock(sf2_loader_mutex);
       
     g_value_set_string(value, sf2_loader->filename);
 
-    pthread_mutex_unlock(sf2_loader_mutex);
+    g_rec_mutex_unlock(sf2_loader_mutex);
   }
   break;
   case PROP_PRESET:
   {
-    pthread_mutex_lock(sf2_loader_mutex);
+    g_rec_mutex_lock(sf2_loader_mutex);
       
     g_value_set_string(value, sf2_loader->preset);
 
-    pthread_mutex_unlock(sf2_loader_mutex);
+    g_rec_mutex_unlock(sf2_loader_mutex);
   }
   break;
   case PROP_INSTRUMENT:
   {
-    pthread_mutex_lock(sf2_loader_mutex);
+    g_rec_mutex_lock(sf2_loader_mutex);
       
     g_value_set_string(value, sf2_loader->instrument);
 
-    pthread_mutex_unlock(sf2_loader_mutex);
+    g_rec_mutex_unlock(sf2_loader_mutex);
   }
   break;
   case PROP_AUDIO_CONTAINER:
   {
-    pthread_mutex_lock(sf2_loader_mutex);
+    g_rec_mutex_lock(sf2_loader_mutex);
       
     g_value_set_object(value, sf2_loader->audio_container);
 
-    pthread_mutex_unlock(sf2_loader_mutex);
+    g_rec_mutex_unlock(sf2_loader_mutex);
   }
   break;
   default:
@@ -477,14 +464,10 @@ ags_sf2_loader_finalize(GObject *gobject)
   sf2_loader = AGS_SF2_LOADER(gobject);
   
   /* destroy object mutex */
-  pthread_mutex_destroy(sf2_loader->obj_mutex);
-  free(sf2_loader->obj_mutex);
-
-  pthread_mutexattr_destroy(sf2_loader->obj_mutexattr);
-  free(sf2_loader->obj_mutexattr);
-
   if(sf2_loader->audio != NULL){
     g_object_unref(sf2_loader->audio);
+
+    sf2_loader->audio = NULL;
   }
 
   g_free(sf2_loader->filename);
@@ -493,25 +476,12 @@ ags_sf2_loader_finalize(GObject *gobject)
 
   if(sf2_loader->audio_container != NULL){
     g_object_unref(sf2_loader->audio_container);
+
+    sf2_loader->audio_container = NULL;
   }
   
   /* call parent */
   G_OBJECT_CLASS(ags_sf2_loader_parent_class)->finalize(gobject);
-}
-
-/**
- * ags_sf2_loader_get_class_mutex:
- * 
- * Use this function's returned mutex to access mutex fields.
- *
- * Returns: the class mutex
- * 
- * Since: 2.4.0
- */
-pthread_mutex_t*
-ags_sf2_loader_get_class_mutex()
-{
-  return(&ags_sf2_loader_class_mutex);
 }
 
 /**
@@ -523,14 +493,14 @@ ags_sf2_loader_get_class_mutex()
  * 
  * Returns: %TRUE if flags are set, else %FALSE
  * 
- * Since: 2.4.0
+ * Since: 3.0.0
  */
 gboolean
 ags_sf2_loader_test_flags(AgsSF2Loader *sf2_loader, guint flags)
 {
   gboolean retval;
   
-  pthread_mutex_t *sf2_loader_mutex;
+  GRecMutex *sf2_loader_mutex;
 
   if(!AGS_IS_SF2_LOADER(sf2_loader)){
     return(FALSE);
@@ -540,11 +510,11 @@ ags_sf2_loader_test_flags(AgsSF2Loader *sf2_loader, guint flags)
   sf2_loader_mutex = AGS_SF2_LOADER_GET_OBJ_MUTEX(sf2_loader);
 
   /* test flags */
-  pthread_mutex_lock(sf2_loader_mutex);
+  g_rec_mutex_lock(sf2_loader_mutex);
 
   retval = ((flags & (sf2_loader->flags)) != 0) ? TRUE: FALSE;
   
-  pthread_mutex_unlock(sf2_loader_mutex);
+  g_rec_mutex_unlock(sf2_loader_mutex);
 
   return(retval);
 }
@@ -556,12 +526,12 @@ ags_sf2_loader_test_flags(AgsSF2Loader *sf2_loader, guint flags)
  *
  * Set flags.
  * 
- * Since: 2.4.0
+ * Since: 3.0.0
  */
 void
 ags_sf2_loader_set_flags(AgsSF2Loader *sf2_loader, guint flags)
 {
-  pthread_mutex_t *sf2_loader_mutex;
+  GRecMutex *sf2_loader_mutex;
 
   if(!AGS_IS_SF2_LOADER(sf2_loader)){
     return;
@@ -571,11 +541,11 @@ ags_sf2_loader_set_flags(AgsSF2Loader *sf2_loader, guint flags)
   sf2_loader_mutex = AGS_SF2_LOADER_GET_OBJ_MUTEX(sf2_loader);
 
   /* set flags */
-  pthread_mutex_lock(sf2_loader_mutex);
+  g_rec_mutex_lock(sf2_loader_mutex);
 
   sf2_loader->flags |= flags;
   
-  pthread_mutex_unlock(sf2_loader_mutex);
+  g_rec_mutex_unlock(sf2_loader_mutex);
 }
 
 /**
@@ -585,12 +555,12 @@ ags_sf2_loader_set_flags(AgsSF2Loader *sf2_loader, guint flags)
  *
  * Unset flags.
  * 
- * Since: 2.4.0
+ * Since: 3.0.0
  */
 void
 ags_sf2_loader_unset_flags(AgsSF2Loader *sf2_loader, guint flags)
 {
-  pthread_mutex_t *sf2_loader_mutex;
+  GRecMutex *sf2_loader_mutex;
 
   if(!AGS_IS_SF2_LOADER(sf2_loader)){
     return;
@@ -600,58 +570,369 @@ ags_sf2_loader_unset_flags(AgsSF2Loader *sf2_loader, guint flags)
   sf2_loader_mutex = AGS_SF2_LOADER_GET_OBJ_MUTEX(sf2_loader);
 
   /* unset flags */
-  pthread_mutex_lock(sf2_loader_mutex);
+  g_rec_mutex_lock(sf2_loader_mutex);
 
   sf2_loader->flags &= (~flags);
   
-  pthread_mutex_unlock(sf2_loader_mutex);
+  g_rec_mutex_unlock(sf2_loader_mutex);
 }
 
 void*
 ags_sf2_loader_run(void *ptr)
 {
+  AgsAudioContainerManager *audio_container_manager;
+
   AgsSF2Loader *sf2_loader;
 
   GObject *output_soundcard;
-
-  GList *start_sf2, *sf2;
-
-  guint n_pads, current_pads;
-  guint n_audio_channels, current_audio_channels;
+  
+  GRecMutex *audio_container_manager_mutex;
 
   sf2_loader = AGS_SF2_LOADER(ptr);
 
+  output_soundcard = NULL;
+  
   g_object_get(sf2_loader->audio,
 	       "output-soundcard", &output_soundcard,
 	       NULL);
 
-  sf2_loader->audio_container = ags_audio_container_new(sf2_loader->filename,
-							NULL,
-							NULL,
-							NULL,
-							output_soundcard,
-							-1);
-  ags_audio_container_open(sf2_loader->audio_container);
+  audio_container_manager = ags_audio_container_manager_get_instance();
+
+  /* get audio container manager mutex */
+  audio_container_manager_mutex = AGS_AUDIO_CONTAINER_MANAGER_GET_OBJ_MUTEX(audio_container_manager);
   
+  g_rec_mutex_lock(audio_container_manager_mutex);
+
+  sf2_loader->audio_container = ags_audio_container_manager_find_audio_container(audio_container_manager,
+										 sf2_loader->filename);
+  
+  if(sf2_loader->audio_container == NULL){
+    sf2_loader->audio_container = ags_audio_container_new(sf2_loader->filename,
+							  NULL,
+							  NULL,
+							  NULL,
+							  output_soundcard,
+							  -1);
+    g_object_ref(sf2_loader->audio_container);
+    
+    ags_audio_container_open(sf2_loader->audio_container);
+  
+    ags_audio_container_manager_add_audio_container(audio_container_manager,
+						    sf2_loader->audio_container);
+  }
+  
+  g_rec_mutex_unlock(audio_container_manager_mutex);
+
   if(sf2_loader->audio_container->sound_container != NULL){
+    ags_sound_container_level_up(AGS_SOUND_CONTAINER(sf2_loader->audio_container->sound_container),
+				 5);
+    
     ags_sound_container_select_level_by_index(AGS_SOUND_CONTAINER(sf2_loader->audio_container->sound_container),
 					      0);
 
     AGS_IPATCH(sf2_loader->audio_container->sound_container)->nesting_level += 1;
   }
 
-  g_object_unref(output_soundcard);
+  if(output_soundcard != NULL){
+    g_object_unref(output_soundcard);
+  }
+
+  if(ags_sf2_loader_test_flags(sf2_loader, AGS_SF2_LOADER_RUN_APPLY_SYNTH)){
+    AgsChannel *start_channel;
+    
+    AgsApplySF2Synth *apply_sf2_synth;
+
+    AgsTaskLauncher *task_launcher;
+    
+    AgsApplicationContext *application_context;
+    
+    GList *start_sf2_synth_generator, *sf2_synth_generator;
+
+    application_context = ags_application_context_get_instance();
+
+    task_launcher = ags_concurrency_provider_get_task_launcher(AGS_CONCURRENCY_PROVIDER(application_context));
+    
+    start_sf2_synth_generator = NULL;
+
+    start_channel = NULL;
+    
+    g_object_get(sf2_loader->audio,
+		 "sf2-synth-generator", &start_sf2_synth_generator,
+		 "input", &start_channel,
+		 NULL);
+
+    apply_sf2_synth = ags_apply_sf2_synth_new(start_sf2_synth_generator->data,
+					      start_channel,
+					      sf2_loader->base_note,
+					      sf2_loader->count);
+
+    ags_task_launcher_add_task(task_launcher,
+			       apply_sf2_synth);
+    
+    g_list_free_full(start_sf2_synth_generator,
+		     (GDestroyNotify) g_object_unref);
+    
+    if(start_channel != NULL){
+      g_object_unref(start_channel);
+    }
+  }
   
   ags_sf2_loader_set_flags(sf2_loader,
 			   AGS_SF2_LOADER_HAS_COMPLETED);
 
-  pthread_exit(NULL);
+  g_thread_exit(NULL);
 
-#ifdef AGS_W32API
   return(NULL);
-#endif  
 }
 
+/**
+ * ags_sf2_loader_get_audio:
+ * @sf2_loader: the #AgsSF2Loader
+ * 
+ * Get audio of @sf2_loader.
+ * 
+ * Returns: (transfer full): the assigned #AgsAudio
+ * 
+ * Since: 3.2.0
+ */
+AgsAudio*
+ags_sf2_loader_get_audio(AgsSF2Loader *sf2_loader)
+{
+  AgsAudio *audio;
+
+  if(!AGS_IS_SF2_LOADER(sf2_loader)){
+    return(NULL);
+  }
+
+  g_object_get(sf2_loader,
+	       "audio", &audio,
+	       NULL);
+
+  return(audio);
+}
+
+/**
+ * ags_sf2_loader_set_audio:
+ * @sf2_loader: the #AgsSF2Loader
+ * @audio: the #AgsAudio
+ * 
+ * Set audio of @sf2_loader.
+ * 
+ * Since: 3.2.0
+ */
+void
+ags_sf2_loader_set_audio(AgsSF2Loader *sf2_loader,
+			 AgsAudio *audio)
+{
+  if(!AGS_IS_SF2_LOADER(sf2_loader)){
+    return;
+  }
+
+  g_object_set(sf2_loader,
+	       "audio", audio,
+	       NULL);
+}
+
+/**
+ * ags_sf2_loader_get_filename:
+ * @sf2_loader: the #AgsSF2Loader
+ * 
+ * Get filename of @sf2_loader.
+ * 
+ * Returns: (transfer full): the assigned filename
+ * 
+ * Since: 3.2.0
+ */
+gchar*
+ags_sf2_loader_get_filename(AgsSF2Loader *sf2_loader)
+{
+  gchar *filename;
+  
+  if(!AGS_IS_SF2_LOADER(sf2_loader)){
+    return(NULL);
+  }
+
+  g_object_get(sf2_loader,
+	       "filename", &filename,
+	       NULL);
+
+  return(filename);
+}
+
+/**
+ * ags_sf2_loader_set_filename:
+ * @sf2_loader: the #AgsSF2Loader
+ * @filename: the filename
+ * 
+ * Set filename of @sf2_loader.
+ * 
+ * Since: 3.2.0
+ */
+void
+ags_sf2_loader_set_filename(AgsSF2Loader *sf2_loader,
+			    gchar *filename)
+{
+  if(!AGS_IS_SF2_LOADER(sf2_loader)){
+    return;
+  }
+
+  g_object_set(sf2_loader,
+	       "filename", filename,
+	       NULL);
+}
+
+/**
+ * ags_sf2_loader_get_preset:
+ * @sf2_loader: the #AgsSF2Loader
+ * 
+ * Get preset of @sf2_loader.
+ * 
+ * Returns: (transfer full): the assigned preset
+ * 
+ * Since: 3.2.0
+ */
+gchar*
+ags_sf2_loader_get_preset(AgsSF2Loader *sf2_loader)
+{
+  gchar *preset;
+  
+  if(!AGS_IS_SF2_LOADER(sf2_loader)){
+    return(NULL);
+  }
+
+  g_object_get(sf2_loader,
+	       "preset", &preset,
+	       NULL);
+
+  return(preset);
+}
+
+/**
+ * ags_sf2_loader_set_preset:
+ * @sf2_loader: the #AgsSF2Loader
+ * @preset: the preset
+ * 
+ * Set preset of @sf2_loader.
+ * 
+ * Since: 3.2.0
+ */
+void
+ags_sf2_loader_set_preset(AgsSF2Loader *sf2_loader,
+			  gchar *preset)
+{
+  if(!AGS_IS_SF2_LOADER(sf2_loader)){
+    return;
+  }
+
+  g_object_set(sf2_loader,
+	       "preset", preset,
+	       NULL);
+}
+
+/**
+ * ags_sf2_loader_get_instrument:
+ * @sf2_loader: the #AgsSF2Loader
+ * 
+ * Get instrument of @sf2_loader.
+ * 
+ * Returns: (transfer full): the assigned instrument
+ * 
+ * Since: 3.2.0
+ */
+gchar*
+ags_sf2_loader_get_instrument(AgsSF2Loader *sf2_loader)
+{
+  gchar *instrument;
+  
+  if(!AGS_IS_SF2_LOADER(sf2_loader)){
+    return(NULL);
+  }
+
+  g_object_get(sf2_loader,
+	       "instrument", &instrument,
+	       NULL);
+
+  return(instrument);
+}
+
+/**
+ * ags_sf2_loader_set_instrument:
+ * @sf2_loader: the #AgsSF2Loader
+ * @instrument: the instrument
+ * 
+ * Set instrument of @sf2_loader.
+ * 
+ * Since: 3.2.0
+ */
+void
+ags_sf2_loader_set_instrument(AgsSF2Loader *sf2_loader,
+			      gchar *instrument)
+{
+  if(!AGS_IS_SF2_LOADER(sf2_loader)){
+    return;
+  }
+
+  g_object_set(sf2_loader,
+	       "instrument", instrument,
+	       NULL);
+}
+
+/**
+ * ags_sf2_loader_get_audio_container:
+ * @sf2_loader: the #AgsSF2Loader
+ * 
+ * Get audio container of @sf2_loader.
+ * 
+ * Returns: (transfer full): the assigned #AgsAudioContainer
+ * 
+ * Since: 3.2.0
+ */
+AgsAudioContainer*
+ags_sf2_loader_get_audio_container(AgsSF2Loader *sf2_loader)
+{
+  AgsAudioContainer *audio_container;
+  
+  if(!AGS_IS_SF2_LOADER(sf2_loader)){
+    return(NULL);
+  }
+
+  g_object_get(sf2_loader,
+	       "audio-container", &audio_container,
+	       NULL);
+
+  return(audio_container);
+}
+
+/**
+ * ags_sf2_loader_set_audio_container:
+ * @sf2_loader: the #AgsSF2Loader
+ * @audio_container: the #AgsAudioContainer
+ * 
+ * Set audio container of @sf2_loader.
+ * 
+ * Since: 3.2.0
+ */
+void
+ags_sf2_loader_set_audio_container(AgsSF2Loader *sf2_loader,
+				   AgsAudioContainer *audio_container)
+{
+  if(!AGS_IS_SF2_LOADER(sf2_loader)){
+    return;
+  }
+
+  g_object_set(sf2_loader,
+	       "audio-container", audio_container,
+	       NULL);
+}
+
+/**
+ * ags_sf2_loader_start:
+ * @sf2_loader: the #AgsSF2Loader
+ * 
+ * Start @sf2_loader.
+ * 
+ * Since: 3.0.0
+ */
 void
 ags_sf2_loader_start(AgsSF2Loader *sf2_loader)
 {
@@ -659,10 +940,10 @@ ags_sf2_loader_start(AgsSF2Loader *sf2_loader)
     return;
   }
   
-  pthread_create(sf2_loader->thread, NULL,
-		 ags_sf2_loader_run, sf2_loader);
+  sf2_loader->thread = g_thread_new("Advanced Gtk+ Sequencer - SF2 loader",
+				    ags_sf2_loader_run,
+				    sf2_loader);
 }
-
 
 /**
  * ags_sf2_loader_new:
@@ -675,7 +956,7 @@ ags_sf2_loader_start(AgsSF2Loader *sf2_loader)
  *
  * Returns: the new #AgsSF2Loader
  *
- * Since: 2.4.0
+ * Since: 3.0.0
  */ 
 AgsSF2Loader*
 ags_sf2_loader_new(AgsAudio *audio,

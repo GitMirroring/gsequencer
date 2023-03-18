@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2018 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -19,8 +19,6 @@
 
 #include <ags/audio/ags_buffer.h>
 
-#include <ags/libags.h>
-
 #include <ags/audio/ags_audio_signal.h>
 #include <ags/audio/ags_audio_buffer_util.h>
 
@@ -28,8 +26,6 @@
 
 #include <stdlib.h>
 #include <string.h>
-
-#include <pthread.h>
 
 void ags_buffer_class_init(AgsBufferClass *buffer);
 void ags_buffer_init(AgsBuffer *buffer);
@@ -45,12 +41,16 @@ void ags_buffer_finalize(GObject *gobject);
 
 /**
  * SECTION:ags_buffer
- * @short_description: Buffer class.
+ * @short_description: Buffer class
  * @title: AgsBuffer
  * @section_id:
  * @include: ags/audio/ags_buffer.h
  *
- * #AgsBuffer represents a tone.
+ * #AgsBuffer represents audio data. If you want to modify `data` property you
+ * have to lock the buffer using ags_buffer_lock() and when you are done release it
+ * using ags_buffer_unlock().
+ *
+ * The `x` property is the offset in frames matching samplerate.
  */
 
 enum{
@@ -65,8 +65,6 @@ enum{
 };
 
 static gpointer ags_buffer_parent_class = NULL;
-
-static pthread_mutex_t ags_buffer_class_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 GType
 ags_buffer_get_type()
@@ -99,6 +97,25 @@ ags_buffer_get_type()
   return g_define_type_id__volatile;
 }
 
+GType
+ags_buffer_flags_get_type()
+{
+  static volatile gsize g_flags_type_id__volatile;
+
+  if(g_once_init_enter (&g_flags_type_id__volatile)){
+    static const GFlagsValue values[] = {
+      { AGS_BUFFER_IS_SELECTED, "AGS_BUFFER_IS_SELECTED", "buffer-is-selected" },
+      { 0, NULL, NULL }
+    };
+
+    GType g_flags_type_id = g_flags_register_static(g_intern_static_string("AgsBufferFlags"), values);
+
+    g_once_init_leave (&g_flags_type_id__volatile, g_flags_type_id);
+  }
+  
+  return g_flags_type_id__volatile;
+}
+
 void 
 ags_buffer_class_init(AgsBufferClass *buffer)
 {
@@ -121,7 +138,7 @@ ags_buffer_class_init(AgsBufferClass *buffer)
    *
    * Buffer's x offset.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint64("x",
 				   i18n_pspec("offset x"),
@@ -139,7 +156,7 @@ ags_buffer_class_init(AgsBufferClass *buffer)
    *
    * Buffer's selection x0 offset.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint64("selection-x0",
 				   i18n_pspec("selection offset x0"),
@@ -157,7 +174,7 @@ ags_buffer_class_init(AgsBufferClass *buffer)
    *
    * Buffer's selection x1 offset.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint64("selection-x1",
 				   i18n_pspec("selection offset x1"),
@@ -175,7 +192,7 @@ ags_buffer_class_init(AgsBufferClass *buffer)
    *
    * Buffer's audio data samplerate.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("samplerate",
 				 i18n_pspec("audio data samplerate"),
@@ -193,7 +210,7 @@ ags_buffer_class_init(AgsBufferClass *buffer)
    *
    * Buffer's audio data buffer size.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("buffer-size",
 				 i18n_pspec("audio data's buffer size"),
@@ -211,7 +228,7 @@ ags_buffer_class_init(AgsBufferClass *buffer)
    *
    * Buffer's audio data format.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("format",
 				 i18n_pspec("audio data format"),
@@ -229,7 +246,7 @@ ags_buffer_class_init(AgsBufferClass *buffer)
    *
    * Buffer's audio data.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_pointer("data",
 				    i18n_pspec("audio data"),
@@ -245,28 +262,11 @@ ags_buffer_init(AgsBuffer *buffer)
 {  
   AgsConfig *config;
 
-  pthread_mutex_t *mutex;
-  pthread_mutexattr_t *attr;
-  
   buffer->flags = 0;
 
   /* add buffer mutex */
-  buffer->obj_mutexattr = 
-    attr = (pthread_mutexattr_t *) malloc(sizeof(pthread_mutexattr_t));
-  pthread_mutexattr_init(attr);
-  pthread_mutexattr_settype(attr,
-			    PTHREAD_MUTEX_RECURSIVE);
-
-#ifdef __linux__
-  pthread_mutexattr_setprotocol(attr,
-				PTHREAD_PRIO_INHERIT);
-#endif
-
-  buffer->obj_mutex = 
-    mutex = (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t));
-  pthread_mutex_init(mutex,
-		     attr);  
-
+  g_rec_mutex_init(&(buffer->obj_mutex));
+  
   /* config */
   config = ags_config_get_instance();
 
@@ -292,43 +292,39 @@ ags_buffer_set_property(GObject *gobject,
 {
   AgsBuffer *buffer;
 
-  pthread_mutex_t *buffer_mutex;
+  GRecMutex *buffer_mutex;
 
   buffer = AGS_BUFFER(gobject);
 
   /* get buffer mutex */
-  pthread_mutex_lock(ags_buffer_get_class_mutex());
-  
-  buffer_mutex = buffer->obj_mutex;
-  
-  pthread_mutex_unlock(ags_buffer_get_class_mutex());
+  buffer_mutex = AGS_BUFFER_GET_OBJ_MUTEX(buffer);
 
   switch(prop_id){
   case PROP_X:
     {
-      pthread_mutex_lock(buffer_mutex);
+      g_rec_mutex_lock(buffer_mutex);
 
       buffer->x = g_value_get_uint64(value);
 
-      pthread_mutex_unlock(buffer_mutex);
+      g_rec_mutex_unlock(buffer_mutex);
     }
     break;
   case PROP_SELECTION_X0:
     {
-      pthread_mutex_lock(buffer_mutex);
+      g_rec_mutex_lock(buffer_mutex);
 
       buffer->selection_x0 = g_value_get_uint64(value);
 
-      pthread_mutex_unlock(buffer_mutex);
+      g_rec_mutex_unlock(buffer_mutex);
     }
     break;
   case PROP_SELECTION_X1:
     {
-      pthread_mutex_lock(buffer_mutex);
+      g_rec_mutex_lock(buffer_mutex);
 
       buffer->selection_x1 = g_value_get_uint64(value);
 
-      pthread_mutex_unlock(buffer_mutex);
+      g_rec_mutex_unlock(buffer_mutex);
     }
     break;
   case PROP_SAMPLERATE:
@@ -363,11 +359,11 @@ ags_buffer_set_property(GObject *gobject,
     break;
   case PROP_DATA:
     {
-      pthread_mutex_lock(buffer_mutex);
+      g_rec_mutex_lock(buffer_mutex);
 
       buffer->data = g_value_get_pointer(value);
 
-      pthread_mutex_unlock(buffer_mutex);
+      g_rec_mutex_unlock(buffer_mutex);
     }
     break;
   default:
@@ -384,86 +380,82 @@ ags_buffer_get_property(GObject *gobject,
 {
   AgsBuffer *buffer;
 
-  pthread_mutex_t *buffer_mutex;
+  GRecMutex *buffer_mutex;
 
   buffer = AGS_BUFFER(gobject);
 
   /* get buffer mutex */
-  pthread_mutex_lock(ags_buffer_get_class_mutex());
-  
-  buffer_mutex = buffer->obj_mutex;
-  
-  pthread_mutex_unlock(ags_buffer_get_class_mutex());
+  buffer_mutex = AGS_BUFFER_GET_OBJ_MUTEX(buffer);
 
   switch(prop_id){
   case PROP_X:
     {
-      pthread_mutex_lock(buffer_mutex);
+      g_rec_mutex_lock(buffer_mutex);
 
       g_value_set_uint64(value,
 			 buffer->x);
 
-      pthread_mutex_unlock(buffer_mutex);
+      g_rec_mutex_unlock(buffer_mutex);
     }
     break;
   case PROP_SELECTION_X0:
     {
-      pthread_mutex_lock(buffer_mutex);
+      g_rec_mutex_lock(buffer_mutex);
 
       g_value_set_uint64(value,
 			 buffer->selection_x0);
 
-      pthread_mutex_unlock(buffer_mutex);
+      g_rec_mutex_unlock(buffer_mutex);
     }
     break;
   case PROP_SELECTION_X1:
     {
-      pthread_mutex_lock(buffer_mutex);
+      g_rec_mutex_lock(buffer_mutex);
 
       g_value_set_uint64(value,
 			 buffer->selection_x1);
 
-      pthread_mutex_unlock(buffer_mutex);
+      g_rec_mutex_unlock(buffer_mutex);
     }
     break;
   case PROP_SAMPLERATE:
     {
-      pthread_mutex_lock(buffer_mutex);
+      g_rec_mutex_lock(buffer_mutex);
 
       g_value_set_uint(value,
 		       buffer->samplerate);
 
-      pthread_mutex_unlock(buffer_mutex);
+      g_rec_mutex_unlock(buffer_mutex);
     }
     break;
   case PROP_BUFFER_SIZE:
     {
-      pthread_mutex_lock(buffer_mutex);
+      g_rec_mutex_lock(buffer_mutex);
 
       g_value_set_uint(value,
 		       buffer->buffer_size);
 
-      pthread_mutex_unlock(buffer_mutex);
+      g_rec_mutex_unlock(buffer_mutex);
     }
     break;
   case PROP_FORMAT:
     {
-      pthread_mutex_lock(buffer_mutex);
+      g_rec_mutex_lock(buffer_mutex);
 
       g_value_set_uint(value,
 		       buffer->format);
 
-      pthread_mutex_unlock(buffer_mutex);
+      g_rec_mutex_unlock(buffer_mutex);
     }
     break;
   case PROP_DATA:
     {
-      pthread_mutex_lock(buffer_mutex);
+      g_rec_mutex_lock(buffer_mutex);
 
       g_value_set_pointer(value,
 			  buffer->data);
 
-      pthread_mutex_unlock(buffer_mutex);
+      g_rec_mutex_unlock(buffer_mutex);
     }
     break;
   default:
@@ -479,14 +471,8 @@ ags_buffer_finalize(GObject *gobject)
 
   buffer = AGS_BUFFER(gobject);
 
-  pthread_mutex_destroy(buffer->obj_mutex);
-  free(buffer->obj_mutex);
-
-  pthread_mutexattr_destroy(buffer->obj_mutexattr);
-  free(buffer->obj_mutexattr);
-
   if(buffer->data != NULL){
-    free(buffer->data);
+    g_free(buffer->data);
   }
   
   /* call parent */
@@ -494,18 +480,59 @@ ags_buffer_finalize(GObject *gobject)
 }
 
 /**
- * ags_buffer_get_class_mutex:
+ * ags_buffer_get_obj_mutex:
+ * @buffer: the #AgsBuffer
  * 
- * Use this function's returned mutex to access mutex fields.
- *
- * Returns: the class mutex
+ * Get object mutex.
  * 
- * Since: 2.0.0
+ * Returns: the #GRecMutex to lock @buffer
+ * 
+ * Since: 3.1.0
  */
-pthread_mutex_t*
-ags_buffer_get_class_mutex()
+GRecMutex*
+ags_buffer_get_obj_mutex(AgsBuffer *buffer)
 {
-  return(&ags_buffer_class_mutex);
+  if(!AGS_IS_BUFFER(buffer)){
+    return(NULL);
+  }
+
+  return(AGS_BUFFER_GET_OBJ_MUTEX(buffer));
+}
+
+/**
+ * ags_buffer_lock:
+ * @buffer: the #AgsBuffer
+ * 
+ * Lock object mutex.
+ * 
+ * Since: 3.1.0
+ */
+void
+ags_buffer_lock(AgsBuffer *buffer)
+{
+  if(!AGS_IS_BUFFER(buffer)){
+    return;
+  }
+
+  g_rec_mutex_lock(AGS_BUFFER_GET_OBJ_MUTEX(buffer));
+}
+
+/**
+ * ags_buffer_unlock:
+ * @buffer: the #AgsBuffer
+ * 
+ * Unlock object mutex.
+ * 
+ * Since: 3.1.0
+ */
+void
+ags_buffer_unlock(AgsBuffer *buffer)
+{
+  if(!AGS_IS_BUFFER(buffer)){
+    return;
+  }
+
+  g_rec_mutex_unlock(AGS_BUFFER_GET_OBJ_MUTEX(buffer));
 }
 
 /**
@@ -517,32 +544,28 @@ ags_buffer_get_class_mutex()
  * 
  * Returns: %TRUE if flags are set, else %FALSE
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gboolean
 ags_buffer_test_flags(AgsBuffer *buffer, guint flags)
 {
   gboolean retval;
   
-  pthread_mutex_t *buffer_mutex;
+  GRecMutex *buffer_mutex;
 
   if(!AGS_IS_BUFFER(buffer)){
     return(FALSE);
   }
       
-  /* get buffer mutex */
-  pthread_mutex_lock(ags_buffer_get_class_mutex());
-  
-  buffer_mutex = buffer->obj_mutex;
-  
-  pthread_mutex_unlock(ags_buffer_get_class_mutex());
+  /* get buffer mutex */  
+  buffer_mutex = AGS_BUFFER_GET_OBJ_MUTEX(buffer);
 
   /* test */
-  pthread_mutex_lock(buffer_mutex);
+  g_rec_mutex_lock(buffer_mutex);
 
   retval = (flags & (buffer->flags)) ? TRUE: FALSE;
   
-  pthread_mutex_unlock(buffer_mutex);
+  g_rec_mutex_unlock(buffer_mutex);
 
   return(retval);
 }
@@ -554,30 +577,26 @@ ags_buffer_test_flags(AgsBuffer *buffer, guint flags)
  * 
  * Set @flags on @buffer.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_buffer_set_flags(AgsBuffer *buffer, guint flags)
 {
-  pthread_mutex_t *buffer_mutex;
+  GRecMutex *buffer_mutex;
 
   if(!AGS_IS_BUFFER(buffer)){
     return;
   }
       
   /* get buffer mutex */
-  pthread_mutex_lock(ags_buffer_get_class_mutex());
-  
-  buffer_mutex = buffer->obj_mutex;
-  
-  pthread_mutex_unlock(ags_buffer_get_class_mutex());
+  buffer_mutex = AGS_BUFFER_GET_OBJ_MUTEX(buffer);
 
   /* set */
-  pthread_mutex_lock(buffer_mutex);
+  g_rec_mutex_lock(buffer_mutex);
 
   buffer->flags |= flags;
   
-  pthread_mutex_unlock(buffer_mutex);
+  g_rec_mutex_unlock(buffer_mutex);
 }
 
 /**
@@ -587,229 +606,38 @@ ags_buffer_set_flags(AgsBuffer *buffer, guint flags)
  * 
  * Unset @flags on @buffer.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_buffer_unset_flags(AgsBuffer *buffer, guint flags)
 {
-  pthread_mutex_t *buffer_mutex;
+  GRecMutex *buffer_mutex;
 
   if(!AGS_IS_BUFFER(buffer)){
     return;
   }
       
   /* get buffer mutex */
-  pthread_mutex_lock(ags_buffer_get_class_mutex());
-  
-  buffer_mutex = buffer->obj_mutex;
-  
-  pthread_mutex_unlock(ags_buffer_get_class_mutex());
+  buffer_mutex = AGS_BUFFER_GET_OBJ_MUTEX(buffer);
 
   /* unset */
-  pthread_mutex_lock(buffer_mutex);
+  g_rec_mutex_lock(buffer_mutex);
 
   buffer->flags &= (~flags);
   
-  pthread_mutex_unlock(buffer_mutex);
-}
-
-/**
- * ags_buffer_set_samplerate:
- * @buffer: the #AgsBuffer
- * @samplerate: the samplerate
- * 
- * Set samplerate.
- * 
- * Since: 2.0.0
- */
-void
-ags_buffer_set_samplerate(AgsBuffer *buffer,
-			  guint samplerate)
-{
-  pthread_mutex_t *buffer_mutex;
-
-  if(!AGS_IS_BUFFER(buffer)){
-    return;
-  }
-
-  /* get buffer mutex */
-  pthread_mutex_lock(ags_buffer_get_class_mutex());
-  
-  buffer_mutex = buffer->obj_mutex;
-  
-  pthread_mutex_unlock(ags_buffer_get_class_mutex());
-
-  /* set samplerate */
-  pthread_mutex_lock(buffer_mutex);
-
-  //TODO:JK: resample data?
-  buffer->samplerate = samplerate;
-  
-  pthread_mutex_unlock(buffer_mutex);
-}
-
-/**
- * ags_buffer_set_buffer_size:
- * @buffer: the #AgsBuffer
- * @buffer_size: the buffer size
- * 
- * Set buffer size.
- * 
- * Since: 2.0.0
- */
-void
-ags_buffer_set_buffer_size(AgsBuffer *buffer,
-			   guint buffer_size)
-{
-  guint old_buffer_size;
-  guint word_size;
-  
-  pthread_mutex_t *buffer_mutex;
-
-  if(!AGS_IS_BUFFER(buffer)){
-    return;
-  }
-      
-  /* get buffer mutex */
-  pthread_mutex_lock(ags_buffer_get_class_mutex());
-  
-  buffer_mutex = buffer->obj_mutex;
-  
-  pthread_mutex_unlock(ags_buffer_get_class_mutex());
-
-  /* set buffer size */
-  pthread_mutex_lock(buffer_mutex);
-
-  old_buffer_size = buffer->buffer_size;
-  
-  buffer->buffer_size = buffer_size;
-
-  if(old_buffer_size == buffer->buffer_size){
-    pthread_mutex_unlock(buffer_mutex);    
-
-    return;
-  }
-  
-  switch(buffer->format){
-  case AGS_SOUNDCARD_SIGNED_8_BIT:
-    {
-      buffer->data = (gint8 *) realloc(buffer->data,
-				       buffer_size * sizeof(gint8));
-      word_size = sizeof(gint8);
-    }
-    break;
-  case AGS_SOUNDCARD_SIGNED_16_BIT:
-    {
-      buffer->data = (gint16 *) realloc(buffer->data,
-					buffer_size * sizeof(gint16));
-      word_size = sizeof(gint16);
-    }
-    break;
-  case AGS_SOUNDCARD_SIGNED_24_BIT:
-    {
-      buffer->data = (gint32 *) realloc(buffer->data,
-					buffer_size * sizeof(gint32));
-      //NOTE:JK: The 24-bit linear samples use 32-bit physical space
-      word_size = sizeof(gint32);
-    }
-    break;
-  case AGS_SOUNDCARD_SIGNED_32_BIT:
-    {
-      buffer->data = (gint32 *) realloc(buffer->data,
-					buffer_size * sizeof(gint32));
-      word_size = sizeof(gint32);
-    }
-    break;
-  case AGS_SOUNDCARD_SIGNED_64_BIT:
-    {
-      buffer->data = (gint64 *) realloc(buffer->data,
-					buffer_size * sizeof(gint64));
-      word_size = sizeof(gint64);
-    }
-    break;
-  default:
-    pthread_mutex_unlock(buffer_mutex);
-    
-    g_warning("ags_buffer_set_buffer_size(): unsupported word size");
-
-    return;
-  }
-
-  if(old_buffer_size < buffer_size){
-    memset(buffer->data + old_buffer_size, 0, (buffer_size - old_buffer_size) * word_size);
-  }
-
-  pthread_mutex_unlock(buffer_mutex);
-}
-
-/**
- * ags_buffer_set_format:
- * @buffer: the #AgsBuffer
- * @format: the format
- * 
- * Set format.
- * 
- * Since: 2.0.0
- */
-void
-ags_buffer_set_format(AgsBuffer *buffer,
-		      guint format)
-{
-  void *data;
-
-  guint copy_mode;
-
-  pthread_mutex_t *buffer_mutex;
-
-  if(!AGS_IS_BUFFER(buffer)){
-    return;
-  }
-      
-  /* get buffer mutex */
-  pthread_mutex_lock(ags_buffer_get_class_mutex());
-  
-  buffer_mutex = buffer->obj_mutex;
-  
-  pthread_mutex_unlock(ags_buffer_get_class_mutex());
-
-  /* set format */
-  pthread_mutex_lock(buffer_mutex);
-
-  if(buffer->format == format){
-    pthread_mutex_unlock(buffer_mutex);
-
-    return;
-  }
-  
-  data = ags_stream_alloc(buffer->buffer_size,
-			  format);
-
-  copy_mode = ags_audio_buffer_util_get_copy_mode(ags_audio_buffer_util_format_from_soundcard(format),
-						  ags_audio_buffer_util_format_from_soundcard(buffer->format));
-  
-  ags_audio_buffer_util_copy_buffer_to_buffer(data, 1, 0,
-					      buffer->data, 1, 0,
-					      buffer->buffer_size, copy_mode);
-
-  free(buffer->data);
-
-  buffer->data = data;
-
-  buffer->format = format;
-
-  pthread_mutex_unlock(buffer_mutex);
+  g_rec_mutex_unlock(buffer_mutex);
 }
 
 /**
  * ags_buffer_sort_func:
  * @a: an #AgsBuffer
- * @b: an #AgsBuffer
+ * @b: an other #AgsBuffer
  * 
  * Sort buffers.
  * 
  * Returns: 0 if equal, -1 if smaller and 1 if bigger offset
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gint
 ags_buffer_sort_func(gconstpointer a,
@@ -841,14 +669,348 @@ ags_buffer_sort_func(gconstpointer a,
 }
 
 /**
+ * ags_buffer_get_x:
+ * @buffer: the #AgsBuffer
+ *
+ * Gets x.
+ * 
+ * Returns: the x
+ * 
+ * Since: 3.1.0
+ */
+guint64
+ags_buffer_get_x(AgsBuffer *buffer)
+{
+  guint64 x;
+  
+  if(!AGS_IS_BUFFER(buffer)){
+    return(0);
+  }
+
+  g_object_get(buffer,
+	       "x", &x,
+	       NULL);
+
+  return(x);
+}
+
+/**
+ * ags_buffer_set_x:
+ * @buffer: the #AgsBuffer
+ * @x: the x
+ *
+ * Sets x.
+ * 
+ * Since: 3.1.0
+ */
+void
+ags_buffer_set_x(AgsBuffer *buffer, guint64 x)
+{
+  if(!AGS_IS_BUFFER(buffer)){
+    return;
+  }
+
+  g_object_set(buffer,
+	       "x", x,
+	       NULL);
+}
+
+/**
+ * ags_buffer_get_samplerate:
+ * @buffer: the #AgsBuffer
+ *
+ * Gets samplerate.
+ * 
+ * Returns: the samplerate
+ * 
+ * Since: 3.1.0
+ */
+guint
+ags_buffer_get_samplerate(AgsBuffer *buffer)
+{
+  guint samplerate;
+  
+  if(!AGS_IS_BUFFER(buffer)){
+    return(0);
+  }
+
+  g_object_get(buffer,
+	       "samplerate", &samplerate,
+	       NULL);
+
+  return(samplerate);
+}
+
+/**
+ * ags_buffer_set_samplerate:
+ * @buffer: the #AgsBuffer
+ * @samplerate: the samplerate
+ * 
+ * Set samplerate.
+ * 
+ * Since: 3.0.0
+ */
+void
+ags_buffer_set_samplerate(AgsBuffer *buffer,
+			  guint samplerate)
+{
+  GRecMutex *buffer_mutex;
+
+  if(!AGS_IS_BUFFER(buffer)){
+    return;
+  }
+
+  /* get buffer mutex */
+  buffer_mutex = AGS_BUFFER_GET_OBJ_MUTEX(buffer);
+
+  /* set samplerate */
+  g_rec_mutex_lock(buffer_mutex);
+
+  //TODO:JK: resample data?
+  buffer->samplerate = samplerate;
+  
+  g_rec_mutex_unlock(buffer_mutex);
+}
+
+/**
+ * ags_buffer_get_buffer_size:
+ * @buffer: the #AgsBuffer
+ *
+ * Gets buffer size.
+ * 
+ * Returns: the buffer size
+ * 
+ * Since: 3.1.0
+ */
+guint
+ags_buffer_get_buffer_size(AgsBuffer *buffer)
+{
+  guint buffer_size;
+  
+  if(!AGS_IS_BUFFER(buffer)){
+    return(0);
+  }
+
+  g_object_get(buffer,
+	       "buffer-size", &buffer_size,
+	       NULL);
+
+  return(buffer_size);
+}
+
+/**
+ * ags_buffer_set_buffer_size:
+ * @buffer: the #AgsBuffer
+ * @buffer_size: the buffer size
+ * 
+ * Set buffer size.
+ * 
+ * Since: 3.0.0
+ */
+void
+ags_buffer_set_buffer_size(AgsBuffer *buffer,
+			   guint buffer_size)
+{
+  guint old_buffer_size;
+  guint word_size;
+  
+  GRecMutex *buffer_mutex;
+
+  if(!AGS_IS_BUFFER(buffer)){
+    return;
+  }
+      
+  /* get buffer mutex */
+  buffer_mutex = AGS_BUFFER_GET_OBJ_MUTEX(buffer);
+
+  /* set buffer size */
+  g_rec_mutex_lock(buffer_mutex);
+
+  old_buffer_size = buffer->buffer_size;
+  
+  buffer->buffer_size = buffer_size;
+
+  if(old_buffer_size == buffer->buffer_size){
+    g_rec_mutex_unlock(buffer_mutex);    
+
+    return;
+  }
+  
+  switch(buffer->format){
+  case AGS_SOUNDCARD_SIGNED_8_BIT:
+  {
+    buffer->data = (gint8 *) g_realloc(buffer->data,
+				       buffer_size * sizeof(gint8));
+    word_size = sizeof(gint8);
+  }
+  break;
+  case AGS_SOUNDCARD_SIGNED_16_BIT:
+  {
+    buffer->data = (gint16 *) g_realloc(buffer->data,
+					buffer_size * sizeof(gint16));
+    word_size = sizeof(gint16);
+  }
+  break;
+  case AGS_SOUNDCARD_SIGNED_24_BIT:
+  {
+    buffer->data = (gint32 *) g_realloc(buffer->data,
+					buffer_size * sizeof(gint32));
+    //NOTE:JK: The 24-bit linear samples use 32-bit physical space
+    word_size = sizeof(gint32);
+  }
+  break;
+  case AGS_SOUNDCARD_SIGNED_32_BIT:
+  {
+    buffer->data = (gint32 *) g_realloc(buffer->data,
+					buffer_size * sizeof(gint32));
+    word_size = sizeof(gint32);
+  }
+  break;
+  case AGS_SOUNDCARD_SIGNED_64_BIT:
+  {
+    buffer->data = (gint64 *) g_realloc(buffer->data,
+					buffer_size * sizeof(gint64));
+    word_size = sizeof(gint64);
+    }
+    break;
+  default:
+    g_rec_mutex_unlock(buffer_mutex);
+    
+    g_warning("ags_buffer_set_buffer_size(): unsupported word size");
+
+    return;
+  }
+
+  if(old_buffer_size < buffer_size){
+    memset(buffer->data + old_buffer_size, 0, (buffer_size - old_buffer_size) * word_size);
+  }
+
+  g_rec_mutex_unlock(buffer_mutex);
+}
+
+/**
+ * ags_buffer_get_format:
+ * @buffer: the #AgsBuffer
+ *
+ * Gets format.
+ * 
+ * Returns: the format
+ * 
+ * Since: 3.1.0
+ */
+guint
+ags_buffer_get_format(AgsBuffer *buffer)
+{
+  guint format;
+  
+  if(!AGS_IS_BUFFER(buffer)){
+    return(0);
+  }
+
+  g_object_get(buffer,
+	       "format", &format,
+	       NULL);
+
+  return(format);
+}
+
+/**
+ * ags_buffer_set_format:
+ * @buffer: the #AgsBuffer
+ * @format: the format
+ * 
+ * Set format.
+ * 
+ * Since: 3.0.0
+ */
+void
+ags_buffer_set_format(AgsBuffer *buffer,
+		      guint format)
+{
+  void *data;
+
+  guint copy_mode;
+
+  GRecMutex *buffer_mutex;
+
+  if(!AGS_IS_BUFFER(buffer)){
+    return;
+  }
+      
+  /* get buffer mutex */
+  buffer_mutex = AGS_BUFFER_GET_OBJ_MUTEX(buffer);
+
+  /* set format */
+  g_rec_mutex_lock(buffer_mutex);
+
+  if(buffer->format == format){
+    g_rec_mutex_unlock(buffer_mutex);
+
+    return;
+  }
+  
+  data = ags_stream_alloc(buffer->buffer_size,
+			  format);
+
+  copy_mode = ags_audio_buffer_util_get_copy_mode(ags_audio_buffer_util_format_from_soundcard(format),
+						  ags_audio_buffer_util_format_from_soundcard(buffer->format));
+  
+  ags_audio_buffer_util_copy_buffer_to_buffer(data, 1, 0,
+					      buffer->data, 1, 0,
+					      buffer->buffer_size, copy_mode);
+
+  g_free(buffer->data);
+
+  buffer->data = data;
+
+  buffer->format = format;
+
+  g_rec_mutex_unlock(buffer_mutex);
+}
+
+/**
+ * ags_buffer_get_data:
+ * @buffer: the #AgsBuffer
+ *
+ * Gets data.
+ * 
+ * Returns: the data
+ * 
+ * Since: 3.1.0
+ */
+gpointer
+ags_buffer_get_data(AgsBuffer *buffer)
+{
+  gpointer data;
+  
+  GRecMutex *buffer_mutex;
+
+  if(!AGS_IS_BUFFER(buffer)){
+    return(NULL);
+  }
+      
+  /* get buffer mutex */
+  buffer_mutex = AGS_BUFFER_GET_OBJ_MUTEX(buffer);
+
+  /* set format */
+  g_rec_mutex_lock(buffer_mutex);
+
+  data = buffer->data;
+  
+  g_rec_mutex_unlock(buffer_mutex);
+
+  return(data);
+}
+
+/**
  * ags_buffer_duplicate:
  * @buffer: an #AgsBuffer
  * 
  * Duplicate a buffer.
  *
- * Returns: the duplicated #AgsBuffer.
+ * Returns: (transfer full): the duplicated #AgsBuffer.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 AgsBuffer*
 ags_buffer_duplicate(AgsBuffer *buffer)
@@ -857,25 +1019,21 @@ ags_buffer_duplicate(AgsBuffer *buffer)
 
   guint copy_mode;
 
-  pthread_mutex_t *buffer_mutex;
+  GRecMutex *buffer_mutex;
 
   if(!AGS_IS_BUFFER(buffer)){
     return(NULL);
   }
   
   /* get buffer mutex */
-  pthread_mutex_lock(ags_buffer_get_class_mutex());
-  
-  buffer_mutex = buffer->obj_mutex;
-  
-  pthread_mutex_unlock(ags_buffer_get_class_mutex());
+  buffer_mutex = AGS_BUFFER_GET_OBJ_MUTEX(buffer);
 
   /* instantiate buffer */  
   buffer_copy = ags_buffer_new();
 
   buffer_copy->flags = 0;
 
-  pthread_mutex_lock(buffer_mutex);
+  g_rec_mutex_lock(buffer_mutex);
 
   buffer_copy->x = buffer->x;
 
@@ -892,7 +1050,7 @@ ags_buffer_duplicate(AgsBuffer *buffer)
 					      buffer->data, 1, 0,
 					      buffer_copy->buffer_size, copy_mode);
 
-  pthread_mutex_unlock(buffer_mutex);
+  g_rec_mutex_unlock(buffer_mutex);
 
   return(buffer_copy);
 }
@@ -904,7 +1062,7 @@ ags_buffer_duplicate(AgsBuffer *buffer)
  *
  * Returns: the new #AgsBuffer
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 AgsBuffer*
 ags_buffer_new()

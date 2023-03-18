@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -29,6 +29,8 @@
 
 #include <ags/audio/file/ags_audio_container.h>
 
+G_BEGIN_DECLS
+
 #define AGS_TYPE_SF2_LOADER                (ags_sf2_loader_get_type())
 #define AGS_SF2_LOADER(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_SF2_LOADER, AgsSF2Loader))
 #define AGS_SF2_LOADER_CLASS(class)        (G_TYPE_CHECK_CLASS_CAST((class), AGS_TYPE_SF2_LOADER, AgsSF2LoaderClass))
@@ -36,13 +38,21 @@
 #define AGS_IS_SF2_LOADER_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE ((class), AGS_TYPE_SF2_LOADER))
 #define AGS_SF2_LOADER_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS ((obj), AGS_TYPE_SF2_LOADER, AgsSF2LoaderClass))
 
-#define AGS_SF2_LOADER_GET_OBJ_MUTEX(obj) (((AgsSF2Loader *) obj)->obj_mutex)
+#define AGS_SF2_LOADER_GET_OBJ_MUTEX(obj) (&(((AgsSF2Loader *) obj)->obj_mutex))
 
 typedef struct _AgsSF2Loader AgsSF2Loader;
 typedef struct _AgsSF2LoaderClass AgsSF2LoaderClass;
 
+/**
+ * AgsSF2LoaderFlags:
+ * @AGS_SF2_LOADER_HAS_COMPLETED: has completed
+ * @AGS_SF2_LOADER_RUN_APPLY_SYNTH: run apply synth
+ * 
+ * Enum values to configure SF2 loader.
+ */
 typedef enum{
-  AGS_SF2_LOADER_HAS_COMPLETED   = 1,
+  AGS_SF2_LOADER_HAS_COMPLETED      = 1,
+  AGS_SF2_LOADER_RUN_APPLY_SYNTH    = 1 <<  1,
 }AgsSF2LoaderFlags;
 
 struct _AgsSF2Loader
@@ -50,11 +60,11 @@ struct _AgsSF2Loader
   GObject gobject;
 
   guint flags;
+  guint connectable_flags;
 
-  pthread_mutex_t *obj_mutex;
-  pthread_mutexattr_t *obj_mutexattr;
+  GRecMutex obj_mutex;
 
-  pthread_t *thread;
+  GThread *thread;
 
   AgsAudio *audio;
 
@@ -62,6 +72,9 @@ struct _AgsSF2Loader
 
   gchar *preset;
   gchar *instrument;
+
+  gdouble base_note;
+  guint count;
   
   AgsAudioContainer *audio_container;
 };
@@ -73,17 +86,41 @@ struct _AgsSF2LoaderClass
 
 GType ags_sf2_loader_get_type();
 
-pthread_mutex_t* ags_sf2_loader_get_class_mutex();
-
+/* flags */
 gboolean ags_sf2_loader_test_flags(AgsSF2Loader *sf2_loader, guint flags);
 void ags_sf2_loader_set_flags(AgsSF2Loader *sf2_loader, guint flags);
 void ags_sf2_loader_unset_flags(AgsSF2Loader *sf2_loader, guint flags);
 
+/* properties */
+AgsAudio* ags_sf2_loader_get_audio(AgsSF2Loader *sf2_loader);
+void ags_sf2_loader_set_audio(AgsSF2Loader *sf2_loader,
+			      AgsAudio *audio);
+
+gchar* ags_sf2_loader_get_filename(AgsSF2Loader *sf2_loader);
+void ags_sf2_loader_set_filename(AgsSF2Loader *sf2_loader,
+				 gchar *filename);
+
+gchar* ags_sf2_loader_get_preset(AgsSF2Loader *sf2_loader);
+void ags_sf2_loader_set_preset(AgsSF2Loader *sf2_loader,
+			       gchar *preset);
+
+gchar* ags_sf2_loader_get_instrument(AgsSF2Loader *sf2_loader);
+void ags_sf2_loader_set_instrument(AgsSF2Loader *sf2_loader,
+				   gchar *instrument);
+
+AgsAudioContainer* ags_sf2_loader_get_audio_container(AgsSF2Loader *sf2_loader);
+void ags_sf2_loader_set_audio_container(AgsSF2Loader *sf2_loader,
+					AgsAudioContainer *audio_container);
+
+/* thread */
 void ags_sf2_loader_start(AgsSF2Loader *sf2_loader);
 
+/* instantiate */
 AgsSF2Loader* ags_sf2_loader_new(AgsAudio *audio,
 				 gchar *filename,
 				 gchar *preset,
 				 gchar *instrument);
+
+G_END_DECLS
 
 #endif /*__AGS_SF2_LOADER_H__*/

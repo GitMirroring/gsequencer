@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2020 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -22,6 +22,12 @@
 
 #include <glib.h>
 #include <glib-object.h>
+
+#include <ags/libags.h>
+
+#include <unistd.h>
+
+G_BEGIN_DECLS
 
 #define AGS_TYPE_SOUND_RESOURCE                    (ags_sound_resource_get_type())
 #define AGS_SOUND_RESOURCE(obj)                    (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_SOUND_RESOURCE, AgsSoundResource))
@@ -129,6 +135,10 @@ void ags_sound_resource_seek(AgsSoundResource *sound_resource,
 GList* ags_sound_resource_read_audio_signal(AgsSoundResource *sound_resource,
 					    GObject *soundcard,
 					    gint audio_channel);
+GList* ags_sound_resource_read_audio_signal_at_once(AgsSoundResource *sound_resource,
+						    GObject *soundcard,
+						    gint audio_channel);
+
 GList* ags_sound_resource_read_wave(AgsSoundResource *sound_resource,
 				    GObject *soundcard,
 				    gint audio_channel,
@@ -137,5 +147,7 @@ GList* ags_sound_resource_read_wave(AgsSoundResource *sound_resource,
 
 /* close */
 void ags_sound_resource_close(AgsSoundResource *sound_resource);
+
+G_END_DECLS
 
 #endif /*__AGS_SOUND_RESOURCE_H__*/

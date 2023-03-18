@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -23,13 +23,15 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include <ags/config.h>
+#include <ags/ags_api_config.h>
 
-#ifdef AGS_WITH_PULSE
+#if defined(AGS_WITH_PULSE)
 #include <pulse/pulseaudio.h>
 #endif
 
 #include <ags/libags.h>
+
+G_BEGIN_DECLS
 
 #define AGS_TYPE_PULSE_PORT                (ags_pulse_port_get_type())
 #define AGS_PULSE_PORT(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_PULSE_PORT, AgsPulsePort))
@@ -38,8 +40,9 @@
 #define AGS_IS_PULSE_PORT_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE ((class), AGS_TYPE_PULSE_PORT))
 #define AGS_PULSE_PORT_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS(obj, AGS_TYPE_PULSE_PORT, AgsPulsePortClass))
 
-#define AGS_PULSE_PORT_GET_OBJ_MUTEX(obj) (((AgsPulsePort *) obj)->obj_mutex)
+#define AGS_PULSE_PORT_GET_OBJ_MUTEX(obj) (&(((AgsPulsePort *) obj)->obj_mutex))
 
+#define AGS_PULSE_PORT_DEFAULT_CACHE_COUNT (4)
 #define AGS_PULSE_PORT_DEFAULT_CACHE_BUFFER_SIZE (4096)
 
 typedef struct _AgsPulsePort AgsPulsePort;
@@ -47,8 +50,6 @@ typedef struct _AgsPulsePortClass AgsPulsePortClass;
 
 /**
  * AgsPulsePortFlags:
- * @AGS_PULSE_PORT_ADDED_TO_REGISTRY: the PULSE port was added to registry, see #AgsConnectable::add_to_registry()
- * @AGS_PULSE_PORT_CONNECTED: indicates the port was connected by calling #AgsConnectable::connect()
  * @AGS_PULSE_PORT_REGISTERED: the port was registered
  * @AGS_PULSE_PORT_IS_AUDIO: the port provides audio data
  * @AGS_PULSE_PORT_IS_MIDI: the port provides midi data
@@ -59,13 +60,11 @@ typedef struct _AgsPulsePortClass AgsPulsePortClass;
  * enable/disable as flags.
  */
 typedef enum{
-  AGS_PULSE_PORT_ADDED_TO_REGISTRY  = 1,
-  AGS_PULSE_PORT_CONNECTED          = 1 <<  1,
-  AGS_PULSE_PORT_REGISTERED         = 1 <<  2,
-  AGS_PULSE_PORT_IS_AUDIO           = 1 <<  3,
-  AGS_PULSE_PORT_IS_MIDI            = 1 <<  4,
-  AGS_PULSE_PORT_IS_OUTPUT          = 1 <<  5,
-  AGS_PULSE_PORT_IS_INPUT           = 1 <<  6,
+  AGS_PULSE_PORT_REGISTERED         = 1,
+  AGS_PULSE_PORT_IS_AUDIO           = 1 <<  1,
+  AGS_PULSE_PORT_IS_MIDI            = 1 <<  2,
+  AGS_PULSE_PORT_IS_OUTPUT          = 1 <<  3,
+  AGS_PULSE_PORT_IS_INPUT           = 1 <<  4,
 }AgsPulsePortFlags;
 
 struct _AgsPulsePort
@@ -73,9 +72,9 @@ struct _AgsPulsePort
   GObject gobject;
 
   guint flags;
-
-  pthread_mutex_t *obj_mutex;
-  pthread_mutexattr_t *obj_mutexattr;
+  guint connectable_flags;
+  
+  GRecMutex obj_mutex;
 
   GObject *pulse_client;
 
@@ -96,12 +95,14 @@ struct _AgsPulsePort
   gboolean use_cache;
   guint cache_buffer_size;
 
+  GRecMutex **cache_mutex;
+
   guint current_cache;
   guint completed_cache;
   guint cache_offset;
   void **cache;
   
-#ifdef AGS_WITH_PULSE
+#if defined(AGS_WITH_PULSE)
   pa_stream *stream;
   pa_sample_spec *sample_spec;
   pa_buffer_attr *buffer_attr;
@@ -128,8 +129,7 @@ struct _AgsPulsePortClass
 };
 
 GType ags_pulse_port_get_type();
-
-pthread_mutex_t* ags_pulse_port_get_class_mutex();
+GType ags_pulse_port_flags_get_type();
 
 gboolean ags_pulse_port_test_flags(AgsPulsePort *pulse_port, guint flags);
 void ags_pulse_port_set_flags(AgsPulsePort *pulse_port, guint flags);
@@ -161,5 +161,7 @@ void ags_pulse_port_set_cache_buffer_size(AgsPulsePort *pulse_port,
 guint ags_pulse_port_get_latency(AgsPulsePort *pulse_port);
 
 AgsPulsePort* ags_pulse_port_new(GObject *pulse_client);
+
+G_END_DECLS
 
 #endif /*__AGS_PULSE_PORT_H__*/

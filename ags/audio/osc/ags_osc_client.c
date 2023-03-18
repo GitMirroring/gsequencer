@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -19,24 +19,12 @@
 
 #include <ags/audio/osc/ags_osc_client.h>
 
-#include <ags/libags.h>
-
 #include <ags/audio/osc/ags_osc_util.h>
 
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <time.h>
-
-#ifndef AGS_W32API
-#include <fcntl.h>
-
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
-
-#include <arpa/inet.h>
-#endif
 
 #ifdef __APPLE__
 #include <mach/clock.h>
@@ -60,8 +48,8 @@ void ags_osc_client_finalize(GObject *gobject);
 void ags_osc_client_real_resolve(AgsOscClient *osc_client);
 void ags_osc_client_real_connect(AgsOscClient *osc_client);
 
-unsigned char* ags_osc_client_real_read_bytes(AgsOscClient *osc_client,
-					      guint *data_length);
+guchar* ags_osc_client_real_read_bytes(AgsOscClient *osc_client,
+				       guint *data_length);
 gboolean ags_osc_client_real_write_bytes(AgsOscClient *osc_client,
 					 guchar *data, guint data_length);
 
@@ -94,8 +82,6 @@ enum{
 static gpointer ags_osc_client_parent_class = NULL;
 static guint osc_client_signals[LAST_SIGNAL];
 
-static pthread_mutex_t ags_osc_client_class_mutex = PTHREAD_MUTEX_INITIALIZER;
-
 GType
 ags_osc_client_get_type(void)
 {
@@ -126,6 +112,28 @@ ags_osc_client_get_type(void)
   return g_define_type_id__volatile;
 }
 
+GType
+ags_osc_client_flags_get_type()
+{
+  static volatile gsize g_flags_type_id__volatile;
+
+  if(g_once_init_enter (&g_flags_type_id__volatile)){
+    static const GFlagsValue values[] = {
+      { AGS_OSC_CLIENT_INET4, "AGS_OSC_CLIENT_INET4", "osc-client-inet4" },
+      { AGS_OSC_CLIENT_INET6, "AGS_OSC_CLIENT_INET6", "osc-client-inet6" },
+      { AGS_OSC_CLIENT_UDP, "AGS_OSC_CLIENT_UDP", "osc-client-udp" },
+      { AGS_OSC_CLIENT_TCP, "AGS_OSC_CLIENT_TCP", "osc-client-tcp" },
+      { 0, NULL, NULL }
+    };
+
+    GType g_flags_type_id = g_flags_register_static(g_intern_static_string("AgsOscClientFlags"), values);
+
+    g_once_init_leave (&g_flags_type_id__volatile, g_flags_type_id);
+  }
+  
+  return g_flags_type_id__volatile;
+}
+
 void
 ags_osc_client_class_init(AgsOscClientClass *osc_client)
 {
@@ -149,7 +157,7 @@ ags_osc_client_class_init(AgsOscClientClass *osc_client)
    *
    * The domain to lookup server.
    * 
-   * Since: 2.1.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_string("domain",
 				   i18n_pspec("domain"),
@@ -165,7 +173,7 @@ ags_osc_client_class_init(AgsOscClientClass *osc_client)
    *
    * The server port to connect.
    * 
-   * Since: 2.1.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("server-port",
 				 i18n_pspec("server port"),
@@ -183,7 +191,7 @@ ags_osc_client_class_init(AgsOscClientClass *osc_client)
    *
    * The IPv4 address as string of the server.
    * 
-   * Since: 2.1.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_string("ip4",
 				   i18n_pspec("ip4"),
@@ -199,7 +207,7 @@ ags_osc_client_class_init(AgsOscClientClass *osc_client)
    *
    * The IPv6 address as string of the server.
    * 
-   * Since: 2.1.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_string("ip6",
 				   i18n_pspec("ip6"),
@@ -224,7 +232,7 @@ ags_osc_client_class_init(AgsOscClientClass *osc_client)
    *
    * The ::resolve signal is emited during resolve of domain.
    *
-   * Since: 2.1.0
+   * Since: 3.0.0
    */
   osc_client_signals[RESOLVE] =
     g_signal_new("resolve",
@@ -241,7 +249,7 @@ ags_osc_client_class_init(AgsOscClientClass *osc_client)
    *
    * The ::connect signal is emited as connection is establishing.
    *
-   * Since: 2.1.0
+   * Since: 3.0.0
    */
   osc_client_signals[CONNECT] =
     g_signal_new("connect",
@@ -261,7 +269,7 @@ ags_osc_client_class_init(AgsOscClientClass *osc_client)
    *
    * Returns: byte array read or %NULL if no data available
    * 
-   * Since: 2.1.11
+   * Since: 3.0.0
    */
   osc_client_signals[READ_BYTES] =
     g_signal_new("read-bytes",
@@ -283,7 +291,7 @@ ags_osc_client_class_init(AgsOscClientClass *osc_client)
    *
    * Returns: %TRUE if all bytes written, otherwise %FALSE
    * 
-   * Since: 2.1.0
+   * Since: 3.0.0
    */
   osc_client_signals[WRITE_BYTES] =
     g_signal_new("write-bytes",
@@ -301,21 +309,10 @@ void
 ags_osc_client_init(AgsOscClient *osc_client)
 {
   osc_client->flags = AGS_OSC_CLIENT_INET4;
+  osc_client->connectable_flags = 0;
   
   /* osc client mutex */
-  osc_client->obj_mutexattr = (pthread_mutexattr_t *) malloc(sizeof(pthread_mutexattr_t));
-  pthread_mutexattr_init(osc_client->obj_mutexattr);
-  pthread_mutexattr_settype(osc_client->obj_mutexattr,
-			    PTHREAD_MUTEX_RECURSIVE);
-
-#ifdef __linux__
-  pthread_mutexattr_setprotocol(osc_client->obj_mutexattr,
-				PTHREAD_PRIO_INHERIT);
-#endif
-
-  osc_client->obj_mutex =  (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t));
-  pthread_mutex_init(osc_client->obj_mutex,
-		     osc_client->obj_mutexattr);
+  g_rec_mutex_init(&(osc_client->obj_mutex));
 
   osc_client->ip4 = g_strdup(AGS_OSC_CLIENT_DEFAULT_INET4_ADDRESS);
   osc_client->ip6 = g_strdup(AGS_OSC_CLIENT_DEFAULT_INET6_ADDRESS);
@@ -326,16 +323,11 @@ ags_osc_client_init(AgsOscClient *osc_client)
   osc_client->ip4_fd = -1;
   osc_client->ip6_fd = -1;
 
-#ifdef AGS_W32API
+  osc_client->ip4_socket = NULL;
+  osc_client->ip6_socket = NULL;
+
   osc_client->ip4_address = NULL;
   osc_client->ip6_address = NULL;
-#else
-  osc_client->ip4_address = (struct sockaddr_in *) malloc(sizeof(struct sockaddr_in));
-  memset(osc_client->ip4_address, 0, sizeof(struct sockaddr_in));
-  
-  osc_client->ip6_address = (struct sockaddr_in6 *) malloc(sizeof(struct sockaddr_in6));
-  memset(osc_client->ip6_address, 0, sizeof(struct sockaddr_in6));
-#endif
   
   osc_client->max_retry_count = AGS_OSC_CLIENT_DEFAULT_MAX_RETRY;
 
@@ -349,10 +341,10 @@ ags_osc_client_init(AgsOscClient *osc_client)
   osc_client->start_time->tv_sec = 0;
   osc_client->start_time->tv_nsec = 0;
 
-  osc_client->cache_data = (unsigned char *) malloc(AGS_OSC_CLIENT_DEFAULT_CACHE_DATA_LENGTH * sizeof(unsigned char));
+  osc_client->cache_data = (guchar *) malloc(AGS_OSC_CLIENT_DEFAULT_CACHE_DATA_LENGTH * sizeof(guchar));
   osc_client->cache_data_length = 0;
   
-  osc_client->buffer = (unsigned char *) malloc(AGS_OSC_CLIENT_CHUNK_SIZE * sizeof(unsigned char));
+  osc_client->buffer = (guchar *) malloc(AGS_OSC_CLIENT_CHUNK_SIZE * sizeof(guchar));
   osc_client->allocated_buffer_size = AGS_OSC_CLIENT_CHUNK_SIZE;
 
   osc_client->read_count = 0;
@@ -372,7 +364,7 @@ ags_osc_client_set_property(GObject *gobject,
 {
   AgsOscClient *osc_client;
 
-  pthread_mutex_t *osc_client_mutex;
+  GRecMutex *osc_client_mutex;
 
   osc_client = AGS_OSC_CLIENT(gobject);
 
@@ -386,10 +378,10 @@ ags_osc_client_set_property(GObject *gobject,
 
       domain = g_value_get_string(value);
 
-      pthread_mutex_lock(osc_client_mutex);
+      g_rec_mutex_lock(osc_client_mutex);
       
       if(osc_client->domain == domain){
-	pthread_mutex_unlock(osc_client_mutex);
+	g_rec_mutex_unlock(osc_client_mutex);
 	
 	return;
       }
@@ -398,7 +390,7 @@ ags_osc_client_set_property(GObject *gobject,
 
       osc_client->domain = g_strdup(domain);
 
-      pthread_mutex_unlock(osc_client_mutex);
+      g_rec_mutex_unlock(osc_client_mutex);
     }
     break;
   case PROP_SERVER_PORT:
@@ -407,11 +399,11 @@ ags_osc_client_set_property(GObject *gobject,
 
       server_port = g_value_get_uint(value);
 
-      pthread_mutex_lock(osc_client_mutex);
+      g_rec_mutex_lock(osc_client_mutex);
 
       osc_client->server_port = server_port;
       
-      pthread_mutex_unlock(osc_client_mutex);      
+      g_rec_mutex_unlock(osc_client_mutex);      
     }
     break;
   case PROP_IP4:
@@ -420,10 +412,10 @@ ags_osc_client_set_property(GObject *gobject,
 
       ip4 = g_value_get_string(value);
 
-      pthread_mutex_lock(osc_client_mutex);
+      g_rec_mutex_lock(osc_client_mutex);
       
       if(osc_client->ip4 == ip4){
-	pthread_mutex_unlock(osc_client_mutex);
+	g_rec_mutex_unlock(osc_client_mutex);
 	
 	return;
       }
@@ -432,7 +424,7 @@ ags_osc_client_set_property(GObject *gobject,
 
       osc_client->ip4 = g_strdup(ip4);
 
-      pthread_mutex_unlock(osc_client_mutex);
+      g_rec_mutex_unlock(osc_client_mutex);
     }
     break;
   case PROP_IP6:
@@ -441,10 +433,10 @@ ags_osc_client_set_property(GObject *gobject,
 
       ip6 = g_value_get_string(value);
 
-      pthread_mutex_lock(osc_client_mutex);
+      g_rec_mutex_lock(osc_client_mutex);
       
       if(osc_client->ip6 == ip6){
-	pthread_mutex_unlock(osc_client_mutex);
+	g_rec_mutex_unlock(osc_client_mutex);
 	
 	return;
       }
@@ -453,7 +445,7 @@ ags_osc_client_set_property(GObject *gobject,
 
       osc_client->ip6 = g_strdup(ip6);
 
-      pthread_mutex_unlock(osc_client_mutex);
+      g_rec_mutex_unlock(osc_client_mutex);
     }
     break;
   default:
@@ -470,7 +462,7 @@ ags_osc_client_get_property(GObject *gobject,
 {
   AgsOscClient *osc_client;
 
-  pthread_mutex_t *osc_client_mutex;
+  GRecMutex *osc_client_mutex;
 
   osc_client = AGS_OSC_CLIENT(gobject);
 
@@ -480,42 +472,42 @@ ags_osc_client_get_property(GObject *gobject,
   switch(prop_id){
   case PROP_DOMAIN:
     {
-      pthread_mutex_lock(osc_client_mutex);
+      g_rec_mutex_lock(osc_client_mutex);
 
       g_value_set_string(value,
 			 osc_client->domain);
       
-      pthread_mutex_unlock(osc_client_mutex);
+      g_rec_mutex_unlock(osc_client_mutex);
     }
     break;
   case PROP_SERVER_PORT:
     {
-      pthread_mutex_lock(osc_client_mutex);
+      g_rec_mutex_lock(osc_client_mutex);
       
       g_value_set_uint(value,
 		       osc_client->server_port);
 
-      pthread_mutex_unlock(osc_client_mutex);
+      g_rec_mutex_unlock(osc_client_mutex);
     }
     break;
   case PROP_IP4:
     {
-      pthread_mutex_lock(osc_client_mutex);
+      g_rec_mutex_lock(osc_client_mutex);
       
       g_value_set_string(value,
 			 osc_client->ip4);
       
-      pthread_mutex_unlock(osc_client_mutex);
+      g_rec_mutex_unlock(osc_client_mutex);
     }
     break;
   case PROP_IP6:
     {
-      pthread_mutex_lock(osc_client_mutex);
+      g_rec_mutex_lock(osc_client_mutex);
       
       g_value_set_string(value,
 			 osc_client->ip6);
 
-      pthread_mutex_unlock(osc_client_mutex);
+      g_rec_mutex_unlock(osc_client_mutex);
     }
     break;    
   default:
@@ -530,12 +522,6 @@ ags_osc_client_finalize(GObject *gobject)
   AgsOscClient *osc_client;
     
   osc_client = (AgsOscClient *) gobject;
-
-  pthread_mutex_destroy(osc_client->obj_mutex);
-  free(osc_client->obj_mutex);
-
-  pthread_mutexattr_destroy(osc_client->obj_mutexattr);
-  free(osc_client->obj_mutexattr);
 
   g_free(osc_client->ip4);
   g_free(osc_client->ip6);
@@ -561,21 +547,6 @@ ags_osc_client_finalize(GObject *gobject)
 }
 
 /**
- * ags_osc_client_get_class_mutex:
- * 
- * Use this function's returned mutex to access mutex fields.
- *
- * Returns: the class mutex
- * 
- * Since: 2.1.0
- */
-pthread_mutex_t*
-ags_osc_client_get_class_mutex()
-{
-  return(&ags_osc_client_class_mutex);
-}
-
-/**
  * ags_osc_client_test_flags:
  * @osc_client: the #AgsOscClient
  * @flags: the flags
@@ -584,14 +555,14 @@ ags_osc_client_get_class_mutex()
  * 
  * Returns: %TRUE if flags are set, else %FALSE
  *
- * Since: 2.1.0
+ * Since: 3.0.0
  */
 gboolean
 ags_osc_client_test_flags(AgsOscClient *osc_client, guint flags)
 {
   gboolean retval;  
   
-  pthread_mutex_t *osc_client_mutex;
+  GRecMutex *osc_client_mutex;
 
   if(!AGS_IS_OSC_CLIENT(osc_client)){
     return(FALSE);
@@ -601,11 +572,11 @@ ags_osc_client_test_flags(AgsOscClient *osc_client, guint flags)
   osc_client_mutex = AGS_OSC_CLIENT_GET_OBJ_MUTEX(osc_client);
 
   /* test */
-  pthread_mutex_lock(osc_client_mutex);
+  g_rec_mutex_lock(osc_client_mutex);
 
   retval = (flags & (osc_client->flags)) ? TRUE: FALSE;
   
-  pthread_mutex_unlock(osc_client_mutex);
+  g_rec_mutex_unlock(osc_client_mutex);
 
   return(retval);
 }
@@ -617,12 +588,12 @@ ags_osc_client_test_flags(AgsOscClient *osc_client, guint flags)
  *
  * Set flags.
  * 
- * Since: 2.1.0
+ * Since: 3.0.0
  */
 void
 ags_osc_client_set_flags(AgsOscClient *osc_client, guint flags)
 {
-  pthread_mutex_t *osc_client_mutex;
+  GRecMutex *osc_client_mutex;
 
   if(!AGS_IS_OSC_CLIENT(osc_client)){
     return;
@@ -632,11 +603,11 @@ ags_osc_client_set_flags(AgsOscClient *osc_client, guint flags)
   osc_client_mutex = AGS_OSC_CLIENT_GET_OBJ_MUTEX(osc_client);
 
   /* set flags */
-  pthread_mutex_lock(osc_client_mutex);
+  g_rec_mutex_lock(osc_client_mutex);
 
   osc_client->flags |= flags;
 
-  pthread_mutex_unlock(osc_client_mutex);
+  g_rec_mutex_unlock(osc_client_mutex);
 }
 
 /**
@@ -646,12 +617,12 @@ ags_osc_client_set_flags(AgsOscClient *osc_client, guint flags)
  *
  * Unset flags.
  * 
- * Since: 2.1.0
+ * Since: 3.0.0
  */
 void
 ags_osc_client_unset_flags(AgsOscClient *osc_client, guint flags)
 {
-  pthread_mutex_t *osc_client_mutex;
+  GRecMutex *osc_client_mutex;
 
   if(!AGS_IS_OSC_CLIENT(osc_client)){
     return;
@@ -661,123 +632,118 @@ ags_osc_client_unset_flags(AgsOscClient *osc_client, guint flags)
   osc_client_mutex = AGS_OSC_CLIENT_GET_OBJ_MUTEX(osc_client);
 
   /* set flags */
-  pthread_mutex_lock(osc_client_mutex);
+  g_rec_mutex_lock(osc_client_mutex);
 
   osc_client->flags &= (~flags);
 
-  pthread_mutex_unlock(osc_client_mutex);
-}
-
-/**
- * ags_osc_client_timeout_expired:
- * @start_time: the start time #timespec-struct
- * @timeout_delay: the delay #timespec-struct
- * 
- * Check @start_time plus @timeout_delay against current time.
- * 
- * Returns: %TRUE if timeout expired, otherwise %FALSE
- * 
- * Since: 2.1.11
- */
-gboolean
-ags_osc_client_timeout_expired(struct timespec *start_time,
-			       struct timespec *timeout_delay)
-{
-  struct timespec current_time;
-  struct timespec deadline;
-
-#ifdef __APPLE__
-  clock_serv_t cclock;
-  mach_timespec_t mts;
-#endif
-  
-  if(start_time == NULL ||
-     timeout_delay == NULL){
-    return(TRUE);
-  }
-
-#ifdef __APPLE__
-  host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &cclock);
-      
-  clock_get_time(cclock, &mts);
-  mach_port_deallocate(mach_task_self(), cclock);
-      
-  current_time.tv_sec = mts.tv_sec;
-  current_time.tv_nsec = mts.tv_nsec;
-#else
-  clock_gettime(CLOCK_MONOTONIC, &current_time);
-#endif
-
-  if(start_time->tv_nsec + timeout_delay->tv_nsec > NSEC_PER_SEC){
-    deadline.tv_sec = start_time->tv_sec + timeout_delay->tv_sec + 1;
-    deadline.tv_nsec = (start_time->tv_nsec + timeout_delay->tv_nsec) - NSEC_PER_SEC;
-  }else{
-    deadline.tv_sec = start_time->tv_sec + timeout_delay->tv_sec;
-    deadline.tv_nsec = start_time->tv_nsec + timeout_delay->tv_nsec;
-  }
-  
-  if(current_time.tv_sec > deadline.tv_sec){
-    return(TRUE);
-  }else{
-    if(current_time.tv_sec == deadline.tv_sec &&
-       current_time.tv_nsec > deadline.tv_nsec){
-      return(TRUE);
-    }
-  }
-
-  return(FALSE);
+  g_rec_mutex_unlock(osc_client_mutex);
 }
 
 void
 ags_osc_client_real_resolve(AgsOscClient *osc_client)
 {
-#if AGS_W32API
-#else
-  struct addrinfo hints, *res;
-
-  int rc;
+  GResolver *resolver;
   
-  pthread_mutex_t *osc_client_mutex;
+  GList *start_list, *list;
+
+  gchar *ip4, *ip6;
+  
+  GError *error;
+  
+  GRecMutex *osc_client_mutex;
 
   /* get osc client mutex */
   osc_client_mutex = AGS_OSC_CLIENT_GET_OBJ_MUTEX(osc_client);
+
+  resolver = g_resolver_get_default();
   
   /* lock */
-  pthread_mutex_lock(osc_client_mutex);
-  
+  g_rec_mutex_lock(osc_client_mutex);
+
+#if 0  
   /* IPv4 */
-  memset(&hints, 0, sizeof(struct addrinfo));
-  hints.ai_family = AF_INET;
-  hints.ai_flags |= AI_CANONNAME;
-  
-  rc = getaddrinfo(osc_client->domain, NULL, &hints, &res);
+  error = NULL;
+  start_list = g_resolver_lookup_by_name_with_flags(resolver,
+						    osc_client->domain,
+						    G_RESOLVER_NAME_LOOKUP_FLAGS_IPV4_ONLY,
+						    NULL,
+						    &error);
 
-  if(rc == 0){
-    osc_client->ip4 = (char *) malloc(AGS_OSC_CLIENT_DEFAULT_MAX_ADDRESS_LENGTH * sizeof(char));
-    inet_ntop(AF_INET, res->ai_addr->sa_data, osc_client->ip4,
-	      AGS_OSC_CLIENT_DEFAULT_MAX_ADDRESS_LENGTH);
-  }else{
-    g_warning("failed to resolve IPv4 address");
+  if(error != NULL){
+    g_warning("AgsOscClient - %s", error->message);
+
+    g_error_free(error);
   }
-  
+
+  if(start_list != NULL){
+    osc_client->ip4 = g_inet_address_to_string(start_list->data);
+    g_resolver_free_addresses(start_list);
+  }
+
   /* IPv6 */
-  memset(&hints, 0, sizeof(struct addrinfo));
-  hints.ai_family = AF_INET6;
-  hints.ai_flags |= AI_CANONNAME;
-  
-  rc = getaddrinfo(osc_client->domain, NULL, &hints, &res);
+  error = NULL;
+  start_list = g_resolver_lookup_by_name_with_flags(resolver,
+						    osc_client->domain,
+						    G_RESOLVER_NAME_LOOKUP_FLAGS_IPV6_ONLY,
+						    NULL,
+						    &error);
 
-  if(rc == 0){
-    osc_client->ip6 = (char *) malloc(AGS_OSC_CLIENT_DEFAULT_MAX_ADDRESS_LENGTH * sizeof(char));
-    inet_ntop(AF_INET6, res->ai_addr->sa_data, osc_client->ip6,
-	      AGS_OSC_CLIENT_DEFAULT_MAX_ADDRESS_LENGTH);
-  }else{
-    g_warning("failed to resolve IPv6 address");
+  if(error != NULL){
+    g_warning("AgsOscClient - %s", error->message);
+
+    g_error_free(error);
   }
 
-  /* unlock */
-  pthread_mutex_unlock(osc_client_mutex);
+  if(start_list != NULL){
+    osc_client->ip6 = g_inet_address_to_string(start_list->data);
+    g_resolver_free_addresses(start_list);
+  }
+#else
+  error = NULL;
+  start_list = g_resolver_lookup_by_name(resolver,
+					 osc_client->domain,
+					 NULL,
+					 &error);
+
+  if(error != NULL){
+    g_warning("AgsOscClient - %s", error->message);
+
+    g_error_free(error);
+  }
+
+  list = start_list;
+
+  ip4 = NULL;
+  ip6 = NULL;
+  
+  while(list != NULL &&
+	(ip4 == NULL ||
+	 ip6 == NULL)){
+    guint address_family;
+    
+    g_object_get(list->data,
+		 "family", &address_family,
+		 NULL);
+
+    if(address_family == G_SOCKET_FAMILY_IPV4){
+      ip4 = g_inet_address_to_string(list->data);
+    }else if(address_family == G_SOCKET_FAMILY_IPV6){
+      ip6 = g_inet_address_to_string(list->data);
+    }
+
+    list = list->next;
+  }
+  
+  osc_client->ip4 = ip4;
+  osc_client->ip6 = ip6;
+  
+  g_resolver_free_addresses(start_list);
 #endif
+  
+  /* unlock */
+  g_rec_mutex_unlock(osc_client_mutex);
+
+  g_object_unref(resolver);
 }
 
 /**
@@ -786,7 +752,7 @@ ags_osc_client_real_resolve(AgsOscClient *osc_client)
  * 
  * Resolve OSC client.
  * 
- * Since: 2.1.0
+ * Since: 3.0.0
  */
 void
 ags_osc_client_resolve(AgsOscClient *osc_client)
@@ -802,15 +768,15 @@ ags_osc_client_resolve(AgsOscClient *osc_client)
 void
 ags_osc_client_real_connect(AgsOscClient *osc_client)
 {
-#if AGS_W32API
-#else
   gboolean ip4_success, ip6_success;
   gboolean ip4_udp_success, ip4_tcp_success;
   gboolean ip6_udp_success, ip6_tcp_success;
   gboolean ip4_connected, ip6_connected;
   guint i;
+
+  GError *error;
   
-  pthread_mutex_t *osc_client_mutex;
+  GRecMutex *osc_client_mutex;
 
   /* get osc client mutex */
   osc_client_mutex = AGS_OSC_CLIENT_GET_OBJ_MUTEX(osc_client);
@@ -831,32 +797,53 @@ ags_osc_client_real_connect(AgsOscClient *osc_client)
       ip4_udp_success = TRUE;
       
       /* create socket */
-      pthread_mutex_lock(osc_client_mutex);
+      g_rec_mutex_lock(osc_client_mutex);
       
-      osc_client->ip4_fd = socket(AF_INET, SOCK_DGRAM, 0);
+      error = NULL;      
+      osc_client->ip4_socket = g_socket_new(G_SOCKET_FAMILY_IPV4,
+					    G_SOCKET_TYPE_DATAGRAM,
+					    G_SOCKET_PROTOCOL_UDP,
+					    &error);
+      osc_client->ip4_fd = g_socket_get_fd(osc_client->ip4_socket);
       
-      pthread_mutex_unlock(osc_client_mutex);
+      g_rec_mutex_unlock(osc_client_mutex);
+
+      if(error != NULL){
+	g_critical("AgsOscClient - %s", error->message);
+
+	g_error_free(error);
+      }
     }else if(ags_osc_client_test_flags(osc_client, AGS_OSC_CLIENT_TCP)){
       ip4_tcp_success = TRUE;
 
       /* create socket */
-      pthread_mutex_lock(osc_client_mutex);
+      g_rec_mutex_lock(osc_client_mutex);
       
-      osc_client->ip4_fd = socket(AF_INET, SOCK_STREAM, 0);
+      error = NULL;      
+      osc_client->ip4_socket = g_socket_new(G_SOCKET_FAMILY_IPV4,
+					    G_SOCKET_TYPE_STREAM,
+					    G_SOCKET_PROTOCOL_TCP,
+					    &error);
+      osc_client->ip4_fd = g_socket_get_fd(osc_client->ip4_socket);
 
-      pthread_mutex_unlock(osc_client_mutex);
+      g_rec_mutex_unlock(osc_client_mutex);
+
+      if(error != NULL){
+	g_critical("AgsOscClient - %s", error->message);
+
+	g_error_free(error);
+      }
     }else{
       g_critical("no flow control type");
     }
 
     /* get ip4 */
-    pthread_mutex_lock(osc_client_mutex);  
+    g_rec_mutex_lock(osc_client_mutex);  
 
-    osc_client->ip4_address->sin_family = AF_INET;
-    inet_pton(AF_INET, osc_client->ip4, &(osc_client->ip4_address->sin_addr.s_addr));
-    osc_client->ip4_address->sin_port = htons(osc_client->server_port);
+    osc_client->ip4_address = g_inet_socket_address_new(g_inet_address_new_from_string(osc_client->ip4),
+							osc_client->server_port);
 
-    pthread_mutex_unlock(osc_client_mutex);
+    g_rec_mutex_unlock(osc_client_mutex);
   }
 
   if(ags_osc_client_test_flags(osc_client, AGS_OSC_CLIENT_INET6)){    
@@ -866,32 +853,53 @@ ags_osc_client_real_connect(AgsOscClient *osc_client)
       ip6_udp_success = TRUE;
 
       /* create socket */
-      pthread_mutex_lock(osc_client_mutex);
+      g_rec_mutex_lock(osc_client_mutex);
       
-      osc_client->ip6_fd = socket(AF_INET6, SOCK_DGRAM, 0);
+      error = NULL;      
+      osc_client->ip6_socket = g_socket_new(G_SOCKET_FAMILY_IPV6,
+					    G_SOCKET_TYPE_DATAGRAM,
+					    G_SOCKET_PROTOCOL_UDP,
+					    &error);
+      osc_client->ip6_fd = g_socket_get_fd(osc_client->ip6_socket);
 
-      pthread_mutex_unlock(osc_client_mutex);
+      g_rec_mutex_unlock(osc_client_mutex);
+
+      if(error != NULL){
+	g_critical("AgsOscClient - %s", error->message);
+
+	g_error_free(error);
+      }
     }else if(ags_osc_client_test_flags(osc_client, AGS_OSC_CLIENT_TCP)){
       ip6_tcp_success = TRUE;
 
       /* create socket */
-      pthread_mutex_lock(osc_client_mutex);
+      g_rec_mutex_lock(osc_client_mutex);
       
-      osc_client->ip6_fd = socket(AF_INET6, SOCK_STREAM, 0);
+      error = NULL;      
+      osc_client->ip6_socket = g_socket_new(G_SOCKET_FAMILY_IPV6,
+					    G_SOCKET_TYPE_STREAM,
+					    G_SOCKET_PROTOCOL_TCP,
+					    &error);
+      osc_client->ip6_fd = g_socket_get_fd(osc_client->ip6_socket);
 
-      pthread_mutex_unlock(osc_client_mutex);
+      g_rec_mutex_unlock(osc_client_mutex);
+
+      if(error != NULL){
+	g_critical("AgsOscClient - %s", error->message);
+
+	g_error_free(error);
+      }
     }else{
       g_critical("no flow control type");
     }
 
     /* get ip6 */
-    pthread_mutex_lock(osc_client_mutex);
+    g_rec_mutex_lock(osc_client_mutex);
 
-    osc_client->ip6_address->sin6_family = AF_INET6;
-    inet_pton(AF_INET6, osc_client->ip6, &(osc_client->ip6_address->sin6_addr.s6_addr));
-    osc_client->ip6_address->sin6_port = htons(osc_client->server_port);
+    osc_client->ip6_address = g_inet_socket_address_new(g_inet_address_new_from_string(osc_client->ip6),
+							osc_client->server_port);
 
-    pthread_mutex_unlock(osc_client_mutex);
+    g_rec_mutex_unlock(osc_client_mutex);
   }
   
   if(!ip4_success && !ip6_success){
@@ -906,19 +914,32 @@ ags_osc_client_real_connect(AgsOscClient *osc_client)
   }
 
   if(osc_client->ip4_fd != -1){
+    //TODO:JK: check remove
+#if 0
     int flags;
 
     flags = fcntl(osc_client->ip4_fd, F_GETFL, 0);
     fcntl(osc_client->ip4_fd, F_SETFL, flags | O_NONBLOCK);
+#else
+    //    g_object_set(osc_client->ip4_socket,
+    //		 "blocking", FALSE,
+    //		 NULL);
+#endif
   }
 
   if(osc_client->ip6_fd != -1){
+    //TODO:JK: check remove
+#if 0
     int flags;
 
     flags = fcntl(osc_client->ip6_fd, F_GETFL, 0);
     fcntl(osc_client->ip6_fd, F_SETFL, flags | O_NONBLOCK);
+#else
+    //    g_object_set(osc_client->ip6_socket,
+    //		 "blocking", FALSE,
+    //		 NULL);
+#endif
   }
-
   
   ip4_connected = FALSE;
   ip6_connected = FALSE;
@@ -932,14 +953,22 @@ ags_osc_client_real_connect(AgsOscClient *osc_client)
 	int rc;
 
 	/* connect */
-	pthread_mutex_lock(osc_client_mutex);
-	
-	rc = connect(osc_client->ip4_fd, (struct sockaddr *) osc_client->ip4_address, sizeof(struct sockaddr_in));
+	g_rec_mutex_lock(osc_client_mutex);
 
-	pthread_mutex_unlock(osc_client_mutex);
+	error = NULL;
+	g_socket_connect(osc_client->ip4_socket,
+			 osc_client->ip4_address,
+			 NULL,
+			 &error);
 
-	if(rc == 0){
+	g_rec_mutex_unlock(osc_client_mutex);
+
+	if(error == NULL){
 	  ip4_connected = TRUE;
+	}else{
+	  g_critical("AgsOscClient - %s", error->message);
+
+	  g_error_free(error);
 	}
       }
     }
@@ -949,14 +978,22 @@ ags_osc_client_real_connect(AgsOscClient *osc_client)
 	int rc;
 	
 	/* connect */
-	pthread_mutex_lock(osc_client_mutex);
+	g_rec_mutex_lock(osc_client_mutex);
 	
-	rc = connect(osc_client->ip6_fd, (struct sockaddr *) osc_client->ip6_address, sizeof(struct sockaddr_in6));
+	error = NULL;
+	g_socket_connect(osc_client->ip6_socket,
+			 osc_client->ip6_address,
+			 NULL,
+			 &error);
 
-	pthread_mutex_unlock(osc_client_mutex);
+	g_rec_mutex_unlock(osc_client_mutex);
 
-	if(rc == 0){
+	if(error == NULL){
 	  ip6_connected = TRUE;
+	}else{
+	  g_critical("AgsOscClient - %s", error->message);
+
+	  g_error_free(error);
 	}
       }
     }
@@ -973,7 +1010,6 @@ ags_osc_client_real_connect(AgsOscClient *osc_client)
   if(!ip4_connected && !ip6_connected){
     g_message("failed to connect to server");
   }
-#endif
 }
   
 /**
@@ -982,7 +1018,7 @@ ags_osc_client_real_connect(AgsOscClient *osc_client)
  * 
  * Connect OSC client.
  * 
- * Since: 2.1.0
+ * Since: 3.0.0
  */
 void
 ags_osc_client_connect(AgsOscClient *osc_client)
@@ -995,12 +1031,14 @@ ags_osc_client_connect(AgsOscClient *osc_client)
   g_object_unref((GObject *) osc_client);
 }
 
-unsigned char*
+guchar*
 ags_osc_client_real_read_bytes(AgsOscClient *osc_client,
 			       guint *data_length)
 {
-  unsigned char *buffer;
-  unsigned char data[AGS_OSC_CLIENT_DEFAULT_CACHE_DATA_LENGTH];
+  GSocket *socket;
+  
+  guchar *buffer;
+  guchar data[AGS_OSC_CLIENT_DEFAULT_CACHE_DATA_LENGTH];
   
   guint allocated_buffer_size;
   guint read_count;
@@ -1018,13 +1056,15 @@ ags_osc_client_real_read_bytes(AgsOscClient *osc_client,
   mach_timespec_t mts;
 #endif
 
-  pthread_mutex_t *osc_client_mutex;
+  GError *error;
+  
+  GRecMutex *osc_client_mutex;
 
   /* get osc_client mutex */
   osc_client_mutex = AGS_OSC_CLIENT_GET_OBJ_MUTEX(osc_client);
 
   /* get fd */
-  pthread_mutex_lock(osc_client_mutex);
+  g_rec_mutex_lock(osc_client_mutex);
 
 #ifdef __APPLE__
   host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &cclock);
@@ -1047,13 +1087,17 @@ ags_osc_client_real_read_bytes(AgsOscClient *osc_client,
   read_count = osc_client->read_count;
   has_valid_data = osc_client->has_valid_data;
   
-  pthread_mutex_unlock(osc_client_mutex);
-
   if(ip4_fd != -1){
     fd = ip4_fd;
+    
+    socket = osc_client->ip4_socket;
   }else{
     fd = ip6_fd;
+
+    socket = osc_client->ip6_socket;
   }
+
+  g_rec_mutex_unlock(osc_client_mutex);
   
   if(fd == -1){  
     if(data_length != NULL){
@@ -1069,61 +1113,98 @@ ags_osc_client_real_read_bytes(AgsOscClient *osc_client,
 
   j = 0;
   
-  while(!ags_osc_client_timeout_expired(osc_client->start_time,
-					osc_client->timeout_delay)){
+  while(TRUE){
+    gboolean has_expired;
+    
+    g_rec_mutex_lock(osc_client_mutex);
+    
+    has_expired = ags_time_timeout_expired(osc_client->start_time,
+					   osc_client->timeout_delay);
+
+    g_rec_mutex_unlock(osc_client_mutex);
+    
+    if(has_expired){
+      break;
+    }
+    
     available_data_length = 0;
     
     if(osc_client->cache_data_length > 0){
       memcpy(data,
 	     osc_client->cache_data,
-	     osc_client->cache_data_length * sizeof(unsigned char));
+	     osc_client->cache_data_length * sizeof(guchar));
 
       available_data_length += osc_client->cache_data_length;
     }
 
     retval = 0;
+
+    error = NULL;
+
+    g_rec_mutex_lock(osc_client_mutex);
     
     if(osc_client->cache_data_length < AGS_OSC_CLIENT_DEFAULT_CACHE_DATA_LENGTH){
-      retval = read(fd,
-		    data + osc_client->cache_data_length,
-		    AGS_OSC_CLIENT_DEFAULT_CACHE_DATA_LENGTH - osc_client->cache_data_length);
+      retval = g_socket_receive(socket,
+				data + osc_client->cache_data_length,
+				AGS_OSC_CLIENT_DEFAULT_CACHE_DATA_LENGTH - osc_client->cache_data_length,
+				NULL,
+				&error);
 
       if(retval > 0){
 	available_data_length += retval;
       }
     }
 
-    if(retval == -1){
-      if(errno == EAGAIN ||
-	 errno == EWOULDBLOCK){
+    osc_client->cache_data_length = 0;
+    
+    g_rec_mutex_unlock(osc_client_mutex);
+
+    if(error != NULL){
+      if(!g_error_matches(error, G_IO_ERROR, G_IO_ERROR_WOULD_BLOCK)){
+	g_critical("AgsOscClient - %s", error->message);
+      }
+
+      if(g_error_matches(error, G_IO_ERROR, G_IO_ERROR_WOULD_BLOCK)){
 	if(available_data_length == 0){
+	  g_error_free(error);
+	  
 	  continue;
 	}
       }else{
-	g_message("error during reading data from socket");
-      
-	if(
-#ifdef EBADFD
-	   errno == EBADFD ||
-#endif
-	   errno == ECONNRESET ||
-	   errno == ENETRESET){
-	  pthread_mutex_lock(osc_client_mutex);
+	if(g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CONNECTION_CLOSED)){
+	  GError *close_error;
+	  
+	  g_rec_mutex_lock(osc_client_mutex);
+
+	  close_error = NULL;
+	  g_socket_close(socket,
+			 &close_error);
+	  g_object_unref(socket);
 
 	  if(ip4_fd == fd){
 	    osc_client->ip4_fd = -1;
+
+	    osc_client->ip4_socket = NULL;
 	  }else if(ip6_fd == fd){
 	    osc_client->ip6_fd = -1;
+
+	    osc_client->ip6_socket = NULL;
 	  }
 	
-	  pthread_mutex_unlock(osc_client_mutex);
-	}
-      
-	break;
-      }
-    }
+	  g_rec_mutex_unlock(osc_client_mutex);
 
-    osc_client->cache_data_length = 0;
+	  if(close_error != NULL){
+	    g_error_free(close_error);
+	  }
+	  
+	  g_error_free(error);	  
+      
+	  break;
+	}
+      }
+
+      g_error_free(error);
+    }
 
     if(available_data_length == 0){
       continue;
@@ -1161,23 +1242,31 @@ ags_osc_client_real_read_bytes(AgsOscClient *osc_client,
 	end_data = i;
 
 	if(start_data + 1 == end_data){
+	  gboolean has_expired;
+	  
 	  start_data = end_data;
 	  j++;
+
+	  g_rec_mutex_lock(osc_client_mutex);
+	  
+	  has_expired = ags_time_timeout_expired(osc_client->start_time,
+						 osc_client->timeout_delay);
+
+	  g_rec_mutex_unlock(osc_client_mutex);
 	  
 	  if(j < 2 ||
-	     !ags_osc_client_timeout_expired(osc_client->start_time,
-					     osc_client->timeout_delay)){
+	     !has_expired){
 	    goto ags_osc_client_read_bytes_REPEAT_0;
 	  }else{
 	    break;
 	  }
 	}
 	
-	pthread_mutex_lock(osc_client_mutex);
+	g_rec_mutex_lock(osc_client_mutex);
 
-	memcpy(osc_client->buffer, data + start_data, (end_data - start_data + 1) * sizeof(unsigned char));
+	memcpy(osc_client->buffer, data + start_data, (end_data - start_data + 1) * sizeof(guchar));
 	  
-	pthread_mutex_unlock(osc_client_mutex);
+	g_rec_mutex_unlock(osc_client_mutex);
 
 	if(data_length != NULL){
 	  data_length[0] = end_data - start_data + 1;
@@ -1188,7 +1277,7 @@ ags_osc_client_real_read_bytes(AgsOscClient *osc_client,
 	   end_data < available_data_length){
 	  memcpy(osc_client->cache_data,
 		 data + end_data,
-		 (available_data_length - end_data) * sizeof(unsigned char));
+		 (available_data_length - end_data) * sizeof(guchar));
 
 	  osc_client->cache_data_length = available_data_length - end_data;
 	}
@@ -1200,11 +1289,11 @@ ags_osc_client_real_read_bytes(AgsOscClient *osc_client,
       }else{
 	read_count += (available_data_length - start_data);
 	  
-	pthread_mutex_lock(osc_client_mutex);
+	g_rec_mutex_lock(osc_client_mutex);
 
-	memcpy(osc_client->buffer, data + start_data, (available_data_length - start_data) * sizeof(unsigned char));
+	memcpy(osc_client->buffer, data + start_data, (available_data_length - start_data) * sizeof(guchar));
 	  
-	pthread_mutex_unlock(osc_client_mutex);
+	g_rec_mutex_unlock(osc_client_mutex);
 
 	has_valid_data = TRUE;
 
@@ -1234,11 +1323,11 @@ ags_osc_client_real_read_bytes(AgsOscClient *osc_client,
 	    return(NULL);
 	  }
 	  
-	  pthread_mutex_lock(osc_client_mutex);
+	  g_rec_mutex_lock(osc_client_mutex);
 
-	  memcpy(osc_client->buffer + read_count, data, (i + 1) * sizeof(unsigned char));
+	  memcpy(osc_client->buffer + read_count, data, (i + 1) * sizeof(guchar));
 	
-	  pthread_mutex_unlock(osc_client_mutex);
+	  g_rec_mutex_unlock(osc_client_mutex);
 
 	  read_count += i;
 	  
@@ -1250,7 +1339,7 @@ ags_osc_client_real_read_bytes(AgsOscClient *osc_client,
 	  if(i < available_data_length){
 	    memcpy(osc_client->cache_data,
 		   data + i,
-		   (available_data_length - i) * sizeof(unsigned char));
+		   (available_data_length - i) * sizeof(guchar));
 
 	    osc_client->cache_data_length = available_data_length - i;
 	  }
@@ -1271,11 +1360,11 @@ ags_osc_client_real_read_bytes(AgsOscClient *osc_client,
 	    return(NULL);
 	  }
 	  
-	  pthread_mutex_lock(osc_client_mutex);
+	  g_rec_mutex_lock(osc_client_mutex);
 	
-	  memcpy(osc_client->buffer + read_count, data, (available_data_length) * sizeof(unsigned char));
+	  memcpy(osc_client->buffer + read_count, data, (available_data_length) * sizeof(guchar));
 
-	  pthread_mutex_unlock(osc_client_mutex);
+	  g_rec_mutex_unlock(osc_client_mutex);
 
 	  read_count += available_data_length;
 
@@ -1304,13 +1393,13 @@ ags_osc_client_real_read_bytes(AgsOscClient *osc_client,
  * 
  * Returns: byte array read or %NULL if no data available
  * 
- * Since: 2.1.11
+ * Since: 3.0.0
  */
-unsigned char*
+guchar*
 ags_osc_client_read_bytes(AgsOscClient *osc_client,
 			  guint *data_length)
 {
-  unsigned char *buffer;
+  guchar *buffer;
   
   g_return_val_if_fail(AGS_IS_OSC_CLIENT(osc_client), NULL);
   
@@ -1332,39 +1421,79 @@ ags_osc_client_real_write_bytes(AgsOscClient *osc_client,
   int num_write;
   gboolean success;
 
-  pthread_mutex_t *osc_client_mutex;
+  GError *error;
+  
+  GRecMutex *osc_client_mutex;
 
   /* get osc client mutex */
   osc_client_mutex = AGS_OSC_CLIENT_GET_OBJ_MUTEX(osc_client);
 
-  /* get fd */
-  pthread_mutex_lock(osc_client_mutex);
-  
-  ip4_fd = osc_client->ip4_fd;
-  ip6_fd = osc_client->ip6_fd;
-
-  pthread_mutex_unlock(osc_client_mutex);
-
   /* initialize success */
   success = TRUE;
 
+  /* get fd */
+  g_rec_mutex_lock(osc_client_mutex);
+  
+  ip4_fd = osc_client->ip4_fd;
+  ip6_fd = osc_client->ip6_fd;
+  
+  g_rec_mutex_unlock(osc_client_mutex);
+  
   /* write on IPv4 socket */
   if(ags_osc_client_test_flags(osc_client, AGS_OSC_CLIENT_INET4)){
-    num_write = write(ip4_fd,
-		      data, data_length);
+    g_rec_mutex_lock(osc_client_mutex);
+
+    num_write = 0;
+
+    error = NULL;
+    
+    if(osc_client->ip4_socket != NULL){
+      num_write = g_socket_send(osc_client->ip4_socket,
+				data,
+				data_length,
+				NULL,
+				&error);
+    }
+    
+    g_rec_mutex_unlock(osc_client_mutex);
 
     if(num_write != data_length){
       success = FALSE;
+    }
+
+    if(error != NULL){
+      g_critical("AgsOscClient - %s", error->message);
+
+      g_error_free(error);
     }
   }
 
   /* write on IPv6 socket */
   if(ags_osc_client_test_flags(osc_client, AGS_OSC_CLIENT_INET6)){    
-    num_write = write(ip6_fd,
-		      data, data_length);
+    g_rec_mutex_lock(osc_client_mutex);
+
+    num_write = 0;
+
+    error = NULL;
+    
+    if(osc_client->ip6_socket != NULL){
+      num_write = g_socket_send(osc_client->ip6_socket,
+				data,
+				data_length,
+				NULL,
+				&error);
+    }
+    
+    g_rec_mutex_unlock(osc_client_mutex);
 
     if(num_write != data_length){
       success = FALSE;
+    }
+
+    if(error != NULL){
+      g_critical("AgsOscClient - %s", error->message);
+
+      g_error_free(error);
     }
   }
   
@@ -1381,7 +1510,7 @@ ags_osc_client_real_write_bytes(AgsOscClient *osc_client,
  * 
  * Returns: %TRUE if all bytes written, otherwise %FALSE
  * 
- * Since: 2.1.0
+ * Since: 3.0.0
  */
 gboolean
 ags_osc_client_write_bytes(AgsOscClient *osc_client,
@@ -1408,7 +1537,7 @@ ags_osc_client_write_bytes(AgsOscClient *osc_client,
  *
  * Returns: the new #AgsOscClient
  * 
- * Since: 2.1.0
+ * Since: 3.0.0
  */
 AgsOscClient*
 ags_osc_client_new()

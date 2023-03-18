@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2020 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -27,6 +27,8 @@
 
 #include <alsa/seq_event.h>
 
+G_BEGIN_DECLS
+
 #define AGS_TYPE_BASE_PLUGIN                (ags_base_plugin_get_type())
 #define AGS_BASE_PLUGIN(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_BASE_PLUGIN, AgsBasePlugin))
 #define AGS_BASE_PLUGIN_CLASS(class)        (G_TYPE_CHECK_CLASS_CAST((class), AGS_TYPE_BASE_PLUGIN, AgsBasePluginClass))
@@ -34,7 +36,7 @@
 #define AGS_IS_BASE_PLUGIN_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE ((class), AGS_TYPE_BASE_PLUGIN))
 #define AGS_BASE_PLUGIN_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS ((obj), AGS_TYPE_BASE_PLUGIN, AgsBasePluginClass))
 
-#define AGS_BASE_PLUGIN_GET_OBJ_MUTEX(obj) (((AgsBasePlugin *) obj)->obj_mutex)
+#define AGS_BASE_PLUGIN_GET_OBJ_MUTEX(obj) (&(((AgsBasePlugin *) obj)->obj_mutex))
 
 typedef struct _AgsBasePlugin AgsBasePlugin;
 typedef struct _AgsBasePluginClass AgsBasePluginClass;
@@ -56,8 +58,7 @@ struct _AgsBasePlugin
 
   guint flags;
   
-  pthread_mutex_t *obj_mutex;
-  pthread_mutexattr_t *obj_mutexattr;
+  GRecMutex obj_mutex;
 
   AgsUUID *uuid;
 
@@ -110,17 +111,60 @@ struct _AgsBasePluginClass
 };
 
 GType ags_base_plugin_get_type(void);
+GType ags_base_plugin_flags_get_type();
 
-pthread_mutex_t* ags_base_plugin_get_class_mutex();
+GRecMutex* ags_base_plugin_get_obj_mutex(AgsBasePlugin *base_plugin);
 
 gboolean ags_base_plugin_test_flags(AgsBasePlugin *base_plugin, guint flags);
 void ags_base_plugin_set_flags(AgsBasePlugin *base_plugin, guint flags);
 void ags_base_plugin_unset_flags(AgsBasePlugin *base_plugin, guint flags);
 
+gchar* ags_base_plugin_get_filename(AgsBasePlugin *base_plugin);
+void ags_base_plugin_set_filename(AgsBasePlugin *base_plugin,
+				  gchar *filename);
+
+gchar* ags_base_plugin_get_effect(AgsBasePlugin *base_plugin);
+void ags_base_plugin_set_effect(AgsBasePlugin *base_plugin,
+				gchar *effect);
+
+guint ags_base_plugin_get_effect_index(AgsBasePlugin *base_plugin);
+void ags_base_plugin_set_effect_index(AgsBasePlugin *base_plugin,
+				      guint effect_index);
+
+gpointer ags_base_plugin_get_plugin_so(AgsBasePlugin *base_plugin);
+void ags_base_plugin_set_plugin_so(AgsBasePlugin *base_plugin,
+				   gpointer plugin_so);
+
+GList* ags_base_plugin_get_plugin_port(AgsBasePlugin *base_plugin);
+void ags_base_plugin_set_plugin_port(AgsBasePlugin *base_plugin,
+				     GList *plugin_port);
+
+gchar* ags_base_plugin_get_ui_filename(AgsBasePlugin *base_plugin);
+void ags_base_plugin_set_ui_filename(AgsBasePlugin *base_plugin,
+				     gchar *ui_filename);
+
+gchar* ags_base_plugin_get_ui_effect(AgsBasePlugin *base_plugin);
+void ags_base_plugin_set_ui_effect(AgsBasePlugin *base_plugin,
+				   gchar *ui_effect);
+
+guint ags_base_plugin_get_ui_effect_index(AgsBasePlugin *base_plugin);
+void ags_base_plugin_set_ui_effect_index(AgsBasePlugin *base_plugin,
+					 guint ui_effect_index);
+
+gpointer ags_base_plugin_get_ui_plugin_so(AgsBasePlugin *base_plugin);
+void ags_base_plugin_set_ui_plugin_so(AgsBasePlugin *base_plugin,
+				      gpointer ui_plugin_so);
+
+GObject* ags_base_plugin_get_ui_plugin(AgsBasePlugin *base_plugin);
+void ags_base_plugin_set_ui_plugin(AgsBasePlugin *base_plugin,
+				   GObject *ui_plugin);
+
 GList* ags_base_plugin_find_filename(GList *base_plugin, gchar *filename);
 GList* ags_base_plugin_find_effect(GList *base_plugin, gchar *filename, gchar *effect);
 
 GList* ags_base_plugin_find_ui_effect_index(GList *base_plugin, gchar *ui_filename, guint ui_effect_index);
+
+gint ags_base_plugin_sort_func(gpointer a, gpointer b);
 
 GList* ags_base_plugin_sort(GList *base_plugin);
 
@@ -146,5 +190,7 @@ void ags_base_plugin_run(AgsBasePlugin *base_plugin,
 void ags_base_plugin_load_plugin(AgsBasePlugin *base_plugin);
 
 AgsBasePlugin* ags_base_plugin_new(gchar *filename, gchar *effect, guint effect_index);
+
+G_END_DECLS
 
 #endif /*__AGS_BASE_PLUGIN_H__*/

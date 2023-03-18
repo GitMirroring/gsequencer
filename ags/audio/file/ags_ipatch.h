@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -24,10 +24,13 @@
 #include <glib-object.h>
 
 #include <ags/libags.h>
+#include <ags/ags_api_config.h>
 
 #ifdef AGS_WITH_LIBINSTPATCH
 #include <libinstpatch/libinstpatch.h>
 #endif
+
+G_BEGIN_DECLS
 
 #define AGS_TYPE_IPATCH                (ags_ipatch_get_type())
 #define AGS_IPATCH(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_IPATCH, AgsIpatch))
@@ -36,7 +39,7 @@
 #define AGS_IS_IPATCH_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE((class), AGS_TYPE_IPATCH))
 #define AGS_IPATCH_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS((obj), AGS_TYPE_IPATCH, AgsIpatchClass))
 
-#define AGS_IPATCH_GET_OBJ_MUTEX(obj) (((AgsIpatch *) obj)->obj_mutex)
+#define AGS_IPATCH_GET_OBJ_MUTEX(obj) (&(((AgsIpatch *) obj)->obj_mutex))
 
 #define AGS_IPATCH_DEFAULT_CHANNELS (2)
 
@@ -48,8 +51,6 @@ typedef struct _AgsIpatchClass AgsIpatchClass;
 
 /**
  * AgsIpatchFlags:
- * @AGS_IPATCH_ADDED_TO_REGISTRY: the ipatch was added to registry, see #AgsConnectable::add_to_registry()
- * @AGS_IPATCH_CONNECTED: indicates the ipatch was connected by calling #AgsConnectable::connect()
  * @AGS_IPATCH_DLS2: DLS2 format
  * @AGS_IPATCH_SF2: Soundfont2 format
  * @AGS_IPATCH_GIG: Gigasampler format
@@ -58,11 +59,9 @@ typedef struct _AgsIpatchClass AgsIpatchClass;
  * enable/disable as flags.
  */
 typedef enum{
-  AGS_IPATCH_ADDED_TO_REGISTRY    = 1,
-  AGS_IPATCH_CONNECTED            = 1 <<  1,
-  AGS_IPATCH_DLS2                 = 1 <<  2,
-  AGS_IPATCH_SF2                  = 1 <<  3,
-  AGS_IPATCH_GIG                  = 1 <<  4,
+  AGS_IPATCH_DLS2                 = 1,
+  AGS_IPATCH_SF2                  = 1 <<  1,
+  AGS_IPATCH_GIG                  = 1 <<  2,
 }AgsIpatchFlags;
 
 struct _AgsIpatch
@@ -70,9 +69,9 @@ struct _AgsIpatch
   GObject gobject;
 
   guint flags;
-
-  pthread_mutex_t *obj_mutex;
-  pthread_mutexattr_t *obj_mutexattr;
+  guint connectable_flags;
+  
+  GRecMutex obj_mutex;
 
   AgsUUID *uuid;
 
@@ -106,8 +105,7 @@ struct _AgsIpatchClass
 };
 
 GType ags_ipatch_get_type();
-
-pthread_mutex_t* ags_ipatch_get_class_mutex();
+GType ags_ipatch_flags_get_type();
 
 gboolean ags_ipatch_test_flags(AgsIpatch *ipatch, guint flags);
 void ags_ipatch_set_flags(AgsIpatch *ipatch, guint flags);
@@ -116,5 +114,7 @@ void ags_ipatch_unset_flags(AgsIpatch *ipatch, guint flags);
 gboolean ags_ipatch_check_suffix(gchar *filename);
 
 AgsIpatch* ags_ipatch_new();
+
+G_END_DECLS
 
 #endif /*__AGS_IPATCH_H__*/

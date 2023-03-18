@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2018 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -19,11 +19,61 @@
 
 #include <ags/audio/ags_sequencer_util.h>
 
-#include <ags/audio/ags_midiin.h>
+#include <ags/audio/alsa/ags_alsa_midiin.h>
+
+#include <ags/audio/oss/ags_oss_midiin.h>
 
 #include <ags/audio/jack/ags_jack_midiin.h>
 
 #include <ags/audio/core-audio/ags_core_audio_midiin.h>
+
+gpointer ags_sequencer_util_copy(gpointer ptr);
+void ags_sequencer_util_free(gpointer ptr);
+
+/**
+ * SECTION:ags_sequencer_util
+ * @short_description: sequencer util
+ * @title: AgsSequencerUtil
+ * @section_id:
+ * @include: ags/audio/ags_sequencer_util.h
+ *
+ * Sequencer utility functions.
+ */
+
+GType
+ags_sequencer_util_get_type(void)
+{
+  static volatile gsize g_define_type_id__volatile = 0;
+
+  if(g_once_init_enter (&g_define_type_id__volatile)){
+    GType ags_type_sequencer_util = 0;
+
+    ags_type_sequencer_util =
+      g_boxed_type_register_static("AgsSequencerUtil",
+				   (GBoxedCopyFunc) ags_sequencer_util_copy,
+				   (GBoxedFreeFunc) ags_sequencer_util_free);
+
+    g_once_init_leave(&g_define_type_id__volatile, ags_type_sequencer_util);
+  }
+
+  return g_define_type_id__volatile;
+}
+
+gpointer
+ags_sequencer_util_copy(gpointer ptr)
+{
+  gpointer retval;
+
+  retval = g_memdup(ptr, sizeof(AgsSequencerUtil));
+ 
+  return(retval);
+}
+
+void
+ags_sequencer_util_free(gpointer ptr)
+{
+  g_free(ptr);
+}
 
 /**
  * ags_sequencer_util_get_obj_mutex:
@@ -31,35 +81,25 @@
  * 
  * Get object mutex of @sequencer.
  * 
- * Returns: pthread_mutex_t pointer
+ * Returns: (transfer none): GRecMutex pointer
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
-pthread_mutex_t*
+GRecMutex*
 ags_sequencer_util_get_obj_mutex(GObject *sequencer)
 {
-  pthread_mutex_t *obj_mutex;
+  GRecMutex *obj_mutex;
 
   obj_mutex = NULL;
   
-  if(AGS_IS_MIDIIN(sequencer)){
-    pthread_mutex_lock(ags_midiin_get_class_mutex());
-
-    obj_mutex = AGS_MIDIIN(sequencer)->obj_mutex;
-    
-    pthread_mutex_unlock(ags_midiin_get_class_mutex());
+  if(AGS_IS_ALSA_MIDIIN(sequencer)){
+    obj_mutex = AGS_ALSA_MIDIIN_GET_OBJ_MUTEX(sequencer);
+  }else if(AGS_IS_OSS_MIDIIN(sequencer)){
+    obj_mutex = AGS_OSS_MIDIIN_GET_OBJ_MUTEX(sequencer);
   }else if(AGS_IS_JACK_MIDIIN(sequencer)){
-    pthread_mutex_lock(ags_jack_midiin_get_class_mutex());
-
-    obj_mutex = AGS_JACK_MIDIIN(sequencer)->obj_mutex;
-    
-    pthread_mutex_unlock(ags_jack_midiin_get_class_mutex());
+    obj_mutex = AGS_JACK_MIDIIN_GET_OBJ_MUTEX(sequencer);
   }else if(AGS_IS_CORE_AUDIO_MIDIIN(sequencer)){
-    pthread_mutex_lock(ags_core_audio_midiin_get_class_mutex());
-
-    obj_mutex = AGS_CORE_AUDIO_MIDIIN(sequencer)->obj_mutex;
-    
-    pthread_mutex_unlock(ags_core_audio_midiin_get_class_mutex());
+    obj_mutex = AGS_CORE_AUDIO_MIDIIN_GET_OBJ_MUTEX(sequencer);
   }else{
     g_warning("unknown sequencer implementation");
   }

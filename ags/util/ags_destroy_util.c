@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2017 Joël Krähemann
+ * Copyright (C) 2005-2021 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -19,6 +19,9 @@
 
 #include <ags/util/ags_destroy_util.h>
 
+gpointer ags_destroy_util_copy(gpointer ptr);
+void ags_destroy_util_free(gpointer ptr);
+
 /**
  * SECTION:ags_destroy_util
  * @short_description: destroy util
@@ -29,13 +32,49 @@
  * Destroying items utility.
  */
 
+
+GType
+ags_destroy_util_get_type(void)
+{
+  static volatile gsize g_define_type_id__volatile = 0;
+
+  if(g_once_init_enter (&g_define_type_id__volatile)){
+    GType ags_type_destroy_util = 0;
+
+    ags_type_destroy_util =
+      g_boxed_type_register_static("AgsDestroyUtil",
+				   (GBoxedCopyFunc) ags_destroy_util_copy,
+				   (GBoxedFreeFunc) ags_destroy_util_free);
+
+    g_once_init_leave(&g_define_type_id__volatile, ags_type_destroy_util);
+  }
+
+  return g_define_type_id__volatile;
+}
+
+gpointer
+ags_destroy_util_copy(gpointer ptr)
+{
+  gpointer retval;
+
+  retval = g_memdup(ptr, sizeof(AgsDestroyUtil));
+ 
+  return(retval);
+}
+
+void
+ags_destroy_util_free(gpointer ptr)
+{
+  g_free(ptr);
+}
+
 /**
  * ags_destroy_util_dispose_and_unref:
- * @gobject: the #GObject to destroy
+ * @gobject: (transfer full): the #GObject to destroy
  * 
  * Run dispose and unref @gobject.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_destroy_util_dispose_and_unref(GObject *gobject)

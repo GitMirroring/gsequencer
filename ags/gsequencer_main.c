@@ -439,7 +439,7 @@ main(int argc, char **argv)
 #else
       if((rc_filename = getenv("AGS_RC_FILENAME")) == NULL){
 	rc_filename = g_strdup_printf("%s%s",
-				      DESTDIR,
+				      AGS_DATA_DIR,
 				      "/gsequencer/styles/ags.rc");
       }else{
 	rc_filename = g_strdup(rc_filename);

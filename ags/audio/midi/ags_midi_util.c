@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2015 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -19,12 +19,15 @@
 
 #include <ags/audio/midi/ags_midi_util.h>
 
-#include <ags/lib/ags_time.h>
-
 #include <ags/audio/midi/ags_midi_buffer_util.h>
 
 #include <stdlib.h>
 #include <string.h>
+
+gpointer ags_midi_util_copy(gpointer ptr);
+void ags_midi_util_free(gpointer ptr);
+
+guchar* ags_midi_util_to_smf_realloc(guchar *smf_buffer, guint smf_buffer_length);
 
 /**
  * SECTION:ags_midi_util
@@ -36,16 +39,51 @@
  * Utility functions for MIDI.
  */
 
+GType
+ags_midi_util_get_type(void)
+{
+  static volatile gsize g_define_type_id__volatile = 0;
+
+  if(g_once_init_enter (&g_define_type_id__volatile)){
+    GType ags_type_midi_util = 0;
+
+    ags_type_midi_util =
+      g_boxed_type_register_static("AgsMidiUtil",
+				   (GBoxedCopyFunc) ags_midi_util_copy,
+				   (GBoxedFreeFunc) ags_midi_util_free);
+
+    g_once_init_leave(&g_define_type_id__volatile, ags_type_midi_util);
+  }
+
+  return g_define_type_id__volatile;
+}
+
+gpointer
+ags_midi_util_copy(gpointer ptr)
+{
+  gpointer retval;
+
+  retval = g_memdup(ptr, sizeof(AgsMidiUtil));
+ 
+  return(retval);
+}
+
+void
+ags_midi_util_free(gpointer ptr)
+{
+  g_free(ptr);
+}
+
 /**
  * ags_midi_util_is_key_on:
  * @buffer: the midi buffer
  * 
  * Returns: %TRUE on success, otherwise %FALSE
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gboolean
-ags_midi_util_is_key_on(unsigned char *buffer)
+ags_midi_util_is_key_on(guchar *buffer)
 {
   gboolean retval;
 
@@ -60,10 +98,10 @@ ags_midi_util_is_key_on(unsigned char *buffer)
  * 
  * Returns: %TRUE on success, otherwise %FALSE
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gboolean
-ags_midi_util_is_key_off(unsigned char *buffer)
+ags_midi_util_is_key_off(guchar *buffer)
 {
   gboolean retval;
 
@@ -78,10 +116,10 @@ ags_midi_util_is_key_off(unsigned char *buffer)
  * 
  * Returns: %TRUE on success, otherwise %FALSE
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gboolean
-ags_midi_util_is_key_pressure(unsigned char *buffer)
+ags_midi_util_is_key_pressure(guchar *buffer)
 {
   gboolean retval;
 
@@ -96,10 +134,10 @@ ags_midi_util_is_key_pressure(unsigned char *buffer)
  * 
  * Returns: %TRUE on success, otherwise %FALSE
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gboolean
-ags_midi_util_is_change_parameter(unsigned char *buffer)
+ags_midi_util_is_change_parameter(guchar *buffer)
 {
   gboolean retval;
 
@@ -114,10 +152,10 @@ ags_midi_util_is_change_parameter(unsigned char *buffer)
  * 
  * Returns: %TRUE on success, otherwise %FALSE
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gboolean
-ags_midi_util_is_pitch_bend(unsigned char *buffer)
+ags_midi_util_is_pitch_bend(guchar *buffer)
 {
   gboolean retval;
 
@@ -132,10 +170,10 @@ ags_midi_util_is_pitch_bend(unsigned char *buffer)
  * 
  * Returns: %TRUE on success, otherwise %FALSE
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gboolean
-ags_midi_util_is_change_program(unsigned char *buffer)
+ags_midi_util_is_change_program(guchar *buffer)
 {
   gboolean retval;
 
@@ -150,10 +188,10 @@ ags_midi_util_is_change_program(unsigned char *buffer)
  * 
  * Returns: %TRUE on success, otherwise %FALSE
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gboolean
-ags_midi_util_is_change_pressure(unsigned char *buffer)
+ags_midi_util_is_change_pressure(guchar *buffer)
 {
   gboolean retval;
 
@@ -168,10 +206,10 @@ ags_midi_util_is_change_pressure(unsigned char *buffer)
  * 
  * Returns: %TRUE on success, otherwise %FALSE
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gboolean
-ags_midi_util_is_sysex(unsigned char *buffer)
+ags_midi_util_is_sysex(guchar *buffer)
 {
   gboolean retval;
 
@@ -186,10 +224,10 @@ ags_midi_util_is_sysex(unsigned char *buffer)
  * 
  * Returns: %TRUE on success, otherwise %FALSE
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gboolean
-ags_midi_util_is_quarter_frame(unsigned char *buffer)
+ags_midi_util_is_quarter_frame(guchar *buffer)
 {
   gboolean retval;
 
@@ -204,10 +242,10 @@ ags_midi_util_is_quarter_frame(unsigned char *buffer)
  * 
  * Returns: %TRUE on success, otherwise %FALSE
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gboolean
-ags_midi_util_is_song_position(unsigned char *buffer)
+ags_midi_util_is_song_position(guchar *buffer)
 {
   gboolean retval;
 
@@ -222,10 +260,10 @@ ags_midi_util_is_song_position(unsigned char *buffer)
  * 
  * Returns: %TRUE on success, otherwise %FALSE
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gboolean
-ags_midi_util_is_song_select(unsigned char *buffer)
+ags_midi_util_is_song_select(guchar *buffer)
 {
   gboolean retval;
 
@@ -240,10 +278,10 @@ ags_midi_util_is_song_select(unsigned char *buffer)
  * 
  * Returns: %TRUE on success, otherwise %FALSE
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gboolean
-ags_midi_util_is_tune_request(unsigned char *buffer)
+ags_midi_util_is_tune_request(guchar *buffer)
 {
   gboolean retval;
 
@@ -258,16 +296,502 @@ ags_midi_util_is_tune_request(unsigned char *buffer)
  * 
  * Returns: %TRUE on success, otherwise %FALSE
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gboolean
-ags_midi_util_is_meta_event(unsigned char *buffer)
+ags_midi_util_is_meta_event(guchar *buffer)
 {
   gboolean retval;
 
   retval = ((0xff & buffer[0]) == 0xff) ? TRUE: FALSE;
   
   return(retval);
+}
+
+/**
+ * ags_midi_util_get_key_on:
+ * @buffer: the MIDI buffer
+ * @channel: (out): the return location of channel
+ * @key: (out): the return location of key
+ * @velocity: (out): the return location of velocity
+ * 
+ * Get key on fields of @buffer.
+ * 
+ * Returns: %TRUE if successful, otherwise %FALSE
+ * 
+ * Since: 3.13.0
+ */
+gboolean
+ags_midi_util_get_key_on(guchar *buffer,
+			 gint *channel, gint *key, gint *velocity)
+{
+  if(buffer == NULL ||
+     (0xf0 & (buffer[0])) != 0x90){
+    if(channel != NULL){
+      channel[0] = 0;
+    }
+
+    if(key != NULL){
+      key[0] = 0;
+    }
+
+    if(velocity != NULL){
+      velocity[0] = 0;
+    }
+    
+    return(FALSE);
+  }
+
+  if(channel != NULL){
+    channel[0] = 0xf & (buffer[0]);
+  }
+
+  if(key != NULL){
+    key[0] = 0x7f & (buffer[1]);
+  }
+
+  if(velocity != NULL){
+    velocity[0] = 0x7f & (buffer[2]);
+  }
+  
+  return(TRUE);
+}
+
+/**
+ * ags_midi_util_get_key_off:
+ * @buffer: the MIDI buffer
+ * @channel: (out): the return location of channel
+ * @key: (out): the return location of key
+ * @velocity: (out): the return location of velocity
+ * 
+ * Get key off fields of @buffer.
+ * 
+ * Returns: %TRUE if successful, otherwise %FALSE
+ * 
+ * Since: 3.13.0
+ */
+gboolean
+ags_midi_util_get_key_off(guchar *buffer,
+			  gint *channel, gint *key, gint *velocity)
+{
+  if(buffer == NULL ||
+     (0xf0 & (buffer[0])) != 0x80){
+    if(channel != NULL){
+      channel[0] = 0;
+    }
+
+    if(key != NULL){
+      key[0] = 0;
+    }
+
+    if(velocity != NULL){
+      velocity[0] = 0;
+    }
+    
+    return(FALSE);
+  }
+
+  if(channel != NULL){
+    channel[0] = 0xf & (buffer[0]);
+  }
+
+  if(key != NULL){
+    key[0] = 0x7f & (buffer[1]);
+  }
+
+  if(velocity != NULL){
+    velocity[0] = 0x7f & (buffer[2]);
+  }
+  
+  return(TRUE);
+}
+
+/**
+ * ags_midi_util_get_key_pressure:
+ * @buffer: the MIDI buffer
+ * @channel: (out): the return location of channel
+ * @key: (out): the return location of key
+ * @pressure: (out): the return location of pressure
+ * 
+ * Get key pressure fields of @buffer.
+ * 
+ * Returns: %TRUE if successful, otherwise %FALSE
+ * 
+ * Since: 3.13.0
+ */
+gboolean
+ags_midi_util_get_key_pressure(guchar *buffer,
+			       gint *channel, gint *key, gint *pressure)
+{
+  if(buffer == NULL ||
+     (0xf0 & (buffer[0])) != 0xa0){
+    if(channel != NULL){
+      channel[0] = 0;
+    }
+
+    if(key != NULL){
+      key[0] = 0;
+    }
+
+    if(pressure != NULL){
+      pressure[0] = 0;
+    }
+    
+    return(FALSE);
+  }
+
+  if(channel != NULL){
+    channel[0] = 0xf & (buffer[0]);
+  }
+
+  if(key != NULL){
+    key[0] = 0x7f & (buffer[1]);
+  }
+
+  if(pressure != NULL){
+    pressure[0] = 0x7f & (buffer[2]);
+  }
+  
+  return(TRUE);
+}
+
+/**
+ * ags_midi_util_get_change_parameter:
+ * @buffer: the MIDI buffer
+ * @channel: (out): the return location of channel
+ * @control: (out): the return location of control
+ * @value: (out): the return location of value
+ * 
+ * Get change parameter fields of @buffer.
+ * 
+ * Returns: %TRUE if successful, otherwise %FALSE
+ * 
+ * Since: 3.13.0
+ */
+gboolean
+ags_midi_util_get_change_parameter(guchar *buffer,
+				   gint *channel, gint *control, gint *value)
+{
+  if(buffer == NULL ||
+     (0xf0 & (buffer[0])) != 0xb0){
+    if(channel != NULL){
+      channel[0] = 0;
+    }
+
+    if(control != NULL){
+      control[0] = 0;
+    }
+
+    if(value != NULL){
+      value[0] = 0;
+    }
+    
+    return(FALSE);
+  }
+
+  if(channel != NULL){
+    channel[0] = 0xf & (buffer[0]);
+  }
+
+  if(control != NULL){
+    control[0] = 0x7f & (buffer[1]);
+  }
+
+  if(value != NULL){
+    value[0] = 0x7f & (buffer[2]);
+  }
+  
+  return(TRUE);
+}
+
+/**
+ * ags_midi_util_get_pitch_bend:
+ * @buffer: the MIDI buffer
+ * @channel: (out): the return location of channel
+ * @pitch: (out): the return location of pitch
+ * @transmitter: (out): the return location of transmitter
+ * 
+ * Get pitch bend fields of @buffer.
+ * 
+ * Returns: %TRUE if successful, otherwise %FALSE
+ * 
+ * Since: 3.13.0
+ */
+gboolean
+ags_midi_util_get_pitch_bend(guchar *buffer,
+			     gint *channel, gint *pitch, gint *transmitter)
+{
+  if(buffer == NULL ||
+     (0xf0 & (buffer[0])) != 0xe0){
+    if(channel != NULL){
+      channel[0] = 0;
+    }
+
+    if(pitch != NULL){
+      pitch[0] = 0;
+    }
+
+    if(transmitter != NULL){
+      transmitter[0] = 0;
+    }
+    
+    return(FALSE);
+  }
+
+  if(channel != NULL){
+    channel[0] = 0xf & (buffer[0]);
+  }
+
+  if(pitch != NULL){
+    pitch[0] = 0x7f & (buffer[1]);
+  }
+
+  if(transmitter != NULL){
+    transmitter[0] = 0x7f & (buffer[2]);
+  }
+  
+  return(TRUE);
+}
+
+/**
+ * ags_midi_util_get_change_program:
+ * @buffer: the MIDI buffer
+ * @channel: (out): the return location of channel
+ * @program: (out): the return location of program
+ * 
+ * Get change program fields of @buffer.
+ * 
+ * Returns: %TRUE if successful, otherwise %FALSE
+ * 
+ * Since: 3.13.0
+ */
+gboolean
+ags_midi_util_get_change_program(guchar *buffer,
+				 gint *channel, gint *program)
+{
+  if(buffer == NULL ||
+     (0xf0 & (buffer[0])) != 0xc0){
+    if(channel != NULL){
+      channel[0] = 0;
+    }
+
+    if(program != NULL){
+      program[0] = 0;
+    }
+    
+    return(FALSE);
+  }
+
+  if(channel != NULL){
+    channel[0] = 0xf & (buffer[0]);
+  }
+
+  if(program != NULL){
+    program[0] = 0x7f & (buffer[1]);
+  }
+
+  return(TRUE);
+}
+
+/**
+ * ags_midi_util_get_change_pressure:
+ * @buffer: the MIDI buffer
+ * @channel: (out): the return location of channel
+ * @pressure: (out): the return location of pressure
+ * 
+ * Get change pressure fields of @buffer.
+ * 
+ * Returns: %TRUE if successful, otherwise %FALSE
+ * 
+ * Since: 3.13.0
+ */
+gboolean
+ags_midi_util_get_change_pressure(guchar *buffer,
+				  gint *channel, gint *pressure)
+{
+  if(buffer == NULL ||
+     (0xf0 & (buffer[0])) != 0xd0){
+    if(channel != NULL){
+      channel[0] = 0;
+    }
+
+    if(pressure != NULL){
+      pressure[0] = 0;
+    }
+    
+    return(FALSE);
+  }
+
+  if(channel != NULL){
+    channel[0] = 0xf & (buffer[0]);
+  }
+
+  if(pressure != NULL){
+    pressure[0] = 0x7f & (buffer[1]);
+  }
+  
+  return(TRUE);
+}
+
+/**
+ * ags_midi_util_get_sysex:
+ * @buffer: the MIDI buffer
+ * @data: (out) (transfer full): the return location of data
+ * @length: (out): the return location of length
+ * 
+ * Get sysex fields of @buffer.
+ * 
+ * Returns: %TRUE if successful, otherwise %FALSE
+ * 
+ * Since: 3.13.0
+ */
+gboolean
+ags_midi_util_get_sysex(guchar *buffer,
+			guchar **data, gint *length)
+{
+  guint i;
+  
+  if(buffer == NULL ||
+     (0xff & (buffer[0])) != 0xf0){
+    if(data != NULL){
+      data[0] = NULL;
+    }
+
+    if(length != NULL){
+      length[0] = 0;
+    }
+    
+    return(FALSE);
+  }
+
+  for(i = 0; buffer[i + 1] != 0xf7; i++);
+
+  if(data != NULL){
+    data[0] = (guchar *) g_malloc(i * sizeof(guchar));
+
+    memcpy(data[0], buffer + 1, i * sizeof(guchar));
+  }
+
+  if(length != NULL){
+    length[0] = i;
+  }
+  
+  return(TRUE);
+}
+
+/**
+ * ags_midi_util_get_quarter_frame:
+ * @buffer: the MIDI buffer
+ * @message_type: (out): the return location of message type
+ * @values: (out): the return location of values
+ * 
+ * Get quarter frame fields of @buffer.
+ * 
+ * Returns: %TRUE if successful, otherwise %FALSE
+ * 
+ * Since: 3.13.0
+ */
+gboolean
+ags_midi_util_get_quarter_frame(guchar *buffer,
+				gint *message_type, gint *values)
+{
+  if(buffer == NULL ||
+     (0xff & (buffer[0])) != 0xf1){
+    if(message_type != NULL){
+      message_type[0] = 0;
+    }
+
+    if(values != NULL){
+      values[0] = 0;
+    }
+    
+    return(FALSE);
+  }
+
+  if(message_type != NULL){
+    message_type[0] = 0x70 & (buffer[1]);
+  }
+
+  if(values != NULL){
+    values[0] = 0x0f & (buffer[1]);
+  }
+  
+  return(TRUE);
+}
+
+/**
+ * ags_midi_util_get_song_position:
+ * @buffer: the MIDI buffer
+ * @song_position: (out): the return location of song position
+ * 
+ * Get song position fields of @buffer.
+ * 
+ * Returns: %TRUE if successful, otherwise %FALSE
+ * 
+ * Since: 3.13.0
+ */
+gboolean
+ags_midi_util_get_song_position(guchar *buffer,
+				gint *song_position)
+{
+  if(buffer == NULL ||
+     (0xff & (buffer[0])) != 0xf2){
+    if(song_position != NULL){
+      song_position[0] = 0;
+    }
+    
+    return(FALSE);
+  }
+
+  if(song_position != NULL){
+    song_position[0] = (0x7f & (buffer[1])) | (0x3f80 & (buffer[2] << 7));
+  }
+  
+  return(TRUE);
+}
+
+/**
+ * ags_midi_util_get_song_select:
+ * @buffer: the MIDI buffer
+ * @song_select: (out): the return location of song select
+ * 
+ * Get song select fields of @buffer.
+ * 
+ * Returns: %TRUE if successful, otherwise %FALSE
+ * 
+ * Since: 3.13.0
+ */
+gboolean
+ags_midi_util_get_song_select(guchar *buffer,
+			      gint *song_select)
+{
+  if(buffer == NULL ||
+     (0xff & (buffer[0])) != 0xf2){
+    if(song_select != NULL){
+      song_select[0] = 0;
+    }
+    
+    return(FALSE);
+  }
+
+  if(song_select != NULL){
+    song_select[0] = (0x7f & (buffer[1]));
+  }
+  
+  return(TRUE);
+}
+
+guchar*
+ags_midi_util_to_smf_realloc(guchar *smf_buffer, guint smf_buffer_length)
+{
+  if(smf_buffer == NULL){
+    smf_buffer = (guchar *) malloc(smf_buffer_length * sizeof(guchar));
+  }else{
+    smf_buffer = (guchar *) realloc(smf_buffer,
+					   smf_buffer_length * sizeof(guchar));
+  }
+
+  return(smf_buffer);
 }
 
 /**
@@ -281,31 +805,18 @@ ags_midi_util_is_meta_event(unsigned char *buffer)
  * 
  * Returns: the SMF buffer
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
-unsigned char*
-ags_midi_util_to_smf(unsigned char *midi_buffer, guint buffer_length,
+guchar*
+ags_midi_util_to_smf(guchar *midi_buffer, guint buffer_length,
 		     glong delta_time,
 		     guint *smf_buffer_length)
 {
-  unsigned char *midi_iter;
-  unsigned char *smf_buffer;
+  guchar *midi_iter;
+  guchar *smf_buffer;
   
   guint ret_smf_buffer_length;
-  
-  auto unsigned char* ags_midi_util_to_smf_realloc(unsigned char *smf_buffer, guint smf_buffer_length);
-
-  unsigned char* ags_midi_util_to_smf_realloc(unsigned char *smf_buffer, guint smf_buffer_length){
-    if(smf_buffer == NULL){
-      smf_buffer = (unsigned char *) malloc(smf_buffer_length * sizeof(unsigned char));
-    }else{
-      smf_buffer = (unsigned char *) realloc(smf_buffer,
-					     smf_buffer_length * sizeof(unsigned char));
-    }
-
-    return(smf_buffer);
-  }
-  
+    
   if(midi_buffer == NULL){
     return(NULL);
   }
@@ -487,139 +998,8 @@ ags_midi_util_to_smf(unsigned char *midi_buffer, guint buffer_length,
 }
 
 /**
- * ags_midi_util_envelope_to_velocity:
- * @attack: attack
- * @decay: decay
- * @sustain: sustain
- * @release: release
- * @ratio: ratio
- * @samplerate: samplerate
- * @start_frame: start frame
- * @end_frame: end frame
- *
- * Envelope to velocity.
- *
- * Returns: the velocity
- *
- * Since: 2.0.0
- */
-glong
-ags_midi_util_envelope_to_velocity(AgsComplex *attack,
-				   AgsComplex *decay,
-				   AgsComplex *sustain,
-				   AgsComplex *release,
-				   AgsComplex *ratio,
-				   guint samplerate,
-				   guint start_frame, guint end_frame)
-{
-  glong velocity;
-
-  velocity = 127;
-
-  //TODO:JK: implement me
-  
-  return(velocity);
-}
-
-/**
- * ags_midi_util_velocity_to_envelope:
- * @delta_time: delta time
- * @is_release: is release
- * @attack: attack
- * @decay: decay
- * @sustain: sustain
- * @release: release
- * @ratio: ratio
- * @samplerate: samplerate
- * @start_frame: start frame
- * @end_frame: end frame
- *
- * Velocity to envelope.
- *
- * Since: 2.0.0
- */
-void
-ags_midi_util_velocity_to_envelope(glong delta_time,
-				   gboolean is_release,
-				   AgsComplex **attack,
-				   AgsComplex **decay,
-				   AgsComplex **sustain,
-				   AgsComplex **release,
-				   AgsComplex **ratio,
-				   guint *samplerate,
-				   guint *start_frame, guint *end_frame)
-{
-  //TODO:JK: implement me
-}
-
-/**
- * ags_midi_util_envelope_to_pressure:
- * @attack: attack
- * @decay: decay
- * @sustain: sustain
- * @release: release
- * @ratio: ratio
- * @samplerate: samplerate
- * @start_frame: start frame
- * @end_frame: end frame
- *
- * Envelope to pressure.
- *
- * Returns: the pressure
- *
- * Since: 2.0.0
- */
-glong
-ags_midi_util_envelope_to_pressure(AgsComplex *attack,
-				   AgsComplex *decay,
-				   AgsComplex *sustain,
-				   AgsComplex *release,
-				   AgsComplex *ratio,
-				   guint samplerate,
-				   guint start_frame, guint end_frame)
-{
-  glong pressure;
-
-  pressure = 127;
-
-  //TODO:JK: implement me
-  
-  return(pressure);
-}
-
-/**
- * ags_midi_util_pressure_to_envelope:
- * @delta_time: delta time
- * @is_sustain: is sustain
- * @attack: attack
- * @decay: decay
- * @sustain: sustain
- * @release: release
- * @ratio: ratio
- * @samplerate: samplerate
- * @start_frame: start frame
- * @end_frame: end frame
- *
- * Pressure to envelope.
- *
- * Since: 2.0.0
- */
-void
-ags_midi_util_pressure_to_envelope(glong delta_time,
-				   gboolean is_sustain,
-				   AgsComplex **attack,
-				   AgsComplex **decay,
-				   AgsComplex **sustain,
-				   AgsComplex **release,
-				   AgsComplex **ratio,
-				   guint *samplerate,
-				   guint *start_frame, guint *end_frame)
-{
-  //TODO:JK: implement me
-}
-
-/**
  * ags_midi_util_delta_time_to_offset:
+ * @delay_factor: delay factor
  * @division: division
  * @tempo: tempo
  * @bpm: bpm
@@ -629,10 +1009,11 @@ ags_midi_util_pressure_to_envelope(glong delta_time,
  *
  * Returns: the offset
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 guint
-ags_midi_util_delta_time_to_offset(glong division,
+ags_midi_util_delta_time_to_offset(gdouble delay_factor,
+				   glong division,
 				   glong tempo,
 				   glong bpm,
 				   glong delta_time)
@@ -641,10 +1022,10 @@ ags_midi_util_delta_time_to_offset(glong division,
 
   if(((1 << 15) & division) == 0){
     /* ticks per quarter note */
-    offset = (16.0 * bpm / 60.0) * delta_time * (tempo / division / ((gdouble) USEC_PER_SEC));
+    offset = (16.0 * bpm / 60.0) * delta_time * (tempo / division / ((gdouble) AGS_USEC_PER_SEC)) * delay_factor;
   }else{
     /* SMTPE */
-    offset = (16.0 * bpm / 60.0) * delta_time / (((division * division) / 256.0) / ((gdouble) USEC_PER_SEC));
+    offset = (16.0 * bpm / 60.0) * delta_time / (((division * division) / 256.0) / ((gdouble) AGS_USEC_PER_SEC)) * delay_factor;
   }
 
   return(offset);
@@ -652,6 +1033,7 @@ ags_midi_util_delta_time_to_offset(glong division,
 
 /**
  * ags_midi_util_offset_to_delta_time:
+ * @delay_factor: delay factor
  * @division: division
  * @tempo: tempo
  * @bpm: bpm
@@ -661,10 +1043,11 @@ ags_midi_util_delta_time_to_offset(glong division,
  *
  * Returns: the delta time
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 glong
-ags_midi_util_offset_to_delta_time(glong division,
+ags_midi_util_offset_to_delta_time(gdouble delay_factor,
+				   glong division,
 				   glong tempo,
 				   glong bpm,
 				   guint x)
@@ -673,10 +1056,10 @@ ags_midi_util_offset_to_delta_time(glong division,
 
   if(((1 << 15) & division) == 0){
     /* ticks per quarter note */
-    delta_time = x / (16.0 * bpm / 60.0) / (tempo / division / ((gdouble) USEC_PER_SEC));
+    delta_time = (60.0 * AGS_USEC_PER_SEC * division * x) / (16.0 * bpm * delay_factor * tempo);
   }else{
     /* SMTPE */
-    delta_time = x / (16.0 * bpm / 60.0) * (((division * division) / 256.0) / ((gdouble) USEC_PER_SEC));
+    delta_time = (60.0 * (((division * division) / 256.0) / ((gdouble) AGS_USEC_PER_SEC)) * x) / (16.0 * bpm * delay_factor * tempo);
   }
 
   return(delta_time);

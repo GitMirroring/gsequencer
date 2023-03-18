@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -18,8 +18,6 @@
  */
 
 #include <ags/audio/file/ags_ipatch_sample.h>
-
-#include <ags/libags.h>
 
 #include <ags/audio/ags_audio_signal.h>
 #include <ags/audio/ags_audio_buffer_util.h>
@@ -102,8 +100,6 @@ enum{
 
 static gpointer ags_ipatch_sample_parent_class = NULL;
 
-static pthread_mutex_t ags_ipatch_sample_class_mutex = PTHREAD_MUTEX_INITIALIZER;
-
 GType
 ags_ipatch_sample_get_type()
 {
@@ -178,7 +174,7 @@ ags_ipatch_sample_class_init(AgsIpatchSampleClass *ipatch_sample)
    *
    * The buffer size to be used.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("buffer-size",
 				 i18n_pspec("using buffer size"),
@@ -196,7 +192,7 @@ ags_ipatch_sample_class_init(AgsIpatchSampleClass *ipatch_sample)
    *
    * The format to be used.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("format",
 				 i18n_pspec("using format"),
@@ -214,7 +210,7 @@ ags_ipatch_sample_class_init(AgsIpatchSampleClass *ipatch_sample)
    *
    * The assigned output #IpatchSample.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_object("sample",
 				   i18n_pspec("assigned sample"),
@@ -277,27 +273,11 @@ ags_ipatch_sample_init(AgsIpatchSample *ipatch_sample)
 {
   AgsConfig *config;
 
-  pthread_mutex_t *mutex;
-  pthread_mutexattr_t *attr;
-
   ipatch_sample->flags = 0;
+  ipatch_sample->connectable_flags = 0;
 
   /* add audio file mutex */
-  ipatch_sample->obj_mutexattr = 
-    attr = (pthread_mutexattr_t *) malloc(sizeof(pthread_mutexattr_t));
-  pthread_mutexattr_init(attr);
-  pthread_mutexattr_settype(attr,
-			    PTHREAD_MUTEX_RECURSIVE);
-
-#ifdef __linux__
-  pthread_mutexattr_setprotocol(attr,
-				PTHREAD_PRIO_INHERIT);
-#endif
-
-  ipatch_sample->obj_mutex = 
-    mutex = (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t));
-  pthread_mutex_init(mutex,
-		     attr);  
+  g_rec_mutex_init(&(ipatch_sample->obj_mutex));
 
   /* uuid */
   ipatch_sample->uuid = ags_uuid_alloc();
@@ -335,7 +315,7 @@ ags_ipatch_sample_set_property(GObject *gobject,
 {
   AgsIpatchSample *ipatch_sample;
 
-  pthread_mutex_t *ipatch_sample_mutex;
+  GRecMutex *ipatch_sample_mutex;
 
   ipatch_sample = AGS_IPATCH_SAMPLE(gobject);
 
@@ -349,10 +329,10 @@ ags_ipatch_sample_set_property(GObject *gobject,
 
       buffer_size = g_value_get_uint(value);
 
-      pthread_mutex_lock(ipatch_sample_mutex);
+      g_rec_mutex_lock(ipatch_sample_mutex);
 
       if(buffer_size == ipatch_sample->buffer_size){
-	pthread_mutex_unlock(ipatch_sample_mutex);
+	g_rec_mutex_unlock(ipatch_sample_mutex);
 
 	return;	
       }
@@ -363,7 +343,7 @@ ags_ipatch_sample_set_property(GObject *gobject,
       ipatch_sample->buffer = ags_stream_alloc(ipatch_sample->buffer_size,
 					       ipatch_sample->format);
 
-      pthread_mutex_unlock(ipatch_sample_mutex);
+      g_rec_mutex_unlock(ipatch_sample_mutex);
     }
     break;
   case PROP_FORMAT:
@@ -372,10 +352,10 @@ ags_ipatch_sample_set_property(GObject *gobject,
 
       format = g_value_get_uint(value);
 
-      pthread_mutex_lock(ipatch_sample_mutex);
+      g_rec_mutex_lock(ipatch_sample_mutex);
 
       if(format == ipatch_sample->format){
-	pthread_mutex_unlock(ipatch_sample_mutex);
+	g_rec_mutex_unlock(ipatch_sample_mutex);
 
 	return;	
       }
@@ -386,20 +366,19 @@ ags_ipatch_sample_set_property(GObject *gobject,
       ipatch_sample->buffer = ags_stream_alloc(ipatch_sample->buffer_size,
 					       ipatch_sample->format);
 
-      pthread_mutex_unlock(ipatch_sample_mutex);
+      g_rec_mutex_unlock(ipatch_sample_mutex);
     }
     break;
   case PROP_SAMPLE:
     {
-#ifdef AGS_WITH_LIBINSTPATCH
       IpatchContainer *sample;
 
       sample = g_value_get_object(value);
 
-      pthread_mutex_lock(ipatch_sample_mutex);
+      g_rec_mutex_lock(ipatch_sample_mutex);
 
       if(ipatch_sample->sample == sample){
-	pthread_mutex_unlock(ipatch_sample_mutex);
+	g_rec_mutex_unlock(ipatch_sample_mutex);
       
 	return;
       }
@@ -414,8 +393,7 @@ ags_ipatch_sample_set_property(GObject *gobject,
       
       ipatch_sample->sample = sample;
 
-      pthread_mutex_unlock(ipatch_sample_mutex);
-#endif
+      g_rec_mutex_unlock(ipatch_sample_mutex);
     }
     break;
   default:
@@ -431,7 +409,7 @@ ags_ipatch_sample_get_property(GObject *gobject,
 {
   AgsIpatchSample *ipatch_sample;
 
-  pthread_mutex_t *ipatch_sample_mutex;
+  GRecMutex *ipatch_sample_mutex;
 
   ipatch_sample = (AgsIpatchSample *) gobject;
 
@@ -441,29 +419,29 @@ ags_ipatch_sample_get_property(GObject *gobject,
   switch(prop_id){
   case PROP_BUFFER_SIZE:
     {
-      pthread_mutex_lock(ipatch_sample_mutex);
+      g_rec_mutex_lock(ipatch_sample_mutex);
 
       g_value_set_uint(value, ipatch_sample->buffer_size);
 
-      pthread_mutex_unlock(ipatch_sample_mutex);
+      g_rec_mutex_unlock(ipatch_sample_mutex);
     }
     break;
   case PROP_FORMAT:
     {
-      pthread_mutex_lock(ipatch_sample_mutex);
+      g_rec_mutex_lock(ipatch_sample_mutex);
 
       g_value_set_uint(value, ipatch_sample->format);
 
-      pthread_mutex_unlock(ipatch_sample_mutex);
+      g_rec_mutex_unlock(ipatch_sample_mutex);
     }
     break;
   case PROP_SAMPLE:
     {
-      pthread_mutex_lock(ipatch_sample_mutex);
+      g_rec_mutex_lock(ipatch_sample_mutex);
 
       g_value_set_object(value, ipatch_sample->sample);
 
-      pthread_mutex_unlock(ipatch_sample_mutex);
+      g_rec_mutex_unlock(ipatch_sample_mutex);
     }
     break;
   default:
@@ -495,16 +473,12 @@ ags_ipatch_sample_finalize(GObject *gobject)
 
   ipatch_sample = AGS_IPATCH_SAMPLE(gobject);
 
-  pthread_mutex_destroy(ipatch_sample->obj_mutex);
-  free(ipatch_sample->obj_mutex);
-
-  pthread_mutexattr_destroy(ipatch_sample->obj_mutexattr);
-  free(ipatch_sample->obj_mutexattr);
-
   ags_stream_free(ipatch_sample->buffer);
 
   if(ipatch_sample->sample != NULL){
     g_object_unref(ipatch_sample->sample);
+
+    ipatch_sample->sample = NULL;
   }
   
   /* call parent */  
@@ -518,19 +492,19 @@ ags_ipatch_sample_get_uuid(AgsConnectable *connectable)
   
   AgsUUID *ptr;
 
-  pthread_mutex_t *ipatch_sample_mutex;
+  GRecMutex *ipatch_sample_mutex;
 
   ipatch_sample = AGS_IPATCH_SAMPLE(connectable);
 
-  /* get audio file mutex */
+  /* get ipatch sample mutex */
   ipatch_sample_mutex = AGS_IPATCH_SAMPLE_GET_OBJ_MUTEX(ipatch_sample);
 
   /* get UUID */
-  pthread_mutex_lock(ipatch_sample_mutex);
+  g_rec_mutex_lock(ipatch_sample_mutex);
 
   ptr = ipatch_sample->uuid;
 
-  pthread_mutex_unlock(ipatch_sample_mutex);
+  g_rec_mutex_unlock(ipatch_sample_mutex);
   
   return(ptr);
 }
@@ -548,20 +522,20 @@ ags_ipatch_sample_is_ready(AgsConnectable *connectable)
   
   gboolean is_ready;
 
-  pthread_mutex_t *ipatch_sample_mutex;
+  GRecMutex *ipatch_sample_mutex;
 
   ipatch_sample = AGS_IPATCH_SAMPLE(connectable);
 
-  /* get audio file mutex */
+  /* get ipatch_sample mutex */
   ipatch_sample_mutex = AGS_IPATCH_SAMPLE_GET_OBJ_MUTEX(ipatch_sample);
 
   /* check is ready */
-  pthread_mutex_lock(ipatch_sample_mutex);
-  
-  is_ready = (((AGS_IPATCH_SAMPLE_ADDED_TO_REGISTRY & (ipatch_sample->flags)) != 0) ? TRUE: FALSE);
-  
-  pthread_mutex_unlock(ipatch_sample_mutex);
+  g_rec_mutex_lock(ipatch_sample_mutex);
 
+  is_ready = ((AGS_CONNECTABLE_ADDED_TO_REGISTRY & (ipatch_sample->connectable_flags)) != 0) ? TRUE: FALSE;
+
+  g_rec_mutex_unlock(ipatch_sample_mutex);
+  
   return(is_ready);
 }
 
@@ -575,13 +549,22 @@ ags_ipatch_sample_add_to_registry(AgsConnectable *connectable)
 
   AgsApplicationContext *application_context;
 
+  GRecMutex *ipatch_sample_mutex;
+
   if(ags_connectable_is_ready(connectable)){
     return;
   }
 
   ipatch_sample = AGS_IPATCH_SAMPLE(connectable);
 
-  ags_ipatch_sample_set_flags(ipatch_sample, AGS_IPATCH_SAMPLE_ADDED_TO_REGISTRY);
+  /* get ipatch_sample mutex */
+  ipatch_sample_mutex = AGS_IPATCH_SAMPLE_GET_OBJ_MUTEX(ipatch_sample);
+
+  g_rec_mutex_lock(ipatch_sample_mutex);
+
+  ipatch_sample->connectable_flags |= AGS_CONNECTABLE_ADDED_TO_REGISTRY;
+  
+  g_rec_mutex_unlock(ipatch_sample_mutex);
 
   application_context = ags_application_context_get_instance();
 
@@ -599,9 +582,24 @@ ags_ipatch_sample_add_to_registry(AgsConnectable *connectable)
 void
 ags_ipatch_sample_remove_from_registry(AgsConnectable *connectable)
 {
+  AgsIpatchSample *ipatch_sample;
+
+  GRecMutex *ipatch_sample_mutex;
+
   if(!ags_connectable_is_ready(connectable)){
     return;
   }
+
+  ipatch_sample = AGS_IPATCH_SAMPLE(connectable);
+
+  /* get ipatch_sample mutex */
+  ipatch_sample_mutex = AGS_IPATCH_SAMPLE_GET_OBJ_MUTEX(ipatch_sample);
+
+  g_rec_mutex_lock(ipatch_sample_mutex);
+
+  ipatch_sample->connectable_flags &= (~AGS_CONNECTABLE_ADDED_TO_REGISTRY);
+  
+  g_rec_mutex_unlock(ipatch_sample_mutex);
 
   //TODO:JK: implement me
 }
@@ -644,20 +642,20 @@ ags_ipatch_sample_is_connected(AgsConnectable *connectable)
   
   gboolean is_connected;
 
-  pthread_mutex_t *ipatch_sample_mutex;
+  GRecMutex *ipatch_sample_mutex;
 
   ipatch_sample = AGS_IPATCH_SAMPLE(connectable);
 
-  /* get audio file mutex */
+  /* get ipatch_sample mutex */
   ipatch_sample_mutex = AGS_IPATCH_SAMPLE_GET_OBJ_MUTEX(ipatch_sample);
 
   /* check is connected */
-  pthread_mutex_lock(ipatch_sample_mutex);
+  g_rec_mutex_lock(ipatch_sample_mutex);
 
-  is_connected = (((AGS_IPATCH_SAMPLE_CONNECTED & (ipatch_sample->flags)) != 0) ? TRUE: FALSE);
+  is_connected = ((AGS_CONNECTABLE_CONNECTED & (ipatch_sample->connectable_flags)) != 0) ? TRUE: FALSE;
+
+  g_rec_mutex_unlock(ipatch_sample_mutex);
   
-  pthread_mutex_unlock(ipatch_sample_mutex);
-
   return(is_connected);
 }
 
@@ -666,13 +664,22 @@ ags_ipatch_sample_connect(AgsConnectable *connectable)
 {
   AgsIpatchSample *ipatch_sample;
 
+  GRecMutex *ipatch_sample_mutex;
+
   if(ags_connectable_is_connected(connectable)){
     return;
   }
 
   ipatch_sample = AGS_IPATCH_SAMPLE(connectable);
+
+  /* get ipatch_sample mutex */
+  ipatch_sample_mutex = AGS_IPATCH_SAMPLE_GET_OBJ_MUTEX(ipatch_sample);
+
+  g_rec_mutex_lock(ipatch_sample_mutex);
+
+  ipatch_sample->connectable_flags |= AGS_CONNECTABLE_CONNECTED;
   
-  ags_ipatch_sample_set_flags(ipatch_sample, AGS_IPATCH_SAMPLE_CONNECTED);
+  g_rec_mutex_unlock(ipatch_sample_mutex);
 }
 
 void
@@ -680,13 +687,22 @@ ags_ipatch_sample_disconnect(AgsConnectable *connectable)
 {
   AgsIpatchSample *ipatch_sample;
 
+  GRecMutex *ipatch_sample_mutex;
+
   if(!ags_connectable_is_connected(connectable)){
     return;
   }
 
   ipatch_sample = AGS_IPATCH_SAMPLE(connectable);
 
-  ags_ipatch_sample_unset_flags(ipatch_sample, AGS_IPATCH_SAMPLE_CONNECTED);
+  /* get ipatch_sample mutex */
+  ipatch_sample_mutex = AGS_IPATCH_SAMPLE_GET_OBJ_MUTEX(ipatch_sample);
+
+  g_rec_mutex_lock(ipatch_sample_mutex);
+
+  ipatch_sample->connectable_flags &= (~AGS_CONNECTABLE_CONNECTED);
+  
+  g_rec_mutex_unlock(ipatch_sample_mutex);
 }
 
 gboolean
@@ -699,6 +715,8 @@ ags_ipatch_sample_info(AgsSoundResource *sound_resource,
   guint sample_frame_count;
   guint sample_loop_start, sample_loop_end;
   
+  GRecMutex *ipatch_sample_mutex;
+
   ipatch_sample = AGS_IPATCH_SAMPLE(sound_resource);
 
   sample_frame_count = 0;
@@ -706,13 +724,11 @@ ags_ipatch_sample_info(AgsSoundResource *sound_resource,
   sample_loop_start = 0;
   sample_loop_end = 0;
   
-#ifdef AGS_WITH_LIBINSTPATCH
   g_object_get(ipatch_sample->sample,
 	       "sample-size", &sample_frame_count,
 	       "loop-start", &sample_loop_start,
 	       "loop-end", &sample_loop_end,
 	       NULL);
-#endif
 
   if(frame_count != NULL){
     *frame_count = sample_frame_count;
@@ -740,7 +756,12 @@ ags_ipatch_sample_set_presets(AgsSoundResource *sound_resource,
 
   gint sample_format;
   
+  GRecMutex *ipatch_sample_mutex;
+
   ipatch_sample = AGS_IPATCH_SAMPLE(sound_resource);
+
+  /* get ipatch sample mutex */
+  ipatch_sample_mutex = AGS_IPATCH_SAMPLE_GET_OBJ_MUTEX(ipatch_sample);
 
   if(channels > IPATCH_SAMPLE_MAX_CHANNELS){
     g_critical("max channels exceeded");
@@ -748,19 +769,23 @@ ags_ipatch_sample_set_presets(AgsSoundResource *sound_resource,
     return;
   }
   
-#ifdef AGS_WITH_LIBINSTPATCH
+  g_rec_mutex_lock(ipatch_sample_mutex);
+
+  //NOTE:JK: this won't work
+#if 0
   g_object_get(ipatch_sample->sample,
 	       "sample-format", &sample_format,
 	       NULL);
-
   sample_format &= (~IPATCH_SAMPLE_CHANNEL_MASK);
   sample_format |= (IPATCH_SAMPLE_CHANNEL_MASK & ((channels - 1) << IPATCH_SAMPLE_CHANNEL_SHIFT));
+#endif
   
   g_object_set(ipatch_sample->sample,
 	       "sample-rate", samplerate,
-	       "sample-format", sample_format,
+//	       "sample-format", sample_format,
 	       NULL);
-#endif
+  
+  g_rec_mutex_unlock(ipatch_sample_mutex);
 
   g_object_set(ipatch_sample,
 	       "buffer-size", buffer_size,
@@ -777,36 +802,54 @@ ags_ipatch_sample_get_presets(AgsSoundResource *sound_resource,
 {
   AgsIpatchSample *ipatch_sample;
 
+  guint current_buffer_size;
+  guint current_format;
+
   gint sample_format;
   guint sample_channels;
   guint sample_samplerate;
 
+  GRecMutex *ipatch_sample_mutex;
+
   ipatch_sample = AGS_IPATCH_SAMPLE(sound_resource);
+
+  /* get ipatch sample mutex */
+  ipatch_sample_mutex = AGS_IPATCH_SAMPLE_GET_OBJ_MUTEX(ipatch_sample);
+
+  current_buffer_size = AGS_SOUNDCARD_DEFAULT_BUFFER_SIZE;
+  current_format = AGS_SOUNDCARD_DEFAULT_FORMAT;
+
+  g_object_get(ipatch_sample,
+	       "buffer-size", &current_buffer_size,
+	       "format", &current_format,
+	       NULL);
   
   sample_format = 0;
   sample_samplerate = 0;
   
-#ifdef AGS_WITH_LIBINSTPATCH
+  g_rec_mutex_lock(ipatch_sample_mutex);
+
   g_object_get(ipatch_sample->sample,
 	       "sample-format", &sample_format,
 	       "sample-rate", &sample_samplerate,
 	       NULL);
-#endif
+
+  g_rec_mutex_unlock(ipatch_sample_mutex);
 
   if(channels != NULL){
-    *channels = IPATCH_SAMPLE_FORMAT_GET_CHANNEL_COUNT(sample_format);
+    channels[0] = IPATCH_SAMPLE_FORMAT_GET_CHANNEL_COUNT(sample_format);
   }
   
   if(samplerate != NULL){
-    *samplerate = sample_samplerate;
+    samplerate[0] = sample_samplerate;
   }
 
   if(buffer_size != NULL){
-    *buffer_size = ipatch_sample->buffer_size;
+    buffer_size[0] = current_buffer_size;
   }
 
   if(format != NULL){
-    *format = ipatch_sample->format;
+    format[0] = current_format;
   }
 }
 
@@ -823,17 +866,25 @@ ags_ipatch_sample_read(AgsSoundResource *sound_resource,
   
   GError *error;
   
+  GRecMutex *ipatch_sample_mutex;
+
   ipatch_sample = AGS_IPATCH_SAMPLE(sound_resource);
+
+  /* get ipatch sample mutex */
+  ipatch_sample_mutex = AGS_IPATCH_SAMPLE_GET_OBJ_MUTEX(ipatch_sample);
+
+  g_rec_mutex_lock(ipatch_sample_mutex);
 
   copy_mode = ags_audio_buffer_util_get_copy_mode(ags_audio_buffer_util_format_from_soundcard(format),
 						  ags_audio_buffer_util_format_from_soundcard(ipatch_sample->format));
 
-#ifdef AGS_WITH_LIBINSTPATCH
   ags_sound_resource_info(sound_resource,
 			  &total_frame_count,
 			  NULL, NULL);
   
   if(ipatch_sample->offset >= total_frame_count){
+    g_rec_mutex_unlock(ipatch_sample_mutex);
+    
     return(0);
   }
 
@@ -927,9 +978,8 @@ ags_ipatch_sample_read(AgsSoundResource *sound_resource,
 					      frame_count, copy_mode);
 
   ipatch_sample->offset += frame_count;
-#else
-  frame_count = 0;
-#endif
+
+  g_rec_mutex_unlock(ipatch_sample_mutex);
 
   return(frame_count);
 }
@@ -946,7 +996,14 @@ ags_ipatch_sample_write(AgsSoundResource *sound_resource,
 
   GError *error;
 
+  GRecMutex *ipatch_sample_mutex;
+
   ipatch_sample = AGS_IPATCH_SAMPLE(sound_resource);
+
+  /* get ipatch sample mutex */
+  ipatch_sample_mutex = AGS_IPATCH_SAMPLE_GET_OBJ_MUTEX(ipatch_sample);
+
+  g_rec_mutex_lock(ipatch_sample_mutex);
 
   copy_mode = ags_audio_buffer_util_get_copy_mode(ags_audio_buffer_util_format_from_soundcard(ipatch_sample->format),
 						  ags_audio_buffer_util_format_from_soundcard(format));
@@ -1033,6 +1090,8 @@ ags_ipatch_sample_write(AgsSoundResource *sound_resource,
   }
   
   ipatch_sample->offset += frame_count;
+
+  g_rec_mutex_unlock(ipatch_sample_mutex);
 }
 
 void
@@ -1048,12 +1107,19 @@ ags_ipatch_sample_seek(AgsSoundResource *sound_resource,
   AgsIpatchSample *ipatch_sample;
 
   guint total_frame_count;
+
+  GRecMutex *ipatch_sample_mutex;
   
   ipatch_sample = AGS_IPATCH_SAMPLE(sound_resource);
+
+  /* get ipatch sample mutex */
+  ipatch_sample_mutex = AGS_IPATCH_SAMPLE_GET_OBJ_MUTEX(ipatch_sample);
 
   ags_sound_resource_info(sound_resource,
 			  &total_frame_count,
 			  NULL, NULL);
+
+  g_rec_mutex_lock(ipatch_sample_mutex);
 
   if(whence == G_SEEK_CUR){
     if(frame_count >= 0){
@@ -1090,21 +1156,8 @@ ags_ipatch_sample_seek(AgsSoundResource *sound_resource,
       }
     }
   }
-}
 
-/**
- * ags_ipatch_sample_get_class_mutex:
- * 
- * Use this function's returned mutex to access mutex fields.
- *
- * Returns: the class mutex
- * 
- * Since: 2.0.36
- */
-pthread_mutex_t*
-ags_ipatch_sample_get_class_mutex()
-{
-  return(&ags_ipatch_sample_class_mutex);
+  g_rec_mutex_unlock(ipatch_sample_mutex);
 }
 
 /**
@@ -1116,14 +1169,14 @@ ags_ipatch_sample_get_class_mutex()
  * 
  * Returns: %TRUE if flags are set, else %FALSE
  *
- * Since: 2.0.36
+ * Since: 3.0.0
  */
 gboolean
 ags_ipatch_sample_test_flags(AgsIpatchSample *ipatch_sample, guint flags)
 {
   gboolean retval;  
   
-  pthread_mutex_t *ipatch_sample_mutex;
+  GRecMutex *ipatch_sample_mutex;
 
   if(!AGS_IS_IPATCH_SAMPLE(ipatch_sample)){
     return(FALSE);
@@ -1133,11 +1186,11 @@ ags_ipatch_sample_test_flags(AgsIpatchSample *ipatch_sample, guint flags)
   ipatch_sample_mutex = AGS_IPATCH_SAMPLE_GET_OBJ_MUTEX(ipatch_sample);
 
   /* test */
-  pthread_mutex_lock(ipatch_sample_mutex);
+  g_rec_mutex_lock(ipatch_sample_mutex);
 
   retval = (flags & (ipatch_sample->flags)) ? TRUE: FALSE;
   
-  pthread_mutex_unlock(ipatch_sample_mutex);
+  g_rec_mutex_unlock(ipatch_sample_mutex);
 
   return(retval);
 }
@@ -1149,12 +1202,12 @@ ags_ipatch_sample_test_flags(AgsIpatchSample *ipatch_sample, guint flags)
  *
  * Enable a feature of @ipatch_sample.
  *
- * Since: 2.0.36
+ * Since: 3.0.0
  */
 void
 ags_ipatch_sample_set_flags(AgsIpatchSample *ipatch_sample, guint flags)
 {
-  pthread_mutex_t *ipatch_sample_mutex;
+  GRecMutex *ipatch_sample_mutex;
 
   if(!AGS_IS_IPATCH_SAMPLE(ipatch_sample)){
     return;
@@ -1166,11 +1219,11 @@ ags_ipatch_sample_set_flags(AgsIpatchSample *ipatch_sample, guint flags)
   //TODO:JK: add more?
 
   /* set flags */
-  pthread_mutex_lock(ipatch_sample_mutex);
+  g_rec_mutex_lock(ipatch_sample_mutex);
 
   ipatch_sample->flags |= flags;
   
-  pthread_mutex_unlock(ipatch_sample_mutex);
+  g_rec_mutex_unlock(ipatch_sample_mutex);
 }
     
 /**
@@ -1180,12 +1233,12 @@ ags_ipatch_sample_set_flags(AgsIpatchSample *ipatch_sample, guint flags)
  *
  * Disable a feature of @ipatch_sample.
  *
- * Since: 2.0.36
+ * Since: 3.0.0
  */
 void
 ags_ipatch_sample_unset_flags(AgsIpatchSample *ipatch_sample, guint flags)
 {  
-  pthread_mutex_t *ipatch_sample_mutex;
+  GRecMutex *ipatch_sample_mutex;
 
   if(!AGS_IS_IPATCH_SAMPLE(ipatch_sample)){
     return;
@@ -1197,11 +1250,11 @@ ags_ipatch_sample_unset_flags(AgsIpatchSample *ipatch_sample, guint flags)
   //TODO:JK: add more?
 
   /* unset flags */
-  pthread_mutex_lock(ipatch_sample_mutex);
+  g_rec_mutex_lock(ipatch_sample_mutex);
 
   ipatch_sample->flags &= (~flags);
   
-  pthread_mutex_unlock(ipatch_sample_mutex);
+  g_rec_mutex_unlock(ipatch_sample_mutex);
 }
 
 /**
@@ -1211,7 +1264,7 @@ ags_ipatch_sample_unset_flags(AgsIpatchSample *ipatch_sample, guint flags)
  *
  * Returns: the new #AgsIpatchSample.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 AgsIpatchSample*
 ags_ipatch_sample_new()

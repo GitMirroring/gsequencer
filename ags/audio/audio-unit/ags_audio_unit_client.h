@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -23,7 +23,7 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include <ags/config.h>
+#include <ags/ags_api_config.h>
 
 #ifdef AGS_WITH_AUDIO_UNIT
 #include <AudioToolbox/AudioToolbox.h>
@@ -34,6 +34,8 @@
 
 #include <ags/libags.h>
 
+G_BEGIN_DECLS
+
 #define AGS_TYPE_AUDIO_UNIT_CLIENT                (ags_audio_unit_client_get_type())
 #define AGS_AUDIO_UNIT_CLIENT(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_AUDIO_UNIT_CLIENT, AgsAudioUnitClient))
 #define AGS_AUDIO_UNIT_CLIENT_CLASS(class)        (G_TYPE_CHECK_CLASS_CAST(class, AGS_TYPE_AUDIO_UNIT_CLIENT, AgsAudioUnitClient))
@@ -41,15 +43,13 @@
 #define AGS_IS_AUDIO_UNIT_CLIENT_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE ((class), AGS_TYPE_AUDIO_UNIT_CLIENT))
 #define AGS_AUDIO_UNIT_CLIENT_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS(obj, AGS_TYPE_AUDIO_UNIT_CLIENT, AgsAudioUnitClientClass))
 
-#define AGS_AUDIO_UNIT_CLIENT_GET_OBJ_MUTEX(obj) (((AgsAudioUnitClient *) obj)->obj_mutex)
+#define AGS_AUDIO_UNIT_CLIENT_GET_OBJ_MUTEX(obj) (&(((AgsAudioUnitClient *) obj)->obj_mutex))
 
 typedef struct _AgsAudioUnitClient AgsAudioUnitClient;
 typedef struct _AgsAudioUnitClientClass AgsAudioUnitClientClass;
 
 /**
  * AgsAudioUnitClientFlags:
- * @AGS_AUDIO_UNIT_CLIENT_ADDED_TO_REGISTRY: the AudioUnit client was added to registry, see #AgsConnectable::add_to_registry()
- * @AGS_AUDIO_UNIT_CLIENT_CONNECTED: indicates the client was connected by calling #AgsConnectable::connect()
  * @AGS_AUDIO_UNIT_CLIENT_ACTIVATED: the client was activated
  * @AGS_AUDIO_UNIT_CLIENT_READY: the client is ready
  * 
@@ -57,10 +57,8 @@ typedef struct _AgsAudioUnitClientClass AgsAudioUnitClientClass;
  * enable/disable as flags.
  */
 typedef enum{
-  AGS_AUDIO_UNIT_CLIENT_ADDED_TO_REGISTRY  = 1,
-  AGS_AUDIO_UNIT_CLIENT_CONNECTED          = 1 <<  1,
-  AGS_AUDIO_UNIT_CLIENT_ACTIVATED          = 1 <<  2,
-  AGS_AUDIO_UNIT_CLIENT_READY              = 1 <<  3,
+  AGS_AUDIO_UNIT_CLIENT_ACTIVATED          = 1,
+  AGS_AUDIO_UNIT_CLIENT_READY              = 1 <<  1,
 }AgsAudioUnitClientFlags;
 
 struct _AgsAudioUnitClient
@@ -68,8 +66,9 @@ struct _AgsAudioUnitClient
   GObject gobject;
 
   guint flags;
-  pthread_mutex_t *obj_mutex;
-  pthread_mutexattr_t *obj_mutexattr;
+  guint connectable_flags;
+  
+  GRecMutex obj_mutex;
 
   GObject *audio_unit_server;
   
@@ -88,8 +87,7 @@ struct _AgsAudioUnitClientClass
 };
 
 GType ags_audio_unit_client_get_type();
-
-pthread_mutex_t* ags_audio_unit_client_get_class_mutex();
+GType ags_audio_unit_client_flags_get_type();
 
 gboolean ags_audio_unit_client_test_flags(AgsAudioUnitClient *audio_unit_client, guint flags);
 void ags_audio_unit_client_set_flags(AgsAudioUnitClient *audio_unit_client, guint flags);
@@ -117,5 +115,7 @@ void ags_audio_unit_client_activate(AgsAudioUnitClient *audio_unit_client);
 void ags_audio_unit_client_deactivate(AgsAudioUnitClient *audio_unit_client);
 
 AgsAudioUnitClient* ags_audio_unit_client_new(GObject *audio_unit_server);
+
+G_END_DECLS
 
 #endif /*__AGS_AUDIO_UNIT_CLIENT_H__*/

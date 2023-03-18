@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2020 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -23,22 +23,26 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include <pthread.h>
-
 #include <libxml/tree.h>
 
+G_BEGIN_DECLS
+
 #define AGS_TYPE_TURTLE                (ags_turtle_get_type())
+#define AGS_TYPE_TURTLE_FLAGS          (ags_turtle_flags_get_type())
 #define AGS_TURTLE(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_TURTLE, AgsTurtle))
 #define AGS_TURTLE_CLASS(class)        (G_TYPE_CHECK_CLASS_CAST((class), AGS_TYPE_TURTLE, AgsTurtleClass))
 #define AGS_IS_TURTLE(obj)             (G_TYPE_CHECK_INSTANCE_TYPE ((obj), AGS_TYPE_TURTLE))
 #define AGS_IS_TURTLE_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE ((class), AGS_TYPE_TURTLE))
 #define AGS_TURTLE_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS ((obj), AGS_TYPE_TURTLE, AgsTurtleClass))
 
-#define AGS_TURTLE_GET_OBJ_MUTEX(obj) (((AgsTurtle *) obj)->obj_mutex)
+#define AGS_TURTLE_GET_OBJ_MUTEX(obj) (&(((AgsTurtle *) obj)->obj_mutex))
 
 #define AGS_TURTLE_DEFAULT_ENCODING "UTF-8"
 
 #define AGS_TURTLE_DEFAULT_VERSION "0.7.3"
+
+#define AGS_TURTLE_BOOLEAN_LITERAL_TRUE "true"
+#define AGS_TURTLE_BOOLEAN_LITERAL_FALSE "false"
 
 typedef struct _AgsTurtle AgsTurtle;
 typedef struct _AgsTurtleClass AgsTurtleClass;
@@ -60,8 +64,7 @@ struct _AgsTurtle
 
   guint flags;
 
-  pthread_mutex_t *obj_mutex;
-  pthread_mutexattr_t *obj_mutexattr;
+  GRecMutex obj_mutex;
   
   gchar *filename;
   
@@ -76,8 +79,7 @@ struct _AgsTurtleClass
 };
 
 GType ags_turtle_get_type(void);
-
-pthread_mutex_t* ags_turtle_get_class_mutex();
+GType ags_turtle_flags_get_type();
 
 /* iri, pname, label and langtag */
 gchar* ags_turtle_read_iriref(gchar *offset,
@@ -91,6 +93,22 @@ gchar* ags_turtle_read_blank_node_label(gchar *offset,
 gchar* ags_turtle_read_langtag(gchar *offset,
 			       gchar *end_ptr);
 
+gboolean ags_turtle_match_iriref(gchar *offset,
+				 gchar *end_ptr,
+				 gchar **start_offset, gchar **end_offset);
+gboolean ags_turtle_match_pname_ns(gchar *offset,
+				   gchar *end_ptr,
+				   gchar **start_offset, gchar **end_offset);
+gboolean ags_turtle_match_pname_ln(gchar *offset,
+				   gchar *end_ptr,
+				   gchar **start_offset, gchar **end_offset);
+gboolean ags_turtle_match_blank_node_label(gchar *offset,
+					   gchar *end_ptr,
+					   gchar **start_offset, gchar **end_offset);
+gboolean ags_turtle_match_langtag(gchar *offset,
+				  gchar *end_ptr,
+				  gchar **start_offset, gchar **end_offset);
+
 /* numbers */
 gchar* ags_turtle_read_boolean(gchar *offset,
 			       gchar *end_ptr);
@@ -103,9 +121,29 @@ gchar* ags_turtle_read_double(gchar *offset,
 gchar* ags_turtle_read_exponent(gchar *offset,
 				gchar *end_ptr);
 
+gboolean ags_turtle_match_boolean(gchar *offset,
+				  gchar *end_ptr,
+				  gchar **start_offset, gchar **end_offset);
+gboolean ags_turtle_match_integer(gchar *offset,
+				  gchar *end_ptr,
+				  gchar **start_offset, gchar **end_offset);
+gboolean ags_turtle_match_decimal(gchar *offset,
+				  gchar *end_ptr,
+				  gchar **start_offset, gchar **end_offset);
+gboolean ags_turtle_match_double(gchar *offset,
+				 gchar *end_ptr,
+				 gchar **start_offset, gchar **end_offset);
+gboolean ags_turtle_match_exponent(gchar *offset,
+				   gchar *end_ptr,
+				   gchar **start_offset, gchar **end_offset);
+
 /* literals */
 gchar* ags_turtle_read_string(gchar *offset,
 			      gchar *end_ptr);
+
+gboolean ags_turtle_match_string(gchar *offset,
+				 gchar *end_ptr,
+				 gchar **start_offset, gchar **end_offset);
 
 gchar* ags_turtle_read_string_literal_quote(gchar *offset,
 					    gchar *end_ptr);
@@ -115,6 +153,19 @@ gchar* ags_turtle_read_string_literal_long_quote(gchar *offset,
 						 gchar *end_ptr);
 gchar* ags_turtle_read_string_literal_long_single_quote(gchar *offset,
 							gchar *end_ptr);
+
+gboolean ags_turtle_match_string_literal_quote(gchar *offset,
+					       gchar *end_ptr,
+					       gchar **start_offset, gchar **end_offset);
+gboolean ags_turtle_match_string_literal_single_quote(gchar *offset,
+						      gchar *end_ptr,
+						      gchar **start_offset, gchar **end_offset);
+gboolean ags_turtle_match_string_literal_long_quote(gchar *offset,
+						    gchar *end_ptr,
+						    gchar **start_offset, gchar **end_offset);
+gboolean ags_turtle_match_string_literal_long_single_quote(gchar *offset,
+							   gchar *end_ptr,
+							   gchar **start_offset, gchar **end_offset);
 
 /* character ranges might return multi-byte */
 gchar* ags_turtle_read_uchar(gchar *offset,
@@ -144,6 +195,46 @@ gchar* ags_turtle_read_hex(gchar *offset,
 gchar* ags_turtle_read_pn_local_esc(gchar *offset,
 				    gchar *end_ptr);
 
+gboolean ags_turtle_match_uchar(gchar *offset,
+				gchar *end_ptr,
+				gchar **start_offset, gchar **end_offset);
+gboolean ags_turtle_match_echar(gchar *offset,
+				gchar *end_ptr,
+				gchar **start_offset, gchar **end_offset);
+gboolean ags_turtle_match_ws(gchar *offset,
+			     gchar *end_ptr,
+			     gchar **start_offset, gchar **end_offset);
+gboolean ags_turtle_match_anon(gchar *offset,
+			       gchar *end_ptr,
+			       gchar **start_offset, gchar **end_offset);
+gboolean ags_turtle_match_pn_chars_base(gchar *offset,
+					gchar *end_ptr,
+					gchar **start_offset, gchar **end_offset);
+gboolean ags_turtle_match_pn_chars_u(gchar *offset,
+				     gchar *end_ptr,
+				     gchar **start_offset, gchar **end_offset);
+gboolean ags_turtle_match_pn_chars(gchar *offset,
+				   gchar *end_ptr,
+				   gchar **start_offset, gchar **end_offset);
+gboolean ags_turtle_match_pn_prefix(gchar *offset,
+				    gchar *end_ptr,
+				    gchar **start_offset, gchar **end_offset);
+gboolean ags_turtle_match_pn_local(gchar *offset,
+				   gchar *end_ptr,
+				   gchar **start_offset, gchar **end_offset);
+gboolean ags_turtle_match_plx(gchar *offset,
+			      gchar *end_ptr,
+			      gchar **start_offset, gchar **end_offset);
+gboolean ags_turtle_match_percent(gchar *offset,
+				  gchar *end_ptr,
+				  gchar **start_offset, gchar **end_offset);
+gboolean ags_turtle_match_hex(gchar *offset,
+			      gchar *end_ptr,
+			      gchar **start_offset, gchar **end_offset);
+gboolean ags_turtle_match_pn_local_esc(gchar *offset,
+				       gchar *end_ptr,
+				       gchar **start_offset, gchar **end_offset);
+
 /* XML related */
 GList* ags_turtle_find_xpath(AgsTurtle *turtle,
 			     gchar *xpath);
@@ -157,5 +248,7 @@ xmlDoc* ags_turtle_load(AgsTurtle *turtle,
 			GError **error);
 
 AgsTurtle* ags_turtle_new(gchar *filename);
+
+G_END_DECLS
 
 #endif /*__AGS_TURTLE_H__*/

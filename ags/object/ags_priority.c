@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2020 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -28,7 +28,9 @@
 #include <stdio.h>
 #include <string.h>
 
-#ifndef AGS_W32API
+#include <ags/config.h>
+
+#if !defined(AGS_W32API)
 #include <pwd.h>
 #endif
 
@@ -82,8 +84,6 @@ static gpointer ags_priority_parent_class = NULL;
 static guint priority_signals[LAST_SIGNAL];
 
 AgsPriority *ags_priority = NULL;
-
-static pthread_mutex_t ags_priority_class_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 GType
 ags_priority_get_type (void)
@@ -147,7 +147,7 @@ ags_priority_class_init(AgsPriorityClass *priority)
    *
    * The ::load-defaults signal notifies about loading defaults
    *
-   * Since: 2.4.2
+   * Since: 3.0.0
    */
   priority_signals[LOAD_DEFAULTS] =
     g_signal_new("load-defaults",
@@ -168,7 +168,7 @@ ags_priority_class_init(AgsPriorityClass *priority)
    *
    * The ::set-value signal notifies about value been setting.
    *
-   * Since: 2.4.2
+   * Since: 3.0.0
    */
   priority_signals[SET_VALUE] =
     g_signal_new("set-value",
@@ -190,7 +190,7 @@ ags_priority_class_init(AgsPriorityClass *priority)
    *
    * Returns: the value
    *
-   * Since: 2.4.2
+   * Since: 3.0.0
    */
   priority_signals[GET_VALUE] =
     g_signal_new("get-value",
@@ -208,20 +208,7 @@ ags_priority_init(AgsPriority *priority)
 {
   priority->flags = 0;
   
-  priority->obj_mutexattr = (pthread_mutexattr_t *) malloc(sizeof(pthread_mutexattr_t));
-
-  pthread_mutexattr_init(priority->obj_mutexattr);
-  pthread_mutexattr_settype(priority->obj_mutexattr,
-			    PTHREAD_MUTEX_RECURSIVE);
-
-#ifdef __linux__
-  pthread_mutexattr_setprotocol(priority->obj_mutexattr,
-				PTHREAD_PRIO_INHERIT);
-#endif
-
-  
-  priority->obj_mutex = (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t));
-  pthread_mutex_init(priority->obj_mutex, priority->obj_mutexattr);
+  g_rec_mutex_init(&(priority->obj_mutex));
 
   /* version and build id */
   priority->version = g_strdup(AGS_PRIORITY_DEFAULT_VERSION);
@@ -239,7 +226,7 @@ ags_priority_set_property(GObject *gobject,
 {
   AgsPriority *priority;
 
-  pthread_mutex_t *priority_mutex;
+  GRecMutex *priority_mutex;
 
   priority = AGS_PRIORITY(gobject);
 
@@ -261,7 +248,7 @@ ags_priority_get_property(GObject *gobject,
 {
   AgsPriority *priority;
 
-  pthread_mutex_t *priority_mutex;
+  GRecMutex *priority_mutex;
 
   priority = AGS_PRIORITY(gobject);
 
@@ -292,13 +279,6 @@ ags_priority_finalize(GObject *gobject)
 
   priority = (AgsPriority *) gobject;
 
-  /* priority mutex */
-  pthread_mutexattr_destroy(priority->obj_mutexattr);
-  free(priority->obj_mutexattr);
-
-  pthread_mutex_destroy(priority->obj_mutex);
-  free(priority->obj_mutex);
-
   /* key file */
   if(priority->key_file != NULL){
     g_key_file_unref(priority->key_file);
@@ -318,7 +298,7 @@ ags_priority_get_version(AgsPriority *priority)
 {
   gchar *version;
   
-  pthread_mutex_t *priority_mutex;
+  GRecMutex *priority_mutex;
 
   if(!AGS_IS_PRIORITY(priority)){
     return(NULL);
@@ -327,11 +307,11 @@ ags_priority_get_version(AgsPriority *priority)
   priority_mutex = AGS_PRIORITY_GET_OBJ_MUTEX(priority);
 
   /* get version */
-  pthread_mutex_lock(priority_mutex);
+  g_rec_mutex_lock(priority_mutex);
 
   version = priority->version;
   
-  pthread_mutex_unlock(priority_mutex);
+  g_rec_mutex_unlock(priority_mutex);
 
   return(version);
 }
@@ -339,7 +319,7 @@ ags_priority_get_version(AgsPriority *priority)
 void
 ags_priority_set_version(AgsPriority *priority, gchar *version)
 {
-  pthread_mutex_t *priority_mutex;
+  GRecMutex *priority_mutex;
 
   if(!AGS_IS_PRIORITY(priority)){
     return;
@@ -348,11 +328,11 @@ ags_priority_set_version(AgsPriority *priority, gchar *version)
   priority_mutex = AGS_PRIORITY_GET_OBJ_MUTEX(priority);
 
   /* set version */
-  pthread_mutex_lock(priority_mutex);
+  g_rec_mutex_lock(priority_mutex);
 
   priority->version = g_strdup(version);
   
-  pthread_mutex_unlock(priority_mutex);
+  g_rec_mutex_unlock(priority_mutex);
 }
 
 gchar*
@@ -360,7 +340,7 @@ ags_priority_get_build_id(AgsPriority *priority)
 {
   gchar *build_id;
   
-  pthread_mutex_t *priority_mutex;
+  GRecMutex *priority_mutex;
 
   if(!AGS_IS_PRIORITY(priority)){
     return(NULL);
@@ -369,11 +349,11 @@ ags_priority_get_build_id(AgsPriority *priority)
   priority_mutex = AGS_PRIORITY_GET_OBJ_MUTEX(priority);
 
   /* get build id */
-  pthread_mutex_lock(priority_mutex);
+  g_rec_mutex_lock(priority_mutex);
 
   build_id = priority->build_id;
   
-  pthread_mutex_unlock(priority_mutex);
+  g_rec_mutex_unlock(priority_mutex);
 
   return(build_id);
 }
@@ -381,7 +361,7 @@ ags_priority_get_build_id(AgsPriority *priority)
 void
 ags_priority_set_build_id(AgsPriority *priority, gchar *build_id)
 {
-  pthread_mutex_t *priority_mutex;
+  GRecMutex *priority_mutex;
 
   if(!AGS_IS_PRIORITY(priority)){
     return;
@@ -390,46 +370,35 @@ ags_priority_set_build_id(AgsPriority *priority, gchar *build_id)
   priority_mutex = AGS_PRIORITY_GET_OBJ_MUTEX(priority);
 
   /* set version */
-  pthread_mutex_lock(priority_mutex);
+  g_rec_mutex_lock(priority_mutex);
 
   priority->build_id = g_strdup(build_id);
   
-  pthread_mutex_unlock(priority_mutex);
-}
-
-/**
- * ags_priority_get_class_mutex:
- * 
- * Use this function's returned mutex to access mutex fields.
- *
- * Returns: the class mutex
- * 
- * Since: 2.4.2
- */
-pthread_mutex_t*
-ags_priority_get_class_mutex()
-{
-  return(&ags_priority_class_mutex);
+  g_rec_mutex_unlock(priority_mutex);
 }
 
 void
 ags_priority_real_load_defaults(AgsPriority *priority)
 {
 
-  pthread_mutex_t *priority_mutex;
+  GRecMutex *priority_mutex;
   
   priority_mutex = AGS_PRIORITY_GET_OBJ_MUTEX(priority);
 
   /* load defaults */
-  pthread_mutex_lock(priority_mutex);
+  g_rec_mutex_lock(priority_mutex);
 
-  ags_priority_set_value(priority, AGS_PRIORITY_RT_THREAD, "gsequencer", "95");
-  ags_priority_set_value(priority, AGS_PRIORITY_RT_THREAD, "default", "45");
-  ags_priority_set_value(priority, AGS_PRIORITY_RT_THREAD, "polling-thread", "95");
-  ags_priority_set_value(priority, AGS_PRIORITY_RT_THREAD, "thread-pool", "99");
-  ags_priority_set_value(priority, AGS_PRIORITY_RT_THREAD, "task-thread", "95");
+  ags_priority_set_value(priority, AGS_PRIORITY_RT_THREAD, AGS_PRIORITY_KEY_LIBAGS, "0"); // 45
 
-  pthread_mutex_unlock(priority_mutex);
+  ags_priority_set_value(priority, AGS_PRIORITY_RT_THREAD, AGS_PRIORITY_KEY_SERVER_MAIN_LOOP, "0"); // 15
+
+  ags_priority_set_value(priority, AGS_PRIORITY_RT_THREAD, AGS_PRIORITY_KEY_AUDIO_MAIN_LOOP, "0"); // 15
+  ags_priority_set_value(priority, AGS_PRIORITY_RT_THREAD, AGS_PRIORITY_KEY_AUDIO, "0"); // 45
+  ags_priority_set_value(priority, AGS_PRIORITY_RT_THREAD, AGS_PRIORITY_KEY_OSC_SERVER_MAIN_LOOP, "0"); // 15
+
+  ags_priority_set_value(priority, AGS_PRIORITY_RT_THREAD, AGS_PRIORITY_KEY_GUI_MAIN_LOOP, "0"); // 15
+
+  g_rec_mutex_unlock(priority_mutex);
 }
 
 /**
@@ -438,7 +407,7 @@ ags_priority_real_load_defaults(AgsPriority *priority)
  *
  * Load priorities from default values.
  *
- * Since: 2.4.2
+ * Since: 3.0.0
  */
 void
 ags_priority_load_defaults(AgsPriority *priority)
@@ -458,14 +427,14 @@ ags_priority_load_defaults(AgsPriority *priority)
  *
  * Load priorities from @filename.
  *
- * Since: 2.4.2
+ * Since: 3.0.0
  */
 void
 ags_priority_load_from_file(AgsPriority *priority, gchar *filename)
 {
   GFile *file;
 
-  pthread_mutex_t *priority_mutex;
+  GRecMutex *priority_mutex;
 
   if(!AGS_IS_PRIORITY(priority)){
     return;
@@ -489,7 +458,7 @@ ags_priority_load_from_file(AgsPriority *priority, gchar *filename)
 
     GError *error;
 
-    pthread_mutex_lock(priority_mutex);
+    g_rec_mutex_lock(priority_mutex);
 
     error = NULL;
     
@@ -537,7 +506,7 @@ ags_priority_load_from_file(AgsPriority *priority, gchar *filename)
     g_strfreev(groups_start);
     g_key_file_unref(key_file);
 
-    pthread_mutex_unlock(priority_mutex);
+    g_rec_mutex_unlock(priority_mutex);
   }
 
   g_object_unref(file);
@@ -547,16 +516,16 @@ ags_priority_load_from_file(AgsPriority *priority, gchar *filename)
 void
 ags_priority_real_set_value(AgsPriority *priority, gchar *group, gchar *key, gchar *value)
 {
-  pthread_mutex_t *priority_mutex;
+  GRecMutex *priority_mutex;
   
   priority_mutex = AGS_PRIORITY_GET_OBJ_MUTEX(priority);
 
   /* set value */
-  pthread_mutex_lock(priority_mutex);
+  g_rec_mutex_lock(priority_mutex);
   
   g_key_file_set_value(priority->key_file, group, key, value);
 
-  pthread_mutex_unlock(priority_mutex);
+  g_rec_mutex_unlock(priority_mutex);
 }
 
 /**
@@ -568,7 +537,7 @@ ags_priority_real_set_value(AgsPriority *priority, gchar *group, gchar *key, gch
  *
  * Set priority by @group and @key, applying @value.
  *
- * Since: 2.4.2
+ * Since: 3.0.0
  */
 void
 ags_priority_set_value(AgsPriority *priority, gchar *group, gchar *key, gchar *value)
@@ -588,12 +557,12 @@ ags_priority_real_get_value(AgsPriority *priority, gchar *group, gchar *key)
   gchar *str;
   GError *error;
   
-  pthread_mutex_t *priority_mutex;
+  GRecMutex *priority_mutex;
   
   priority_mutex = AGS_PRIORITY_GET_OBJ_MUTEX(priority);
 
   /* get value */
-  pthread_mutex_lock(priority_mutex);
+  g_rec_mutex_lock(priority_mutex);
   
   error = NULL;
 
@@ -605,7 +574,7 @@ ags_priority_real_get_value(AgsPriority *priority, gchar *group, gchar *key)
     g_error_free(error);
   }
   
-  pthread_mutex_unlock(priority_mutex);
+  g_rec_mutex_unlock(priority_mutex);
 
   return(str);
 }
@@ -618,9 +587,9 @@ ags_priority_real_get_value(AgsPriority *priority, gchar *group, gchar *key)
  *
  * Retrieve priority by @group and @key.
  *
- * Returns: the property's value
+ * Returns: (transfer full): the property's value
  *
- * Since: 2.4.2
+ * Since: 3.0.0
  */
 gchar*
 ags_priority_get_value(AgsPriority *priority, gchar *group, gchar *key)
@@ -644,22 +613,22 @@ ags_priority_get_value(AgsPriority *priority, gchar *group, gchar *key)
  *
  * Get priority instance.
  *
- * Returns: the priority instance
+ * Returns: (transfer none): the priority instance
  *
- * Since: 2.4.2
+ * Since: 3.0.0
  */
 AgsPriority*
 ags_priority_get_instance()
 {
-  static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+  static GMutex mutex;
 
-  pthread_mutex_lock(&mutex);
+  g_mutex_lock(&mutex);
 
   if(ags_priority == NULL){
     ags_priority = ags_priority_new(NULL);
   }
 
-  pthread_mutex_unlock(&mutex);
+  g_mutex_unlock(&mutex);
 
   return(ags_priority);
 }
@@ -671,7 +640,7 @@ ags_priority_get_instance()
  *
  * Returns: the new #AgsPriority.
  *
- * Since: 2.4.2
+ * Since: 3.0.0
  */
 AgsPriority*
 ags_priority_new()

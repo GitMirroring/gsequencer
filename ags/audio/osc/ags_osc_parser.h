@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -25,7 +25,9 @@
 
 #include <libxml/tree.h>
 
-#include <pthread.h>
+#include <ags/libags.h>
+
+G_BEGIN_DECLS
 
 #define AGS_TYPE_OSC_PARSER                (ags_osc_parser_get_type ())
 #define AGS_OSC_PARSER(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_OSC_PARSER, AgsOscParser))
@@ -34,13 +36,20 @@
 #define AGS_IS_OSC_PARSER_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE ((class), AGS_TYPE_OSC_PARSER))
 #define AGS_OSC_PARSER_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS ((obj), AGS_TYPE_OSC_PARSER, AgsOscParserClass))
 
-#define AGS_OSC_PARSER_GET_OBJ_MUTEX(obj) (((AgsOscParser *) obj)->obj_mutex)
+#define AGS_OSC_PARSER_GET_OBJ_MUTEX(obj) (&(((AgsOscParser *) obj)->obj_mutex))
 
 #define AGS_OSC_PARSER_MAX_TEXT_LENGTH (4096)
 
 typedef struct _AgsOscParser AgsOscParser;
 typedef struct _AgsOscParserClass AgsOscParserClass;
 
+/**
+ * AgsOscParserFlags:
+ * @AGS_OSC_PARSER_EOF: the parser reached EOF
+ * 
+ * Enum values to control the behavior or indicate internal state of #AgsOscParser by
+ * enable/disable as flags.
+ */
 typedef enum{
   AGS_OSC_PARSER_EOF        = 1,
 }AgsOscParserFlags;
@@ -51,10 +60,9 @@ struct _AgsOscParser
 
   guint flags;
 
-  pthread_mutex_t *obj_mutex;
-  pthread_mutexattr_t *obj_mutexattr;
+  GRecMutex obj_mutex;
 
-  unsigned char *buffer;
+  guchar *buffer;
   
   size_t file_length;
   size_t offset;
@@ -75,7 +83,7 @@ struct _AgsOscParserClass
 
   xmlDoc* (*parse_full)(AgsOscParser *osc_parser);
   xmlNode* (*parse_bytes)(AgsOscParser *osc_parser,
-			  unsigned char *osc_buffer,
+			  guchar *osc_buffer,
 			  guint buffer_length);
 
   xmlNode* (*packet)(AgsOscParser *osc_parser);
@@ -89,8 +97,6 @@ struct _AgsOscParserClass
 };
 
 GType ags_osc_parser_get_type(void);
-
-pthread_mutex_t* ags_osc_parser_get_class_mutex();
 
 gint32 ags_osc_parser_read_gint32(AgsOscParser *osc_parser);
 gint64 ags_osc_parser_read_gint64(AgsOscParser *osc_parser);
@@ -107,7 +113,7 @@ void ags_osc_parser_on_error(AgsOscParser *osc_parser,
 
 xmlDoc* ags_osc_parser_parse_full(AgsOscParser *osc_parser);
 xmlNode* ags_osc_parser_parse_bytes(AgsOscParser *osc_parser,
-				    unsigned char *osc_buffer,
+				    guchar *osc_buffer,
 				    guint buffer_length);
 
 xmlNode* ags_osc_parser_packet(AgsOscParser *osc_parser);
@@ -120,5 +126,7 @@ xmlNode* ags_osc_parser_value(AgsOscParser *osc_parser,
 			      guint v_type);
 
 AgsOscParser* ags_osc_parser_new();
+
+G_END_DECLS
 
 #endif /*__AGS_OSC_PARSER_H__*/

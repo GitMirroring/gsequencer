@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2023 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -1014,8 +1014,8 @@ ags_automation_editor_real_machine_changed(AgsAutomationEditor *automation_edito
   guint audio_channels;
   guint i;
 
-  pthread_mutex_t *audio_mutex;
-  pthread_mutex_t *automation_mutex;
+  GRecMutex *audio_mutex;
+  GRecMutex *automation_mutex;
 
   /* disconnect set pads - old */
   old_machine = automation_editor->selected_machine;
@@ -1049,11 +1049,7 @@ ags_automation_editor_real_machine_changed(AgsAutomationEditor *automation_edito
 
   /* get audio mutex */
   if(machine != NULL){
-    pthread_mutex_lock(ags_audio_get_class_mutex());
-  
-    audio_mutex = machine->audio->obj_mutex;
-  
-    pthread_mutex_unlock(ags_audio_get_class_mutex());
+    audio_mutex = AGS_AUDIO_GET_OBJ_MUTEX(machine->audio);
   }
   
   /* notebook - remove tabs */
@@ -1073,14 +1069,14 @@ ags_automation_editor_real_machine_changed(AgsAutomationEditor *automation_edito
 
   /* notebook - add tabs */
   if(machine != NULL){
-    pthread_mutex_lock(audio_mutex);
+    g_rec_mutex_lock(audio_mutex);
 
     output_pads = machine->audio->output_pads;
     input_pads = machine->audio->input_pads;
     
     audio_channels = machine->audio->audio_channels;
     
-    pthread_mutex_unlock(audio_mutex);
+    g_rec_mutex_unlock(audio_mutex);
 
     for(i = 0; i < output_pads * audio_channels; i++){
       ags_notebook_insert_tab(automation_editor->output_notebook,
@@ -1222,11 +1218,7 @@ ags_automation_editor_real_machine_changed(AgsAutomationEditor *automation_edito
 	gdouble upper, lower;
 	gdouble default_value;
 	
-	pthread_mutex_lock(ags_automation_get_class_mutex());
-  
-	automation_mutex = AGS_AUTOMATION(automation->data)->obj_mutex;
-  
-	pthread_mutex_unlock(ags_automation_get_class_mutex());
+	automation_mutex = AGS_AUTOMATION_GET_OBJ_MUTEX(AGS_AUTOMATION(automation->data));
 	
 	/* scale */
 	scale = ags_scale_new();
@@ -1235,7 +1227,7 @@ ags_automation_editor_real_machine_changed(AgsAutomationEditor *automation_edito
 		     "scale-height", (guint) (gui_scale_factor * AGS_SCALE_DEFAULT_SCALE_HEIGHT),
 		     NULL);
 
-	pthread_mutex_lock(automation_mutex);
+	g_rec_mutex_lock(automation_mutex);
 
 	control_name = g_strdup(AGS_AUTOMATION(automation->data)->control_name);
 	
@@ -1244,7 +1236,7 @@ ags_automation_editor_real_machine_changed(AgsAutomationEditor *automation_edito
 
 	default_value = AGS_AUTOMATION(automation->data)->default_value;
 	
-	pthread_mutex_unlock(automation_mutex);
+	g_rec_mutex_unlock(automation_mutex);
 
 	g_object_set(scale,
 		     "control-name", control_name,
@@ -1275,7 +1267,7 @@ ags_automation_editor_real_machine_changed(AgsAutomationEditor *automation_edito
 	/* automation edit */
 	automation_edit = ags_automation_edit_new();
 
-	pthread_mutex_lock(audio_mutex);
+	g_rec_mutex_lock(audio_mutex);
 
 	g_object_set(automation_edit,
 		     "channel-type", G_TYPE_NONE,
@@ -1286,7 +1278,7 @@ ags_automation_editor_real_machine_changed(AgsAutomationEditor *automation_edito
 		     "default-value", default_value,
 		     NULL);
 
-	pthread_mutex_unlock(audio_mutex);
+	g_rec_mutex_unlock(audio_mutex);
 
 	if(AGS_MACHINE_AUTOMATION_PORT(automation_port->data)->channel_type == G_TYPE_NONE){
 	  gtk_box_pack_start(GTK_BOX(automation_editor->audio_scrolled_automation_edit_box->automation_edit_box),
@@ -1389,7 +1381,7 @@ ags_automation_editor_add_acceleration(AgsAutomationEditor *automation_editor,
     AgsChannel *start_output, *start_input;
     AgsChannel *channel, *nth_channel;
 
-    pthread_mutex_t *audio_mutex;
+    GRecMutex *audio_mutex;
 
     machine = automation_editor->selected_machine;
 
@@ -1402,14 +1394,10 @@ ags_automation_editor_add_acceleration(AgsAutomationEditor *automation_editor,
     }
 
     /* get audio mutex */
-    pthread_mutex_lock(ags_audio_get_class_mutex());
-  
-    audio_mutex = machine->audio->obj_mutex;
-  
-    pthread_mutex_unlock(ags_audio_get_class_mutex());
+    audio_mutex = AGS_AUDIO_GET_OBJ_MUTEX(machine->audio);
 
     /* get some fields */
-    pthread_mutex_lock(audio_mutex);
+    g_rec_mutex_lock(audio_mutex);
 
     start_output = machine->audio->output;
 
@@ -1423,7 +1411,7 @@ ags_automation_editor_add_acceleration(AgsAutomationEditor *automation_editor,
       g_object_ref(start_input);
     }
     
-    pthread_mutex_unlock(audio_mutex);
+    g_rec_mutex_unlock(audio_mutex);
     
     /* check all active tabs */
     timestamp = ags_timestamp_new();
@@ -1960,19 +1948,15 @@ ags_automation_editor_paste(AgsAutomationEditor *automation_editor)
     guint current_x;
     gint i;
 
-    pthread_mutex_t *audio_mutex;
+    GRecMutex *audio_mutex;
     
     first_x = -1;
 
     /* get audio mutex */
-    pthread_mutex_lock(ags_audio_get_class_mutex());
-  
-    audio_mutex = machine->audio->obj_mutex;
-  
-    pthread_mutex_unlock(ags_audio_get_class_mutex());
+    audio_mutex = AGS_AUDIO_GET_OBJ_MUTEX(machine->audio);
 
     /* get some fields */
-    pthread_mutex_lock(audio_mutex);
+    g_rec_mutex_lock(audio_mutex);
 
     start_output = machine->audio->output;
 
@@ -1986,7 +1970,7 @@ ags_automation_editor_paste(AgsAutomationEditor *automation_editor)
       g_object_ref(start_input);
     }
     
-    pthread_mutex_unlock(audio_mutex);
+    g_rec_mutex_unlock(audio_mutex);
     
     /*  */
     i = 0;

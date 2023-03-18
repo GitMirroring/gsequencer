@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2020 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -18,8 +18,6 @@
  */
 
 #include <ags/audio/task/ags_apply_synth.h>
-
-#include <ags/libags.h>
 
 #include <ags/audio/ags_audio.h>
 #include <ags/audio/ags_input.h>
@@ -65,6 +63,7 @@ enum{
   PROP_START_CHANNEL,
   PROP_BASE_NOTE,
   PROP_COUNT,
+  PROP_REQUESTED_FRAME_COUNT,
 };
 
 GType
@@ -123,7 +122,7 @@ ags_apply_synth_class_init(AgsApplySynthClass *apply_synth)
    *
    * The assigned #AgsSynthGenerator
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_object("synth-generator",
 				   i18n_pspec("synth generator"),
@@ -139,7 +138,7 @@ ags_apply_synth_class_init(AgsApplySynthClass *apply_synth)
    *
    * The assigned #AgsChannel
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_object("start-channel",
 				   i18n_pspec("start channel of apply synth"),
@@ -155,7 +154,7 @@ ags_apply_synth_class_init(AgsApplySynthClass *apply_synth)
    *
    * The base-note to ramp up from.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_double("base-note",
                                   i18n_pspec("base note"),
@@ -173,7 +172,7 @@ ags_apply_synth_class_init(AgsApplySynthClass *apply_synth)
    *
    * The count of channels to apply.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("count",
 				 i18n_pspec("count of channels"),
@@ -184,6 +183,24 @@ ags_apply_synth_class_init(AgsApplySynthClass *apply_synth)
 				 G_PARAM_READABLE | G_PARAM_WRITABLE);
   g_object_class_install_property(gobject,
 				  PROP_COUNT,
+				  param_spec);
+
+  /**
+   * AgsApplySynth:requested-frame-count:
+   *
+   * The frame count of audio signal to apply.
+   * 
+   * Since: 3.3.0
+   */
+  param_spec = g_param_spec_uint("requested-frame-count",
+				 i18n_pspec("requested frame count"),
+				 i18n_pspec("The requested frame count to apply"),
+				 0,
+				 G_MAXUINT32,
+				 0,
+				 G_PARAM_READABLE | G_PARAM_WRITABLE);
+  g_object_class_install_property(gobject,
+				  PROP_REQUESTED_FRAME_COUNT,
 				  param_spec);
   
   /* AgsTaskClass */
@@ -199,6 +216,8 @@ ags_apply_synth_init(AgsApplySynth *apply_synth)
 
   apply_synth->start_channel = NULL;
   apply_synth->count = 0;
+
+  apply_synth->requested_frame_count = 0;
 }
 
 void
@@ -264,6 +283,11 @@ ags_apply_synth_set_property(GObject *gobject,
       apply_synth->count = g_value_get_uint(value);
     }
     break;
+  case PROP_REQUESTED_FRAME_COUNT:
+    {
+      apply_synth->requested_frame_count = g_value_get_uint(value);
+    }
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(gobject, prop_id, param_spec);
     break;
@@ -299,6 +323,11 @@ ags_apply_synth_get_property(GObject *gobject,
   case PROP_COUNT:
     {
       g_value_set_uint(value, apply_synth->count);
+    }
+    break;
+  case PROP_REQUESTED_FRAME_COUNT:
+    {
+      g_value_set_uint(value, apply_synth->requested_frame_count);
     }
     break;
   default:
@@ -355,7 +384,7 @@ ags_apply_synth_launch(AgsTask *task)
   AgsApplySynth *apply_synth;
 
   AgsAudio *audio;
-  AgsChannel *channel, *input;
+  AgsChannel *channel, *next_channel, *input;
   AgsRecycling *first_recycling;
   AgsAudioSignal *audio_signal;
   AgsSynthGenerator *synth_generator;
@@ -366,116 +395,123 @@ ags_apply_synth_launch(AgsTask *task)
   GList *rt_template_start, *rt_template;
 
   gchar *str;
-
-  guint audio_flags;
+  
   gdouble base_note;
   gdouble note;
   guint count;
+  guint requested_frame_count;
+  guint buffer_size;
   guint i;
-
-  pthread_mutex_t *audio_mutex;
-  pthread_mutex_t *channel_mutex;
-  pthread_mutex_t *input_mutex;
-  pthread_mutex_t *recycling_mutex;
   
   apply_synth = AGS_APPLY_SYNTH(task);
 
-  synth_generator = apply_synth->synth_generator;
+  g_return_if_fail(AGS_IS_CHANNEL(apply_synth->start_channel));
+  g_return_if_fail(AGS_IS_SYNTH_GENERATOR(apply_synth->synth_generator));
   
   channel = apply_synth->start_channel;
+  
+  synth_generator = apply_synth->synth_generator;
 
   base_note = apply_synth->base_note;
   count = apply_synth->count;
 
-  /* get channel mutex */
-  channel_mutex = AGS_CHANNEL_GET_OBJ_MUTEX(channel);
+  requested_frame_count = apply_synth->requested_frame_count;
 
-  /* get some fields */
-  pthread_mutex_lock(channel_mutex);
-
-  audio = (AgsAudio *) channel->audio;
-
-  pthread_mutex_unlock(channel_mutex);
-
-  /* get audio mutex */
-  audio_mutex = AGS_AUDIO_GET_OBJ_MUTEX(audio);
-
-  /* get some fields */
-  pthread_mutex_lock(audio_mutex);
-
-  audio_flags = audio->flags;
+  buffer_size = AGS_SOUNDCARD_DEFAULT_BUFFER_SIZE;
   
-  pthread_mutex_unlock(audio_mutex);
+  /* get some fields */
+  g_object_get(channel,
+	       "audio", &audio,
+	       NULL);
 
   /* compute */
   channel = apply_synth->start_channel;
+
+  if(channel != NULL){
+    g_object_ref(channel);
+
+    for(i = 0; channel != NULL && i < apply_synth->count; i++){
+      /* get some fields */
+      g_object_get(channel,
+		   "first-recycling", &first_recycling,
+		   NULL);
 	
-  for(i = 0; channel != NULL && i < apply_synth->count; i++){
-    /* get channel mutex */
-    channel_mutex = AGS_CHANNEL_GET_OBJ_MUTEX(channel);
-
-    /* get some fields */
-    pthread_mutex_lock(channel_mutex);
-
-    first_recycling = channel->first_recycling;
-		
-    pthread_mutex_unlock(channel_mutex);
-
-    /* get recycling mutex */
-    recycling_mutex = AGS_RECYCLING_GET_OBJ_MUTEX(first_recycling);
+      /* get template */
+      g_object_get(first_recycling,
+		   "output-soundcard", &output_soundcard,
+		   "audio-signal", &list_start,
+		   NULL);
 	
-    /* get template */
-    g_object_get(first_recycling,
-		 "output-soundcard", &output_soundcard,
-		 "audio-signal", &list_start,
-		 NULL);
+      audio_signal = ags_audio_signal_get_template(list_start);
+
+      if(audio_signal == NULL){
+	audio_signal = ags_audio_signal_new(output_soundcard,
+					    (GObject *) first_recycling,
+					    NULL);
+	audio_signal->flags |= AGS_AUDIO_SIGNAL_TEMPLATE;
+	ags_recycling_add_audio_signal(first_recycling,
+				       audio_signal);
+
+	g_object_ref(audio_signal);
+      }
 	
-    audio_signal = ags_audio_signal_get_template(list_start);
-
-    if(audio_signal == NULL){
-      audio_signal = ags_audio_signal_new(output_soundcard,
-					  (GObject *) first_recycling,
-					  NULL);
-      audio_signal->flags |= AGS_AUDIO_SIGNAL_TEMPLATE;
-      ags_recycling_add_audio_signal(first_recycling,
-				     audio_signal);
-
-      g_object_ref(audio_signal);
-    }
+      /* compute audio signal */
+      note = apply_synth->base_note + i;
 	
-    /* compute audio signal */
-    note = apply_synth->base_note + i;
-	
-    ags_synth_generator_compute(synth_generator,
-				(GObject *) audio_signal,
-				note);
-
-    rt_template = 
-      rt_template_start = ags_audio_signal_get_rt_template(list_start);
-
-    while(rt_template != NULL){
       ags_synth_generator_compute(synth_generator,
-				  rt_template->data,
+				  (GObject *) audio_signal,
 				  note);
-	  
-      rt_template = rt_template->next;
+
+      g_object_get(audio_signal,
+		   "buffer-size", &buffer_size,
+		   NULL);
+      
+      g_object_set(audio_signal,
+		   "length", (guint) ceil(requested_frame_count / buffer_size),
+		   "frame-count", requested_frame_count,
+		   NULL);
+
+      rt_template = 
+	rt_template_start = ags_audio_signal_get_rt_template(list_start);
+
+      while(rt_template != NULL){
+	ags_synth_generator_compute(synth_generator,
+				    rt_template->data,
+				    note);
+
+	g_object_get(rt_template->data,
+		     "buffer-size", &buffer_size,
+		     NULL);
+	
+	g_object_set(rt_template->data,
+		     "length", (guint) ceil(requested_frame_count / buffer_size),
+		     "frame-count", requested_frame_count,
+		     NULL);
+
+	rt_template = rt_template->next;
+      }
+
+      g_list_free_full(rt_template_start,
+		       g_object_unref);
+    
+      g_list_free_full(list_start,
+		       g_object_unref);
+	
+      g_object_unref(output_soundcard);
+      g_object_unref(first_recycling);
+      g_object_unref(audio_signal);
+      
+      /* iterate */
+      next_channel = ags_channel_next(channel);
+    
+      g_object_unref(channel);
+
+      channel = next_channel;
     }
+  }
 
-    g_list_free_full(rt_template_start,
-		     g_object_unref);
-    
-    g_list_free_full(list_start,
-		     g_object_unref);
-	
-    g_object_unref(output_soundcard);
-    g_object_unref(audio_signal);
-    
-    /* iterate */
-    pthread_mutex_lock(channel_mutex);
-	
-    channel = channel->next;
-
-    pthread_mutex_unlock(channel_mutex);
+  if(audio != NULL){
+    g_object_unref(audio);
   }
 }
 
@@ -490,7 +526,7 @@ ags_apply_synth_launch(AgsTask *task)
  *
  * Returns: an new #AgsApplySynth.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 AgsApplySynth*
 ags_apply_synth_new(AgsSynthGenerator *synth_generator,

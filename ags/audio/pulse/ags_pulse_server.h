@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -23,17 +23,17 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include <ags/config.h>
+#include <ags/ags_api_config.h>
 
-#ifdef AGS_WITH_PULSE
+#if defined(AGS_WITH_PULSE)
 #include <pulse/pulseaudio.h>
 #include <pulse/stream.h>
 #include <pulse/error.h>
 #endif
 
-#include <pthread.h>
-
 #include <ags/libags.h>
+
+G_BEGIN_DECLS
 
 #define AGS_TYPE_PULSE_SERVER                (ags_pulse_server_get_type())
 #define AGS_PULSE_SERVER(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_PULSE_SERVER, AgsPulseServer))
@@ -42,41 +42,28 @@
 #define AGS_IS_PULSE_SERVER_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE ((class), AGS_TYPE_PULSE_SERVER))
 #define AGS_PULSE_SERVER_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS(obj, AGS_TYPE_PULSE_SERVER, AgsPulseServerClass))
 
-#define AGS_PULSE_SERVER_GET_OBJ_MUTEX(obj) (((AgsPulseServer *) obj)->obj_mutex)
+#define AGS_PULSE_SERVER_GET_OBJ_MUTEX(obj) (&(((AgsPulseServer *) obj)->obj_mutex))
 
 typedef struct _AgsPulseServer AgsPulseServer;
 typedef struct _AgsPulseServerClass AgsPulseServerClass;
-
-/**
- * AgsPulseServerFlags:
- * @AGS_PULSE_SERVER_ADDED_TO_REGISTRY: the pulseaudio server was added to registry, see #AgsConnectable::add_to_registry()
- * @AGS_PULSE_SERVER_CONNECTED: indicates the server was connected by calling #AgsConnectable::connect()
- * 
- * Enum values to control the behavior or indicate internal state of #AgsPulseServer by
- * enable/disable as flags.
- */
-typedef enum{
-  AGS_PULSE_SERVER_ADDED_TO_REGISTRY  = 1,
-  AGS_PULSE_SERVER_CONNECTED          = 1 <<  1,
-}AgsPulseServerFlags;
 
 struct _AgsPulseServer
 {
   GObject gobject;
 
   guint flags;
-
-  pthread_mutex_t *obj_mutex;
-  pthread_mutexattr_t *obj_mutexattr;
+  guint connectable_flags;
+  
+  GRecMutex obj_mutex;
 
   volatile gboolean running;
-  pthread_t *thread;
+  GThread *thread;
   
   AgsApplicationContext *application_context;
 
   AgsUUID *uuid;
 
-#ifdef AGS_WITH_PULSE
+#if defined(AGS_WITH_PULSE)
   pa_mainloop *main_loop;
   pa_mainloop_api *main_loop_api;
 #else
@@ -105,8 +92,6 @@ struct _AgsPulseServerClass
 
 GType ags_pulse_server_get_type();
 
-pthread_mutex_t* ags_pulse_server_get_class_mutex();
-
 gboolean ags_pulse_server_test_flags(AgsPulseServer *pulse_server, guint flags);
 void ags_pulse_server_set_flags(AgsPulseServer *pulse_server, guint flags);
 void ags_pulse_server_unset_flags(AgsPulseServer *pulse_server, guint flags);
@@ -130,7 +115,8 @@ void ags_pulse_server_disconnect_client(AgsPulseServer *pulse_server);
 
 void ags_pulse_server_start_poll(AgsPulseServer *pulse_server);
 
-AgsPulseServer* ags_pulse_server_new(AgsApplicationContext *application_context,
-				     gchar *url);
+AgsPulseServer* ags_pulse_server_new(gchar *url);
+
+G_END_DECLS
 
 #endif /*__AGS_PULSE_SERVER_H__*/

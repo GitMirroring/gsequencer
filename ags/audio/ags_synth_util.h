@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -25,6 +25,86 @@
 
 #include <ags/libags.h>
 
+#include <ags/audio/ags_synth_enums.h>
+
+G_BEGIN_DECLS
+
+#define AGS_TYPE_SYNTH_UTIL         (ags_synth_util_get_type())
+
+#define AGS_SYNTH_UTIL_DEFAULT_FREQUENCY (440.0)
+
+typedef struct _AgsSynthUtil AgsSynthUtil;
+
+struct _AgsSynthUtil
+{
+  gpointer source;
+  guint source_stride;
+  
+  guint buffer_length;
+  guint format;
+  guint samplerate;
+
+  guint synth_oscillator_mode;
+  
+  gdouble frequency;
+  gdouble phase;
+  gdouble volume;
+  
+  guint frame_count;
+  guint offset;
+};
+
+GType ags_synth_util_get_type(void);
+
+AgsSynthUtil* ags_synth_util_alloc();
+
+gpointer ags_synth_util_copy(AgsSynthUtil *ptr);
+void ags_synth_util_free(AgsSynthUtil *ptr);
+
+gpointer ags_synth_util_get_source(AgsSynthUtil *synth_util);
+void ags_synth_util_set_source(AgsSynthUtil *synth_util,
+			       gpointer source);
+
+guint ags_synth_util_get_source_stride(AgsSynthUtil *synth_util);
+void ags_synth_util_set_source_stride(AgsSynthUtil *synth_util,
+				      guint source_stride);
+
+guint ags_synth_util_get_buffer_length(AgsSynthUtil *synth_util);
+void ags_synth_util_set_buffer_length(AgsSynthUtil *synth_util,
+				      guint buffer_length);
+
+guint ags_synth_util_get_format(AgsSynthUtil *synth_util);
+void ags_synth_util_set_format(AgsSynthUtil *synth_util,
+			       guint format);
+
+guint ags_synth_util_get_samplerate(AgsSynthUtil *synth_util);
+void ags_synth_util_set_samplerate(AgsSynthUtil *synth_util,
+				   guint samplerate);
+
+guint ags_synth_util_get_synth_oscillator_mode(AgsSynthUtil *synth_util);
+void ags_synth_util_set_synth_oscillator_mode(AgsSynthUtil *synth_util,
+					      guint synth_oscillator_mode);
+
+gdouble ags_synth_util_get_frequency(AgsSynthUtil *synth_util);
+void ags_synth_util_set_frequency(AgsSynthUtil *synth_util,
+				  gdouble frequency);
+
+gdouble ags_synth_util_get_phase(AgsSynthUtil *synth_util);
+void ags_synth_util_set_phase(AgsSynthUtil *synth_util,
+			      gdouble phase);
+
+gdouble ags_synth_util_get_volume(AgsSynthUtil *synth_util);
+void ags_synth_util_set_volume(AgsSynthUtil *synth_util,
+			       gdouble volume);
+
+guint ags_synth_util_get_frame_count(AgsSynthUtil *synth_util);
+void ags_synth_util_set_frame_count(AgsSynthUtil *synth_util,
+				      guint frame_count);
+
+guint ags_synth_util_get_offset(AgsSynthUtil *synth_util);
+void ags_synth_util_set_offset(AgsSynthUtil *synth_util,
+			       guint offset);
+
 /* zero-crossing */
 guint ags_synth_util_get_xcross_count_s8(gint8 *buffer,
 					 guint buffer_size);
@@ -36,211 +116,77 @@ guint ags_synth_util_get_xcross_count_s32(gint32 *buffer,
 					  guint buffer_size);
 guint ags_synth_util_get_xcross_count_s64(gint64 *buffer,
 					  guint buffer_size);
-guint ags_synth_util_get_xcross_count_float(float *buffer,
+guint ags_synth_util_get_xcross_count_float(gfloat *buffer,
 					    guint buffer_size);
-guint ags_synth_util_get_xcross_count_double(double *buffer,
+guint ags_synth_util_get_xcross_count_double(gdouble *buffer,
 					     guint buffer_size);
 guint ags_synth_util_get_xcross_count_complex(AgsComplex *buffer,
 					      guint buffer_size);
 
 guint ags_synth_util_get_xcross_count(void *buffer,
-				      guint audio_buffer_util_format,
+				      guint format,
 				      guint buffer_size);
 
 /* sin oscillator */
-void ags_synth_util_sin_s8(gint8 *buffer,
-			   gdouble freq, gdouble phase, gdouble volume,
-			   guint samplerate,
-			   guint offset, guint n_frames);
-void ags_synth_util_sin_s16(gint16 *buffer,
-			    gdouble freq, gdouble phase, gdouble volume,
-			    guint samplerate,
-			    guint offset, guint n_frames);
-void ags_synth_util_sin_s24(gint32 *buffer,
-			    gdouble freq, gdouble phase, gdouble volume,
-			    guint samplerate,
-			    guint offset, guint n_frames);
-void ags_synth_util_sin_s32(gint32 *buffer,
-			    gdouble freq, gdouble phase, gdouble volume,
-			    guint samplerate,
-			    guint offset, guint n_frames);
-void ags_synth_util_sin_s64(gint64 *buffer,
-			    gdouble freq, gdouble phase, gdouble volume,
-			    guint samplerate,
-			    guint offset, guint n_frames);
-void ags_synth_util_sin_float(float *buffer,
-			      gdouble freq, gdouble phase, gdouble volume,
-			      guint samplerate,
-			      guint offset, guint n_frames);
-void ags_synth_util_sin_double(double *buffer,
-			       gdouble freq, gdouble phase, gdouble volume,
-			       guint samplerate,
-			       guint offset, guint n_frames);
-void ags_synth_util_sin_complex(AgsComplex *buffer,
-				gdouble freq, gdouble phase, gdouble volume,
-				guint samplerate,
-				guint offset, guint n_frames);
+void ags_synth_util_compute_sin_s8(AgsSynthUtil *synth_util);
+void ags_synth_util_compute_sin_s16(AgsSynthUtil *synth_util);
+void ags_synth_util_compute_sin_s24(AgsSynthUtil *synth_util);
+void ags_synth_util_compute_sin_s32(AgsSynthUtil *synth_util);
+void ags_synth_util_compute_sin_s64(AgsSynthUtil *synth_util);
+void ags_synth_util_compute_sin_float(AgsSynthUtil *synth_util);
+void ags_synth_util_compute_sin_double(AgsSynthUtil *synth_util);
+void ags_synth_util_compute_sin_complex(AgsSynthUtil *synth_util);
+
+void ags_synth_util_compute_sin(AgsSynthUtil *synth_util);
 
 /* sawtooth oscillator */
-void ags_synth_util_sawtooth_s8(gint8 *buffer,
-				gdouble freq, gdouble phase, gdouble volume,
-				guint samplerate,
-				guint offset, guint n_frames);
-void ags_synth_util_sawtooth_s16(gint16 *buffer,
-				 gdouble freq, gdouble phase, gdouble volume,
-				 guint samplerate,
-				 guint offset, guint n_frames);
-void ags_synth_util_sawtooth_s24(gint32 *buffer,
-				 gdouble freq, gdouble phase, gdouble volume,
-				 guint samplerate,
-				 guint offset, guint n_frames);
-void ags_synth_util_sawtooth_s32(gint32 *buffer,
-				 gdouble freq, gdouble phase, gdouble volume,
-				 guint samplerate,
-				 guint offset, guint n_frames);
-void ags_synth_util_sawtooth_s64(gint64 *buffer,
-				 gdouble freq, gdouble phase, gdouble volume,
-				 guint samplerate,
-				 guint offset, guint n_frames);
-void ags_synth_util_sawtooth_float(float *buffer,
-				   gdouble freq, gdouble phase, gdouble volume,
-				   guint samplerate,
-				   guint offset, guint n_frames);
-void ags_synth_util_sawtooth_double(double *buffer,
-				    gdouble freq, gdouble phase, gdouble volume,
-				    guint samplerate,
-				    guint offset, guint n_frames);
-void ags_synth_util_sawtooth_complex(AgsComplex *buffer,
-				     gdouble freq, gdouble phase, gdouble volume,
-				     guint samplerate,
-				     guint offset, guint n_frames);
+void ags_synth_util_compute_sawtooth_s8(AgsSynthUtil *synth_util);
+void ags_synth_util_compute_sawtooth_s16(AgsSynthUtil *synth_util);
+void ags_synth_util_compute_sawtooth_s24(AgsSynthUtil *synth_util);
+void ags_synth_util_compute_sawtooth_s32(AgsSynthUtil *synth_util);
+void ags_synth_util_compute_sawtooth_s64(AgsSynthUtil *synth_util);
+void ags_synth_util_compute_sawtooth_float(AgsSynthUtil *synth_util);
+void ags_synth_util_compute_sawtooth_double(AgsSynthUtil *synth_util);
+void ags_synth_util_compute_sawtooth_complex(AgsSynthUtil *synth_util);
+
+void ags_synth_util_compute_sawtooth(AgsSynthUtil *synth_util);
 
 /* triangle oscillator */
-void ags_synth_util_triangle_s8(gint8 *buffer,
-				gdouble freq, gdouble phase, gdouble volume,
-				guint samplerate,
-				guint offset, guint n_frames);
-void ags_synth_util_triangle_s16(gint16 *buffer,
-				 gdouble freq, gdouble phase, gdouble volume,
-				 guint samplerate,
-				 guint offset, guint n_frames);
-void ags_synth_util_triangle_s24(gint32 *buffer,
-				 gdouble freq, gdouble phase, gdouble volume,
-				 guint samplerate,
-				 guint offset, guint n_frames);
-void ags_synth_util_triangle_s32(gint32 *buffer,
-				 gdouble freq, gdouble phase, gdouble volume,
-				 guint samplerate,
-				 guint offset, guint n_frames);
-void ags_synth_util_triangle_s64(gint64 *buffer,
-				 gdouble freq, gdouble phase, gdouble volume,
-				 guint samplerate,
-				 guint offset, guint n_frames);
-void ags_synth_util_triangle_float(float *buffer,
-				   gdouble freq, gdouble phase, gdouble volume,
-				   guint samplerate,
-				   guint offset, guint n_frames);
-void ags_synth_util_triangle_double(double *buffer,
-				    gdouble freq, gdouble phase, gdouble volume,
-				    guint samplerate,
-				    guint offset, guint n_frames);
-void ags_synth_util_triangle_complex(AgsComplex *buffer,
-				     gdouble freq, gdouble phase, gdouble volume,
-				     guint samplerate,
-				     guint offset, guint n_frames);
+void ags_synth_util_compute_triangle_s8(AgsSynthUtil *synth_util);
+void ags_synth_util_compute_triangle_s16(AgsSynthUtil *synth_util);
+void ags_synth_util_compute_triangle_s24(AgsSynthUtil *synth_util);
+void ags_synth_util_compute_triangle_s32(AgsSynthUtil *synth_util);
+void ags_synth_util_compute_triangle_s64(AgsSynthUtil *synth_util);
+void ags_synth_util_compute_triangle_float(AgsSynthUtil *synth_util);
+void ags_synth_util_compute_triangle_double(AgsSynthUtil *synth_util);
+void ags_synth_util_compute_triangle_complex(AgsSynthUtil *synth_util);
+
+void ags_synth_util_compute_triangle(AgsSynthUtil *synth_util);
 
 /* square oscillator */
-void ags_synth_util_square_s8(gint8 *buffer,
-			      gdouble freq, gdouble phase, gdouble volume,
-			      guint samplerate,
-			      guint offset, guint n_frames);
-void ags_synth_util_square_s16(gint16 *buffer,
-			       gdouble freq, gdouble phase, gdouble volume,
-			       guint samplerate,
-			       guint offset, guint n_frames);
-void ags_synth_util_square_s24(gint32 *buffer,
-			       gdouble freq, gdouble phase, gdouble volume,
-			       guint samplerate,
-			       guint offset, guint n_frames);
-void ags_synth_util_square_s32(gint32 *buffer,
-			       gdouble freq, gdouble phase, gdouble volume,
-			       guint samplerate,
-			       guint offset, guint n_frames);
-void ags_synth_util_square_s64(gint64 *buffer,
-			       gdouble freq, gdouble phase, gdouble volume,
-			       guint samplerate,
-			       guint offset, guint n_frames);
-void ags_synth_util_square_float(float *buffer,
-				 gdouble freq, gdouble phase, gdouble volume,
-				 guint samplerate,
-				 guint offset, guint n_frames);
-void ags_synth_util_square_double(double *buffer,
-				  gdouble freq, gdouble phase, gdouble volume,
-				  guint samplerate,
-				  guint offset, guint n_frames);
-void ags_synth_util_square_complex(AgsComplex *buffer,
-				   gdouble freq, gdouble phase, gdouble volume,
-				   guint samplerate,
-				   guint offset, guint n_frames);
+void ags_synth_util_compute_square_s8(AgsSynthUtil *synth_util);
+void ags_synth_util_compute_square_s16(AgsSynthUtil *synth_util);
+void ags_synth_util_compute_square_s24(AgsSynthUtil *synth_util);
+void ags_synth_util_compute_square_s32(AgsSynthUtil *synth_util);
+void ags_synth_util_compute_square_s64(AgsSynthUtil *synth_util);
+void ags_synth_util_compute_square_float(AgsSynthUtil *synth_util);
+void ags_synth_util_compute_square_double(AgsSynthUtil *synth_util);
+void ags_synth_util_compute_square_complex(AgsSynthUtil *synth_util);
+
+void ags_synth_util_compute_square(AgsSynthUtil *synth_util);
 
 /* impulse oscillator */
-void ags_synth_util_impulse_s8(gint8 *buffer,
-			       gdouble freq, gdouble phase, gdouble volume,
-			       guint samplerate,
-			       guint offset, guint n_frames);
-void ags_synth_util_impulse_s16(gint16 *buffer,
-				gdouble freq, gdouble phase, gdouble volume,
-				guint samplerate,
-				guint offset, guint n_frames);
-void ags_synth_util_impulse_s24(gint32 *buffer,
-				gdouble freq, gdouble phase, gdouble volume,
-				guint samplerate,
-				guint offset, guint n_frames);
-void ags_synth_util_impulse_s32(gint32 *buffer,
-				gdouble freq, gdouble phase, gdouble volume,
-				guint samplerate,
-				guint offset, guint n_frames);
-void ags_synth_util_impulse_s64(gint64 *buffer,
-				gdouble freq, gdouble phase, gdouble volume,
-				guint samplerate,
-				guint offset, guint n_frames);
-void ags_synth_util_impulse_float(float *buffer,
-				  gdouble freq, gdouble phase, gdouble volume,
-				  guint samplerate,
-				  guint offset, guint n_frames);
-void ags_synth_util_impulse_double(double *buffer,
-				   gdouble freq, gdouble phase, gdouble volume,
-				   guint samplerate,
-				   guint offset, guint n_frames);
-void ags_synth_util_impulse_complex(AgsComplex *buffer,
-				    gdouble freq, gdouble phase, gdouble volume,
-				    guint samplerate,
-				    guint offset, guint n_frames);
+void ags_synth_util_compute_impulse_s8(AgsSynthUtil *synth_util);
+void ags_synth_util_compute_impulse_s16(AgsSynthUtil *synth_util);
+void ags_synth_util_compute_impulse_s24(AgsSynthUtil *synth_util);
+void ags_synth_util_compute_impulse_s32(AgsSynthUtil *synth_util);
+void ags_synth_util_compute_impulse_s64(AgsSynthUtil *synth_util);
+void ags_synth_util_compute_impulse_float(AgsSynthUtil *synth_util);
+void ags_synth_util_compute_impulse_double(AgsSynthUtil *synth_util);
+void ags_synth_util_compute_impulse_complex(AgsSynthUtil *synth_util);
 
-/* oscillators */
-void ags_synth_util_sin(void *buffer,
-			gdouble freq, gdouble phase, gdouble volume,
-			guint samplerate, guint audio_buffer_util_format,
-			guint offset, guint n_frames);
+void ags_synth_util_compute_impulse(AgsSynthUtil *synth_util);
 
-void ags_synth_util_sawtooth(void *buffer,
-			     gdouble freq, gdouble phase, gdouble volume,
-			     guint samplerate, guint audio_buffer_util_format,
-			     guint offset, guint n_frames);
-
-void ags_synth_util_triangle(void *buffer,
-			     gdouble freq, gdouble phase, gdouble volume,
-			     guint samplerate, guint audio_buffer_util_format,
-			     guint offset, guint n_frames);
-
-void ags_synth_util_square(void *buffer,
-			   gdouble freq, gdouble phase, gdouble volume,
-			   guint samplerate, guint audio_buffer_util_format,
-			   guint offset, guint n_frames);
-
-void ags_synth_util_impulse(void *buffer,
-			    gdouble freq, gdouble phase, gdouble volume,
-			    guint samplerate, guint audio_buffer_util_format,
-			    guint offset, guint n_frames);
+G_END_DECLS
 
 #endif /*__AGS_SYNTH_UTIL_H__*/

@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -18,8 +18,6 @@
  */
 
 #include <ags/audio/ags_recall_container.h>
-
-#include <ags/libags.h>
 
 #include <ags/audio/ags_recall_audio.h>
 #include <ags/audio/ags_recall_audio_run.h>
@@ -79,8 +77,6 @@ enum{
 
 static gpointer ags_recall_container_parent_class = NULL;
 
-static pthread_mutex_t ags_recall_container_class_mutex = PTHREAD_MUTEX_INITIALIZER;
-
 GType
 ags_recall_container_get_type (void)
 {
@@ -122,10 +118,30 @@ ags_recall_container_get_type (void)
   return g_define_type_id__volatile;
 }
 
+GType
+ags_recall_container_flags_get_type()
+{
+  static volatile gsize g_flags_type_id__volatile;
+
+  if(g_once_init_enter (&g_flags_type_id__volatile)){
+    static const GFlagsValue values[] = {
+      { AGS_RECALL_CONTAINER_PLAY, "AGS_RECALL_CONTAINER_PLAY", "recall-container-play" },
+      { 0, NULL, NULL }
+    };
+
+    GType g_flags_type_id = g_flags_register_static(g_intern_static_string("AgsRecallContainerFlags"), values);
+
+    g_once_init_leave (&g_flags_type_id__volatile, g_flags_type_id);
+  }
+  
+  return g_flags_type_id__volatile;
+}
+
 void
 ags_recall_container_class_init(AgsRecallContainerClass *recall_container)
 {
   GObjectClass *gobject;
+
   GParamSpec *param_spec;
 
   ags_recall_container_parent_class = g_type_class_peek_parent(recall_container);
@@ -145,7 +161,7 @@ ags_recall_container_class_init(AgsRecallContainerClass *recall_container)
    *
    * The associated recall type within audio context.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_gtype("recall-audio-type",
 				  i18n_pspec("audio level recall type"),
@@ -161,7 +177,7 @@ ags_recall_container_class_init(AgsRecallContainerClass *recall_container)
    *
    * The associated recall within audio context.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_object("recall-audio",
 				   i18n_pspec("audio level recall"),
@@ -177,7 +193,7 @@ ags_recall_container_class_init(AgsRecallContainerClass *recall_container)
    *
    * The associated recall type within dynamic audio context.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_gtype("recall-audio-run-type",
 				  i18n_pspec("audio runlevel recall type"),
@@ -189,11 +205,11 @@ ags_recall_container_class_init(AgsRecallContainerClass *recall_container)
 				  param_spec);
 
   /**
-   * AgsRecallContainer:recall-audio-run:
+   * AgsRecallContainer:recall-audio-run: (type GList(AgsRecall)) (transfer full)
    *
    * The associated recall within dynamic audio context.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_pointer("recall-audio-run",
 				    i18n_pspec("audio runlevel recall"),
@@ -208,7 +224,7 @@ ags_recall_container_class_init(AgsRecallContainerClass *recall_container)
    *
    * The associated recall type within channel context.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_gtype("recall-channel-type",
 				  i18n_pspec("channel level recall type"),
@@ -220,11 +236,11 @@ ags_recall_container_class_init(AgsRecallContainerClass *recall_container)
 				  param_spec);
 
   /**
-   * AgsRecallContainer:recall-channel:
+   * AgsRecallContainer:recall-channel: (type GList(AgsRecall)) (transfer full)
    *
    * The associated recall within channel context.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
  param_spec = g_param_spec_pointer("recall-channel",
 				   i18n_pspec("channel level recall"),
@@ -239,7 +255,7 @@ ags_recall_container_class_init(AgsRecallContainerClass *recall_container)
    *
    * The associated recall type within dynamic channel context.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_gtype("recall-channel-run-type",
 				  i18n_pspec("channel runlevel recall type"),
@@ -251,11 +267,11 @@ ags_recall_container_class_init(AgsRecallContainerClass *recall_container)
 				  param_spec);
 
   /**
-   * AgsRecallContainer:recall-channel-run:
+   * AgsRecallContainer:recall-channel-run: (type GList(AgsRecall)) (transfer full)
    *
    * The associated recall within dynamic channel context.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_pointer("recall-channel-run",
 				    i18n_pspec("channel runlevel recall"),
@@ -291,27 +307,11 @@ ags_recall_container_connectable_interface_init(AgsConnectableInterface *connect
 void
 ags_recall_container_init(AgsRecallContainer *recall_container)
 {
-  pthread_mutex_t *mutex;
-  pthread_mutexattr_t *attr;
-
   recall_container->flags = 0;
+  recall_container->connectable_flags = 0;
 
   /* add recall container mutex */
-  recall_container->obj_mutexattr = 
-    attr = (pthread_mutexattr_t *) malloc(sizeof(pthread_mutexattr_t));
-  pthread_mutexattr_init(attr);
-  pthread_mutexattr_settype(attr,
-			    PTHREAD_MUTEX_RECURSIVE);
-
-#ifdef __linux__
-  pthread_mutexattr_setprotocol(attr,
-				PTHREAD_PRIO_INHERIT);
-#endif
-
-  recall_container->obj_mutex = 
-    mutex = (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t));
-  pthread_mutex_init(mutex,
-		     attr);  
+  g_rec_mutex_init(&(recall_container->obj_mutex)); 
 
   /*  */
   recall_container->recall_audio = NULL;
@@ -328,7 +328,7 @@ ags_recall_container_set_property(GObject *gobject,
 {
   AgsRecallContainer *recall_container;
 
-  pthread_mutex_t *recall_container_mutex;
+  GRecMutex *recall_container_mutex;
 
   recall_container = AGS_RECALL_CONTAINER(gobject);
 
@@ -342,11 +342,11 @@ ags_recall_container_set_property(GObject *gobject,
 
       recall_audio_type = (GType) g_value_get_gtype(value);
 
-      pthread_mutex_lock(recall_container_mutex);
+      g_rec_mutex_lock(recall_container_mutex);
 
       recall_container->recall_audio_type = recall_audio_type;
 
-      pthread_mutex_unlock(recall_container_mutex);
+      g_rec_mutex_unlock(recall_container_mutex);
     }
     break;
   case PROP_RECALL_AUDIO:
@@ -358,10 +358,10 @@ ags_recall_container_set_property(GObject *gobject,
       
       recall_audio = (AgsRecallAudio *) g_value_get_object(value);
 
-      pthread_mutex_lock(recall_container_mutex);
+      g_rec_mutex_lock(recall_container_mutex);
 
       if(recall_container->recall_audio == (AgsRecall *) recall_audio){
-	pthread_mutex_unlock(recall_container_mutex);
+	g_rec_mutex_unlock(recall_container_mutex);
 	
 	return;
       }
@@ -376,15 +376,17 @@ ags_recall_container_set_property(GObject *gobject,
 
       recall_container->recall_audio = (AgsRecall *) recall_audio;
 
-      pthread_mutex_unlock(recall_container_mutex);
+      g_rec_mutex_unlock(recall_container_mutex);
 
       /* set recall audio - recall audio run */
-      pthread_mutex_lock(recall_container_mutex);
+      g_rec_mutex_lock(recall_container_mutex);
 
       list =
-	list_start = g_list_copy(recall_container->recall_audio_run);
+	list_start = g_list_copy_deep(recall_container->recall_audio_run,
+				      (GCopyFunc) g_object_ref,
+				      NULL);
 
-      pthread_mutex_unlock(recall_container_mutex);
+      g_rec_mutex_unlock(recall_container_mutex);
 
       while(list != NULL){
 	g_object_set(G_OBJECT(list->data),
@@ -394,15 +396,18 @@ ags_recall_container_set_property(GObject *gobject,
 	list = list->next;
       }
 
-      g_list_free(list_start);
+      g_list_free_full(list_start,
+		       g_object_unref);
 
       /* set recall audio - recall channel */
-      pthread_mutex_lock(recall_container_mutex);
+      g_rec_mutex_lock(recall_container_mutex);
 
       list =
-	list_start = g_list_copy(recall_container->recall_channel);
+	list_start = g_list_copy_deep(recall_container->recall_channel,
+				      (GCopyFunc) g_object_ref,
+				      NULL);
 
-      pthread_mutex_unlock(recall_container_mutex);
+      g_rec_mutex_unlock(recall_container_mutex);
 
       while(list != NULL){
 	g_object_set(G_OBJECT(list->data),
@@ -412,15 +417,18 @@ ags_recall_container_set_property(GObject *gobject,
 	list = list->next;
       }
 
-      g_list_free(list_start);
+      g_list_free_full(list_start,
+		       g_object_unref);
 
       /* set recall audio - recall channel run */
-      pthread_mutex_lock(recall_container_mutex);
+      g_rec_mutex_lock(recall_container_mutex);
 
       list =
-	list_start = g_list_copy(recall_container->recall_channel_run);
+	list_start = g_list_copy_deep(recall_container->recall_channel_run,
+				      (GCopyFunc) g_object_ref,
+				      NULL);
 
-      pthread_mutex_unlock(recall_container_mutex);
+      g_rec_mutex_unlock(recall_container_mutex);
 
       while(list != NULL){
 	g_object_set(G_OBJECT(list->data),
@@ -430,7 +438,8 @@ ags_recall_container_set_property(GObject *gobject,
 	list = list->next;
       }
 
-      g_list_free(list_start);
+      g_list_free_full(list_start,
+		       g_object_unref);
     }
     break;
   case PROP_RECALL_AUDIO_RUN_TYPE:
@@ -439,11 +448,11 @@ ags_recall_container_set_property(GObject *gobject,
 
       recall_audio_run_type = g_value_get_gtype(value);
 
-      pthread_mutex_lock(recall_container_mutex);
+      g_rec_mutex_lock(recall_container_mutex);
 
       recall_container->recall_audio_run_type = recall_audio_run_type;
 
-      pthread_mutex_unlock(recall_container_mutex);
+      g_rec_mutex_unlock(recall_container_mutex);
     }
     break;
   case PROP_RECALL_AUDIO_RUN:
@@ -455,15 +464,15 @@ ags_recall_container_set_property(GObject *gobject,
 
       guint recall_flags;
       
-      pthread_mutex_t *recall_mutex;
+      GRecMutex *recall_mutex;
 	
       recall_audio_run = (AgsRecallAudioRun *) g_value_get_pointer(value);
 
-      pthread_mutex_lock(recall_container_mutex);
+      g_rec_mutex_lock(recall_container_mutex);
 
       if(recall_audio_run == NULL ||
 	 g_list_find(recall_container->recall_audio_run, recall_audio_run) != NULL){
-	pthread_mutex_unlock(recall_container_mutex);
+	g_rec_mutex_unlock(recall_container_mutex);
 	
 	return;
       }
@@ -472,28 +481,30 @@ ags_recall_container_set_property(GObject *gobject,
       recall_container->recall_audio_run = g_list_prepend(recall_container->recall_audio_run,
 							  recall_audio_run);
 
-      pthread_mutex_unlock(recall_container_mutex);
+      g_rec_mutex_unlock(recall_container_mutex);
       
       /* get recall mutex */
       recall_mutex = AGS_RECALL_GET_OBJ_MUTEX(recall_audio_run);
 
       /* set recall audio run - recall channel run */      
-      pthread_mutex_lock(recall_mutex);
+      g_rec_mutex_lock(recall_mutex);
 
       recall_flags = AGS_RECALL(recall_audio_run)->flags;
       
-      pthread_mutex_unlock(recall_mutex);
+      g_rec_mutex_unlock(recall_mutex);
 
       g_object_get(recall_audio_run,
 		   "recall-id", &recall_id,
 		   NULL);
       
-      pthread_mutex_lock(recall_container_mutex);
+      g_rec_mutex_lock(recall_container_mutex);
 
       list =
-	list_start = g_list_copy(recall_container->recall_channel_run);
+	list_start = g_list_copy_deep(recall_container->recall_channel_run,
+				      (GCopyFunc) g_object_ref,
+				      NULL);
 
-      pthread_mutex_unlock(recall_container_mutex);
+      g_rec_mutex_unlock(recall_container_mutex);
 
       if(recall_id != NULL){
 	AgsRecyclingContext *recycling_context;
@@ -522,7 +533,8 @@ ags_recall_container_set_property(GObject *gobject,
 	}
       }
       
-      g_list_free(list_start);
+      g_list_free_full(list_start,
+		       g_object_unref);
 
       if(recall_id != NULL){
 	g_object_unref(recall_id);
@@ -535,11 +547,11 @@ ags_recall_container_set_property(GObject *gobject,
 
       recall_channel_type = (GType) g_value_get_gtype(value);
 
-      pthread_mutex_lock(recall_container_mutex);
+      g_rec_mutex_lock(recall_container_mutex);
 
       recall_container->recall_channel_type = recall_channel_type;
 
-      pthread_mutex_unlock(recall_container_mutex);
+      g_rec_mutex_unlock(recall_container_mutex);
     }
     break;
   case PROP_RECALL_CHANNEL:
@@ -549,15 +561,15 @@ ags_recall_container_set_property(GObject *gobject,
 
       GList *list_start, *list;
 
-      pthread_mutex_t *recall_mutex;
+      GRecMutex *recall_mutex;
 
       recall_channel = (AgsRecallChannel *) g_value_get_pointer(value);
 
-      pthread_mutex_lock(recall_container_mutex);
+      g_rec_mutex_lock(recall_container_mutex);
 
       if(recall_channel == NULL ||
 	 g_list_find(recall_container->recall_channel, recall_channel) != NULL){
-	pthread_mutex_unlock(recall_container_mutex);
+	g_rec_mutex_unlock(recall_container_mutex);
 	
 	return;
       }
@@ -566,24 +578,26 @@ ags_recall_container_set_property(GObject *gobject,
       recall_container->recall_channel = g_list_prepend(recall_container->recall_channel,
 							recall_channel);
 
-      pthread_mutex_unlock(recall_container_mutex);
+      g_rec_mutex_unlock(recall_container_mutex);
       
       /* get recall mutex */
       recall_mutex = AGS_RECALL_GET_OBJ_MUTEX(recall_channel);
 
       /* set recall channel - recall channel run */
-      pthread_mutex_lock(recall_mutex);
+      g_rec_mutex_lock(recall_mutex);
 
       source = recall_channel->source;
 
-      pthread_mutex_unlock(recall_mutex);
+      g_rec_mutex_unlock(recall_mutex);
       
-      pthread_mutex_lock(recall_container_mutex);
+      g_rec_mutex_lock(recall_container_mutex);
 
       list =
-	list_start = g_list_copy(recall_container->recall_channel_run);
+	list_start = g_list_copy_deep(recall_container->recall_channel_run,
+				      (GCopyFunc) g_object_ref,
+				      NULL);
 
-      pthread_mutex_unlock(recall_container_mutex);
+      g_rec_mutex_unlock(recall_container_mutex);
 
       while((list = ags_recall_find_provider(list, (GObject *) source)) != NULL){
 	g_object_set(G_OBJECT(list->data),
@@ -593,7 +607,8 @@ ags_recall_container_set_property(GObject *gobject,
 	list = list->next;
       }
 
-      g_list_free(list_start);
+      g_list_free_full(list_start,
+		       g_object_unref);
     }
     break;
   case PROP_RECALL_CHANNEL_RUN_TYPE:
@@ -602,11 +617,11 @@ ags_recall_container_set_property(GObject *gobject,
 
       recall_channel_run_type = (GType) g_value_get_gtype(value);
 
-      pthread_mutex_lock(recall_container_mutex);
+      g_rec_mutex_lock(recall_container_mutex);
 
       recall_container->recall_channel_run_type = recall_channel_run_type;
 
-      pthread_mutex_unlock(recall_container_mutex);
+      g_rec_mutex_unlock(recall_container_mutex);
     }
     break;
   case PROP_RECALL_CHANNEL_RUN:
@@ -615,20 +630,20 @@ ags_recall_container_set_property(GObject *gobject,
 
       recall_channel_run = (AgsRecallChannelRun *) g_value_get_pointer(value);
 
-      pthread_mutex_lock(recall_container_mutex);
+      g_rec_mutex_lock(recall_container_mutex);
 
       if(recall_channel_run == NULL ||
 	 g_list_find(recall_container->recall_channel_run, recall_channel_run) != NULL){
-	pthread_mutex_unlock(recall_container_mutex);
+	g_rec_mutex_unlock(recall_container_mutex);
 	
 	return;
       }
-
+      
       g_object_ref(G_OBJECT(recall_channel_run));
       recall_container->recall_channel_run = g_list_prepend(recall_container->recall_channel_run,
 							    recall_channel_run);
       
-      pthread_mutex_unlock(recall_container_mutex);
+      g_rec_mutex_unlock(recall_container_mutex);
     }
     break;
   default:
@@ -645,7 +660,7 @@ ags_recall_container_get_property(GObject *gobject,
 {
   AgsRecallContainer *recall_container;
 
-  pthread_mutex_t *recall_container_mutex;
+  GRecMutex *recall_container_mutex;
 
   recall_container = AGS_RECALL_CONTAINER(gobject);
 
@@ -655,80 +670,80 @@ ags_recall_container_get_property(GObject *gobject,
   switch(prop_id){
   case PROP_RECALL_AUDIO_TYPE:
     {
-      pthread_mutex_lock(recall_container_mutex);
+      g_rec_mutex_lock(recall_container_mutex);
 
       g_value_set_gtype(value, recall_container->recall_audio_type);
 
-      pthread_mutex_unlock(recall_container_mutex);
+      g_rec_mutex_unlock(recall_container_mutex);
     }
     break;
   case PROP_RECALL_AUDIO:
     {
-      pthread_mutex_lock(recall_container_mutex);
+      g_rec_mutex_lock(recall_container_mutex);
 
       g_value_set_object(value, recall_container->recall_audio);
 
-      pthread_mutex_unlock(recall_container_mutex);
+      g_rec_mutex_unlock(recall_container_mutex);
     }
     break;
   case PROP_RECALL_AUDIO_RUN_TYPE:
     {
-      pthread_mutex_lock(recall_container_mutex);
+      g_rec_mutex_lock(recall_container_mutex);
 
       g_value_set_gtype(value, recall_container->recall_audio_run_type);
 
-      pthread_mutex_unlock(recall_container_mutex);
+      g_rec_mutex_unlock(recall_container_mutex);
     }
     break;
   case PROP_RECALL_AUDIO_RUN:
     {
-      pthread_mutex_lock(recall_container_mutex);
+      g_rec_mutex_lock(recall_container_mutex);
 
       g_value_set_pointer(value, g_list_copy_deep(recall_container->recall_audio_run,
 						  (GCopyFunc) g_object_ref,
 						  NULL));
 
-      pthread_mutex_unlock(recall_container_mutex);
+      g_rec_mutex_unlock(recall_container_mutex);
     }
     break;
   case PROP_RECALL_CHANNEL_TYPE:
     {
-      pthread_mutex_lock(recall_container_mutex);
+      g_rec_mutex_lock(recall_container_mutex);
 
       g_value_set_gtype(value, recall_container->recall_channel_type);
 
-      pthread_mutex_unlock(recall_container_mutex);
+      g_rec_mutex_unlock(recall_container_mutex);
     }
     break;
   case PROP_RECALL_CHANNEL:
     {
-      pthread_mutex_lock(recall_container_mutex);
+      g_rec_mutex_lock(recall_container_mutex);
 
       g_value_set_pointer(value, g_list_copy_deep(recall_container->recall_channel,
 						  (GCopyFunc) g_object_ref,
 						  NULL));
 
-      pthread_mutex_unlock(recall_container_mutex);
+      g_rec_mutex_unlock(recall_container_mutex);
     }
     break;
   case PROP_RECALL_CHANNEL_RUN_TYPE:
     {
-      pthread_mutex_lock(recall_container_mutex);
+      g_rec_mutex_lock(recall_container_mutex);
 
       g_value_set_gtype(value, recall_container->recall_channel_run_type);
 
-      pthread_mutex_unlock(recall_container_mutex);
+      g_rec_mutex_unlock(recall_container_mutex);
     }
     break;
   case PROP_RECALL_CHANNEL_RUN:
     {
-      pthread_mutex_lock(recall_container_mutex);
+      g_rec_mutex_lock(recall_container_mutex);
 
       g_value_set_pointer(value, g_list_copy_deep(recall_container->recall_channel_run,
 						  (GCopyFunc) g_object_ref,
 						  NULL));
 
-      pthread_mutex_unlock(recall_container_mutex);
+      g_rec_mutex_unlock(recall_container_mutex);
     }
     break;
   default:
@@ -777,12 +792,6 @@ ags_recall_container_finalize(GObject *gobject)
 
   recall_container = AGS_RECALL_CONTAINER(gobject);
 
-  pthread_mutex_destroy(recall_container->obj_mutex);
-  free(recall_container->obj_mutex);
-
-  pthread_mutexattr_destroy(recall_container->obj_mutexattr);
-  free(recall_container->obj_mutexattr);
-
   /* recall */
   g_object_unref(recall_container->recall_audio);
   
@@ -807,7 +816,7 @@ ags_recall_container_get_uuid(AgsConnectable *connectable)
   
   AgsUUID *ptr;
 
-  pthread_mutex_t *recall_container_mutex;
+  GRecMutex *recall_container_mutex;
 
   recall_container = AGS_RECALL_CONTAINER(connectable);
 
@@ -815,11 +824,11 @@ ags_recall_container_get_uuid(AgsConnectable *connectable)
   recall_container_mutex = AGS_RECALL_CONTAINER_GET_OBJ_MUTEX(recall_container);
 
   /* get UUID */
-  pthread_mutex_lock(recall_container_mutex);
+  g_rec_mutex_lock(recall_container_mutex);
 
   ptr = recall_container->uuid;
 
-  pthread_mutex_unlock(recall_container_mutex);
+  g_rec_mutex_unlock(recall_container_mutex);
   
   return(ptr);
 }
@@ -837,19 +846,19 @@ ags_recall_container_is_ready(AgsConnectable *connectable)
   
   gboolean is_ready;
 
-  pthread_mutex_t *recall_container_mutex;
+  GRecMutex *recall_container_mutex;
 
   recall_container = AGS_RECALL_CONTAINER(connectable);
 
-  /* get recall_container mutex */
+  /* get recall container mutex */
   recall_container_mutex = AGS_RECALL_CONTAINER_GET_OBJ_MUTEX(recall_container);
 
-  /* check is added */
-  pthread_mutex_lock(recall_container_mutex);
+  /* check is ready */
+  g_rec_mutex_lock(recall_container_mutex);
 
-  is_ready = (((AGS_RECALL_CONTAINER_ADDED_TO_REGISTRY & (recall_container->flags)) != 0) ? TRUE: FALSE);
+  is_ready = ((AGS_CONNECTABLE_ADDED_TO_REGISTRY & (recall_container->connectable_flags)) != 0) ? TRUE: FALSE;
 
-  pthread_mutex_unlock(recall_container_mutex);
+  g_rec_mutex_unlock(recall_container_mutex);
   
   return(is_ready);
 }
@@ -865,6 +874,8 @@ ags_recall_container_add_to_registry(AgsConnectable *connectable)
   AgsApplicationContext *application_context;
 
   GList *list;
+  
+  GRecMutex *recall_container_mutex;
 
   if(ags_connectable_is_ready(connectable)){
     return;
@@ -872,7 +883,14 @@ ags_recall_container_add_to_registry(AgsConnectable *connectable)
   
   recall_container = AGS_RECALL_CONTAINER(connectable);
 
-  ags_recall_container_set_flags(recall_container, AGS_RECALL_CONTAINER_ADDED_TO_REGISTRY);
+  /* get recall container mutex */
+  recall_container_mutex = AGS_RECALL_CONTAINER_GET_OBJ_MUTEX(recall_container);
+
+  g_rec_mutex_lock(recall_container_mutex);
+
+  recall_container->connectable_flags |= AGS_CONNECTABLE_ADDED_TO_REGISTRY;
+  
+  g_rec_mutex_unlock(recall_container_mutex);
 
   application_context = ags_application_context_get_instance();
 
@@ -892,9 +910,24 @@ ags_recall_container_add_to_registry(AgsConnectable *connectable)
 void
 ags_recall_container_remove_from_registry(AgsConnectable *connectable)
 {
+  AgsRecallContainer *recall_container;
+
+  GRecMutex *recall_container_mutex;
+
   if(!ags_connectable_is_ready(connectable)){
     return;
   }
+
+  recall_container = AGS_RECALL_CONTAINER(connectable);
+
+  /* get recall  mutex */
+  recall_container_mutex = AGS_RECALL_CONTAINER_GET_OBJ_MUTEX(recall_container);
+
+  g_rec_mutex_lock(recall_container_mutex);
+
+  recall_container->connectable_flags &= (~AGS_CONNECTABLE_ADDED_TO_REGISTRY);
+  
+  g_rec_mutex_unlock(recall_container_mutex);
 
   //TODO:JK: implement me
 }
@@ -937,19 +970,19 @@ ags_recall_container_is_connected(AgsConnectable *connectable)
   
   gboolean is_connected;
 
-  pthread_mutex_t *recall_container_mutex;
+  GRecMutex *recall_container_mutex;
 
   recall_container = AGS_RECALL_CONTAINER(connectable);
 
-  /* get recall_container mutex */
+  /* get recall container mutex */
   recall_container_mutex = AGS_RECALL_CONTAINER_GET_OBJ_MUTEX(recall_container);
 
   /* check is connected */
-  pthread_mutex_lock(recall_container_mutex);
+  g_rec_mutex_lock(recall_container_mutex);
 
-  is_connected = (((AGS_RECALL_CONTAINER_CONNECTED & (recall_container->flags)) != 0) ? TRUE: FALSE);
-  
-  pthread_mutex_unlock(recall_container_mutex);
+  is_connected = ((AGS_CONNECTABLE_CONNECTED & (recall_container->connectable_flags)) != 0) ? TRUE: FALSE;
+
+  g_rec_mutex_unlock(recall_container_mutex);
   
   return(is_connected);
 }
@@ -961,7 +994,7 @@ ags_recall_container_connect(AgsConnectable *connectable)
 
   GList *list_start, *list;
 
-  pthread_mutex_t *recall_container_mutex;
+  GRecMutex *recall_container_mutex;
 
   if(ags_connectable_is_connected(connectable)){
     return;
@@ -969,7 +1002,14 @@ ags_recall_container_connect(AgsConnectable *connectable)
 
   recall_container = AGS_RECALL_CONTAINER(connectable);
 
-  ags_recall_container_set_flags(recall_container, AGS_RECALL_CONTAINER_CONNECTED);  
+  /* get recall container mutex */
+  recall_container_mutex = AGS_RECALL_CONTAINER_GET_OBJ_MUTEX(recall_container);
+
+  g_rec_mutex_lock(recall_container_mutex);
+
+  recall_container->connectable_flags |= AGS_CONNECTABLE_CONNECTED;
+  
+  g_rec_mutex_unlock(recall_container_mutex);
 }
 
 void
@@ -979,7 +1019,7 @@ ags_recall_container_disconnect(AgsConnectable *connectable)
 
   GList *list_start, *list;
 
-  pthread_mutex_t *recall_container_mutex;
+  GRecMutex *recall_container_mutex;
 
   if(!ags_connectable_is_connected(connectable)){
     return;
@@ -987,24 +1027,15 @@ ags_recall_container_disconnect(AgsConnectable *connectable)
 
   recall_container = AGS_RECALL_CONTAINER(connectable);
 
-  ags_recall_container_unset_flags(recall_container, AGS_RECALL_CONTAINER_CONNECTED);    
-}
+  /* get recall container mutex */
+  recall_container_mutex = AGS_RECALL_CONTAINER_GET_OBJ_MUTEX(recall_container);
 
-/**
- * ags_recall_container_get_class_mutex:
- * 
- * Use this function's returned mutex to access mutex fields.
- *
- * Returns: the class mutex
- * 
- * Since: 2.0.0
- */
-pthread_mutex_t*
-ags_recall_container_get_class_mutex()
-{
-  return(&ags_recall_container_class_mutex);
-}
+  g_rec_mutex_lock(recall_container_mutex);
 
+  recall_container->connectable_flags &= (~AGS_CONNECTABLE_CONNECTED);
+  
+  g_rec_mutex_unlock(recall_container_mutex);
+}
 
 /**
  * ags_recall_container_test_flags:
@@ -1015,14 +1046,14 @@ ags_recall_container_get_class_mutex()
  * 
  * Returns: %TRUE if flags are set, else %FALSE
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 gboolean
 ags_recall_container_test_flags(AgsRecallContainer *recall_container, guint flags)
 {
   gboolean retval;  
   
-  pthread_mutex_t *recall_container_mutex;
+  GRecMutex *recall_container_mutex;
 
   if(!AGS_IS_RECALL_CONTAINER(recall_container)){
     return(FALSE);
@@ -1032,11 +1063,11 @@ ags_recall_container_test_flags(AgsRecallContainer *recall_container, guint flag
   recall_container_mutex = AGS_RECALL_CONTAINER_GET_OBJ_MUTEX(recall_container);
 
   /* test */
-  pthread_mutex_lock(recall_container_mutex);
+  g_rec_mutex_lock(recall_container_mutex);
 
   retval = (flags & (recall_container->flags)) ? TRUE: FALSE;
   
-  pthread_mutex_unlock(recall_container_mutex);
+  g_rec_mutex_unlock(recall_container_mutex);
 
   return(retval);
 }
@@ -1048,12 +1079,12 @@ ags_recall_container_test_flags(AgsRecallContainer *recall_container, guint flag
  *
  * Set flags.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_recall_container_set_flags(AgsRecallContainer *recall_container, guint flags)
 {
-  pthread_mutex_t *recall_container_mutex;
+  GRecMutex *recall_container_mutex;
 
   if(!AGS_IS_RECALL_CONTAINER(recall_container)){
     return;
@@ -1063,11 +1094,11 @@ ags_recall_container_set_flags(AgsRecallContainer *recall_container, guint flags
   recall_container_mutex = AGS_RECALL_CONTAINER_GET_OBJ_MUTEX(recall_container);
 
   /* set flags */
-  pthread_mutex_lock(recall_container_mutex);
+  g_rec_mutex_lock(recall_container_mutex);
 
   recall_container->flags |= flags;
 
-  pthread_mutex_unlock(recall_container_mutex);
+  g_rec_mutex_unlock(recall_container_mutex);
 }
 
 /**
@@ -1077,12 +1108,12 @@ ags_recall_container_set_flags(AgsRecallContainer *recall_container, guint flags
  *
  * Unset flags.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_recall_container_unset_flags(AgsRecallContainer *recall_container, guint flags)
 {
-  pthread_mutex_t *recall_container_mutex;
+  GRecMutex *recall_container_mutex;
 
   if(!AGS_IS_RECALL_CONTAINER(recall_container)){
     return;
@@ -1092,11 +1123,11 @@ ags_recall_container_unset_flags(AgsRecallContainer *recall_container, guint fla
   recall_container_mutex = AGS_RECALL_CONTAINER_GET_OBJ_MUTEX(recall_container);
 
   /* set flags */
-  pthread_mutex_lock(recall_container_mutex);
+  g_rec_mutex_lock(recall_container_mutex);
 
   recall_container->flags &= (~flags);
 
-  pthread_mutex_unlock(recall_container_mutex);
+  g_rec_mutex_unlock(recall_container_mutex);
 }
 
 /**
@@ -1106,7 +1137,7 @@ ags_recall_container_unset_flags(AgsRecallContainer *recall_container, guint fla
  * 
  * Add @recall to @recall_container.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_recall_container_add(AgsRecallContainer *recall_container,
@@ -1158,7 +1189,7 @@ ags_recall_container_add(AgsRecallContainer *recall_container,
  * 
  * Remove @recall from @recall_container.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_recall_container_remove(AgsRecallContainer *recall_container,
@@ -1220,9 +1251,9 @@ ags_recall_container_remove(AgsRecallContainer *recall_container,
  *
  * Retrieve recall audio of container.
  *
- * Returns: the #AgsRecallAudio
+ * Returns: (transfer none): the #AgsRecallAudio
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 AgsRecall*
 ags_recall_container_get_recall_audio(AgsRecallContainer *recall_container)
@@ -1240,9 +1271,9 @@ ags_recall_container_get_recall_audio(AgsRecallContainer *recall_container)
  *
  * Retrieve recall audio run of container.
  *
- * Returns: the #AgsRecallAudioRun as list
+ * Returns: (element-type AgsAudio.RecallAudioRun) (transfer none): the #AgsRecallAudioRun as list
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 GList*
 ags_recall_container_get_recall_audio_run(AgsRecallContainer *recall_container)
@@ -1260,9 +1291,9 @@ ags_recall_container_get_recall_audio_run(AgsRecallContainer *recall_container)
  *
  * Retrieve the recall channel of container.
  *
- * Returns: the #AgsRecallChannel
+ * Returns: (element-type AgsAudio.RecallChannel) (transfer none): the #AgsRecallChannel
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 GList*
 ags_recall_container_get_recall_channel(AgsRecallContainer *recall_container)
@@ -1280,9 +1311,9 @@ ags_recall_container_get_recall_channel(AgsRecallContainer *recall_container)
  *
  * Retrieve the recall channel run of container.
  *
- * Returns: the #AgsRecall
+ * Returns: (element-type AgsAudio.RecallChannelRun) (transfer none): the #AgsRecall
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 GList*
 ags_recall_container_get_recall_channel_run(AgsRecallContainer *recall_container)
@@ -1296,16 +1327,16 @@ ags_recall_container_get_recall_channel_run(AgsRecallContainer *recall_container
 
 /**
  * ags_recall_container_find:
- * @recall_container: the #AgsRecallContainer
+ * @recall_container: (element-type AgsAudio.RecallContainer) (transfer none): the #GList-struct containing #AgsRecallContainer
  * @type: recall type
  * @find_flags: search mask
  * @recall_id: an #AgsRecallID
  *
  * Finds #AgsRecall for appropriate search criteria.
  *
- * Returns: the matching recalls
+ * Returns: (element-type AgsAudio.Recall) (transfer none): the matching recalls
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 GList*
 ags_recall_container_find(GList *recall_container,
@@ -1412,13 +1443,17 @@ ags_recall_container_find(GList *recall_container,
 	break;
       }
 
+      current_recall_id = NULL;
+      
       g_object_get(recall,
 		   "recall-id", &current_recall_id,
 		   NULL);
 
       match_recall_id = (current_recall_id != NULL && current_recall_id == recall_id) ? TRUE: FALSE;
 
-      g_object_unref(current_recall_id);
+      if(current_recall_id != NULL){
+	g_object_unref(current_recall_id);
+      }
       
       if((AGS_RECALL_CONTAINER_FIND_RECALL_ID & find_flags) != 0 && match_recall_id){
 	break;
@@ -1438,7 +1473,7 @@ ags_recall_container_find(GList *recall_container,
  *
  * Returns: the new #AgsRecallContainer
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 AgsRecallContainer*
 ags_recall_container_new()

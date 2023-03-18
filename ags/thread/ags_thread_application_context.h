@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2015 Joël Krähemann
+ * Copyright (C) 2005-2020 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -25,15 +25,14 @@
 
 #include <ags/object/ags_application_context.h>
 
-#ifdef AGS_USE_LINUX_THREADS
-#include <ags/thread/ags_thread-kthreads.h>
-#else
-#include <ags/thread/ags_thread-posix.h>
-#endif 
+#include <ags/thread/ags_thread.h>
 
 #include <ags/thread/ags_thread_pool.h>
 
+G_BEGIN_DECLS
+
 #define AGS_TYPE_THREAD_APPLICATION_CONTEXT                (ags_thread_application_context_get_type())
+#define AGS_TYPE_THREAD_APPLICATION_CONTEXT_FLAGS          (ags_thread_application_context_flags_get_type())
 #define AGS_THREAD_APPLICATION_CONTEXT(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_THREAD_APPLICATION_CONTEXT, AgsThreadApplicationContext))
 #define AGS_THREAD_APPLICATION_CONTEXT_CLASS(class)        (G_TYPE_CHECK_CLASS_CAST(class, AGS_TYPE_THREAD_APPLICATION_CONTEXT, AgsThreadApplicationContextClass))
 #define AGS_IS_THREAD_APPLICATION_CONTEXT(obj)             (G_TYPE_CHECK_INSTANCE_TYPE ((obj), AGS_TYPE_THREAD_APPLICATION_CONTEXT))
@@ -48,7 +47,7 @@ typedef struct _AgsThreadApplicationContextClass AgsThreadApplicationContextClas
 
 /**
  * AgsThreadApplicationContextFlags:
- * @AGS_THREAD_APPLICATION_CONTEXT_SINGLE_THREAD: run as threads in one single loop
+ * @AGS_THREAD_APPLICATION_CONTEXT_SINGLE_THREAD: run all threads in one single loop
  * 
  * Enum values to control the behavior or indicate internal state of #AgsThreadApplicationContext by
  * enable/disable as sync_flags.
@@ -59,11 +58,13 @@ typedef enum{
 
 struct _AgsThreadApplicationContext
 {
-  AgsApplicationContextClass application_contex;
+  AgsApplicationContext application_context;
 
   guint flags;
 
-  AgsThread *autosave_thread;
+  gchar *version;
+  gchar *build_id;
+
   AgsThreadPool *thread_pool;
 
   GList *worker;
@@ -71,13 +72,16 @@ struct _AgsThreadApplicationContext
 
 struct _AgsThreadApplicationContextClass
 {
-  AgsApplicationContextClass application_contex;
+  AgsApplicationContextClass application_context;
 };
 
 GType ags_thread_application_context_get_type();
+GType ags_thread_application_context_flags_get_type();
 
 void ags_thread_application_context_register_types(AgsApplicationContext *application_context);
 
 AgsThreadApplicationContext* ags_thread_application_context_new();
+
+G_END_DECLS
 
 #endif /*__AGS_THREAD_APPLICATION_CONTEXT_H__*/

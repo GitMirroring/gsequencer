@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -24,7 +24,7 @@
 #include <glib-object.h>
 #include <gmodule.h>
 
-#include <pthread.h>
+G_BEGIN_DECLS
 
 #define AGS_TYPE_OSC_BUILDER                (ags_osc_builder_get_type ())
 #define AGS_OSC_BUILDER(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_OSC_BUILDER, AgsOscBuilder))
@@ -33,7 +33,7 @@
 #define AGS_IS_OSC_BUILDER_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE ((class), AGS_TYPE_OSC_BUILDER))
 #define AGS_OSC_BUILDER_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS ((obj), AGS_TYPE_OSC_BUILDER, AgsOscBuilderClass))
 
-#define AGS_OSC_BUILDER_GET_OBJ_MUTEX(obj) (((AgsOscBuilder *) obj)->obj_mutex)
+#define AGS_OSC_BUILDER_GET_OBJ_MUTEX(obj) (&(((AgsOscBuilder *) obj)->obj_mutex))
 
 #define AGS_OSC_BUILDER_PACKET(x) ((AgsOscBuilderPacket *)(x))
 #define AGS_OSC_BUILDER_BUNDLE(x) ((AgsOscBuilderBundle *)(x))
@@ -58,10 +58,9 @@ struct _AgsOscBuilder
 
   guint flags;
 
-  pthread_mutex_t *obj_mutex;
-  pthread_mutexattr_t *obj_mutexattr;
+  GRecMutex obj_mutex;
 
-  unsigned char *data;
+  guchar *data;
   guint length;
 
   guint64 offset;
@@ -137,15 +136,13 @@ struct _AgsOscBuilderMessage
 
   gsize data_allocated_length;
   gsize data_length;
-  unsigned char *data;
+  guchar *data;
 
   AgsOscBuilderPacket *packet;
   AgsOscBuilderBundle *parent_bundle;
 };
 
 GType ags_osc_builder_get_type(void);
-
-pthread_mutex_t* ags_osc_builder_get_class_mutex();
 
 AgsOscBuilderPacket* ags_osc_builder_packet_alloc(guint64 offset);
 void ags_osc_builder_packet_free(AgsOscBuilderPacket *packet);
@@ -183,6 +180,13 @@ void ags_osc_builder_append_value(AgsOscBuilder *osc_builder,
 void ags_osc_builder_build(AgsOscBuilder *osc_builder);
 
 /*  */
+guchar* ags_osc_builder_get_data(AgsOscBuilder *osc_builder);
+guchar* ags_osc_builder_get_data_with_length(AgsOscBuilder *osc_builder,
+					     guint *length);
+
+/*  */
 AgsOscBuilder* ags_osc_builder_new();
+
+G_END_DECLS
 
 #endif /*__AGS_OSC_BUILDER_H__*/

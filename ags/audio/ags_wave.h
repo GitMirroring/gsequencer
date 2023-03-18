@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2021 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -29,6 +29,8 @@
 
 #include <ags/audio/ags_buffer.h>
 
+G_BEGIN_DECLS
+
 #define AGS_TYPE_WAVE                (ags_wave_get_type())
 #define AGS_WAVE(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_WAVE, AgsWave))
 #define AGS_WAVE_CLASS(class)        (G_TYPE_CHECK_CLASS_CAST((class), AGS_TYPE_WAVE, AgsWaveClass))
@@ -36,7 +38,7 @@
 #define AGS_IS_WAVE_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE ((class), AGS_TYPE_WAVE))
 #define AGS_WAVE_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS (obj, AGS_TYPE_WAVE, AgsWaveClass))
 
-#define AGS_WAVE_GET_OBJ_MUTEX(obj) (((AgsWave *) obj)->obj_mutex)
+#define AGS_WAVE_GET_OBJ_MUTEX(obj) (&(((AgsWave *) obj)->obj_mutex))
 
 #define AGS_WAVE_DEFAULT_BPM (120.0)
 
@@ -45,9 +47,9 @@
 
 #define AGS_WAVE_DEFAULT_BUFFER_LENGTH (64.0)
 
-#define AGS_WAVE_DEFAULT_LENGTH (65535.0 / AGS_WAVE_TICS_PER_BEAT - AGS_WAVE_MINIMUM_BUFFER_LENGTH)
+#define AGS_WAVE_DEFAULT_LENGTH ((60 * AGS_SOUNDCARD_DEFAULT_SAMPLERATE / AGS_WAVE_DEFAULT_BPM / 4) * 16 * 16 * 1200 / AGS_WAVE_TICS_PER_BEAT)
 #define AGS_WAVE_DEFAULT_JIFFIE (60.0 / AGS_WAVE_DEFAULT_BPM / AGS_WAVE_TICS_PER_BEAT)
-#define AGS_WAVE_DEFAULT_DURATION (AGS_WAVE_DEFAULT_LENGTH * AGS_WAVE_DEFAULT_JIFFIE * USEC_PER_SEC)
+#define AGS_WAVE_DEFAULT_DURATION (AGS_WAVE_DEFAULT_LENGTH * AGS_WAVE_DEFAULT_JIFFIE * AGS_USEC_PER_SEC)
 #define AGS_WAVE_DEFAULT_OFFSET (AGS_WAVE_DEFAULT_BUFFER_LENGTH * AGS_SOUNDCARD_DEFAULT_SAMPLERATE)
 
 #define AGS_WAVE_CLIPBOARD_VERSION "1.4.0"
@@ -74,8 +76,7 @@ struct _AgsWave
 
   guint flags;
 
-  pthread_mutex_t *obj_mutex;
-  pthread_mutexattr_t *obj_mutexattr;
+  GRecMutex obj_mutex;
 
   GObject *audio;
   guint line;
@@ -98,22 +99,47 @@ struct _AgsWaveClass
 };
 
 GType ags_wave_get_type(void);
+GType ags_wave_flags_get_type();
 
-pthread_mutex_t* ags_wave_get_class_mutex();
+GRecMutex* ags_wave_get_obj_mutex(AgsWave *wave);
 
 gboolean ags_wave_test_flags(AgsWave *wave, guint flags);
 void ags_wave_set_flags(AgsWave *wave, guint flags);
 void ags_wave_unset_flags(AgsWave *wave, guint flags);
 
+GList* ags_wave_find_near_timestamp(GList *wave, guint line,
+				    AgsTimestamp *timestamp);
+
+gint ags_wave_sort_func(gconstpointer a,
+			gconstpointer b);
+
+GObject* ags_wave_get_audio(AgsWave *wave);
+void ags_wave_set_audio(AgsWave *wave,
+			GObject *audio);
+
+guint ags_wave_get_line(AgsWave *wave);
+void ags_wave_set_line(AgsWave *wave,
+		       guint line);
+
+guint ags_wave_get_samplerate(AgsWave *wave);
 void ags_wave_set_samplerate(AgsWave *wave,
 			     guint samplerate);
+
+guint ags_wave_get_buffer_size(AgsWave *wave);
 void ags_wave_set_buffer_size(AgsWave *wave,
 			      guint buffer_size);
+
+guint ags_wave_get_format(AgsWave *wave);
 void ags_wave_set_format(AgsWave *wave,
 			 guint format);
 
-GList* ags_wave_find_near_timestamp(GList *wave, guint line,
-				    AgsTimestamp *timestamp);
+AgsTimestamp* ags_wave_get_timestamp(AgsWave *wave);
+void ags_wave_set_timestamp(AgsWave *wave,
+			    AgsTimestamp *timestamp);
+
+GList* ags_wave_get_buffer(AgsWave *wave);
+void ags_wave_set_buffer(AgsWave *wave,
+			 GList *buffer);
 
 GList* ags_wave_add(GList *wave,
 		    AgsWave *new_wave);
@@ -132,12 +158,16 @@ gboolean ags_wave_is_buffer_selected(AgsWave *wave, AgsBuffer *buffer);
 AgsBuffer* ags_wave_find_point(AgsWave *wave,
 			       guint64 x,
 			       gboolean use_selection_list);
+AgsBuffer* ags_wave_find_exact_point(AgsWave *wave,
+				     guint64 x,
+				     gboolean use_selection_list);
 GList* ags_wave_find_region(AgsWave *wave,
 			    guint64 x0,
 			    guint64 x1,
 			    gboolean use_selection_list);
 
 void ags_wave_free_selection(AgsWave *wave);
+void ags_wave_free_all_selection(GList *wave);
 
 void ags_wave_add_region_to_selection(AgsWave *wave,
 				      guint64 x0, guint64 x1,
@@ -163,5 +193,7 @@ void ags_wave_insert_from_clipboard_extended(AgsWave *wave,
 
 AgsWave* ags_wave_new(GObject *audio,
 		      guint line);
+
+G_END_DECLS
 
 #endif /*__AGS_WAVE_H__*/

@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2018 Joël Krähemann
+ * Copyright (C) 2005-2021 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -25,6 +25,10 @@
 
 #include <ags/libags.h>
 
+#include <ags/plugin/ags_lv2_turtle_scanner.h>
+
+G_BEGIN_DECLS
+
 #define AGS_TYPE_AUDIO_APPLICATION_CONTEXT                (ags_audio_application_context_get_type())
 #define AGS_AUDIO_APPLICATION_CONTEXT(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_AUDIO_APPLICATION_CONTEXT, AgsAudioApplicationContext))
 #define AGS_AUDIO_APPLICATION_CONTEXT_CLASS(class)        (G_TYPE_CHECK_CLASS_CAST(class, AGS_TYPE_AUDIO_APPLICATION_CONTEXT, AgsAudioApplicationContextClass))
@@ -32,58 +36,69 @@
 #define AGS_IS_AUDIO_APPLICATION_CONTEXT_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE ((class), AGS_TYPE_AUDIO_APPLICATION_CONTEXT))
 #define AGS_AUDIO_APPLICATION_CONTEXT_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS(obj, AGS_TYPE_AUDIO_APPLICATION_CONTEXT, AgsAudioApplicationContextClass))
 
-#define AGS_AUDIO_RT_PRIORITY (49)
-
-#define AGS_AUDIO_DEFAULT_VERSION "2.1.6"
-#define AGS_AUDIO_BUILD_ID "Mon Dec  3 13:42:15 UTC 2018"
+#define AGS_AUDIO_DEFAULT_VERSION "3.0.0"
+#define AGS_AUDIO_BUILD_ID "Fri Nov  8 21:47:01 UTC 2019"
 
 #define AGS_EFFECTS_DEFAULT_VERSION "0.7.13"
 
+#define AGS_AUDIO_APPLICATION_CONTEXT_DEFAULT_LOADER_INTERVAL (1000 / 25)
+
 typedef struct _AgsAudioApplicationContext AgsAudioApplicationContext;
 typedef struct _AgsAudioApplicationContextClass AgsAudioApplicationContextClass;
-
-/**
- * AgsAudioApplicationContextFlags:
- * @AGS_AUDIO_APPLICATION_CONTEXT_USE_ALSA: use alsa backend
- * 
- * Enum values to control the behavior or indicate internal state of #AgsAudioApplicationContextFlags by
- * enable/disable as flags.
- */
-typedef enum{
-  AGS_AUDIO_APPLICATION_CONTEXT_USE_ALSA      = 1,
-}AgsAudioApplicationContextFlags;
 
 struct _AgsAudioApplicationContext
 {
   AgsApplicationContext application_context;
 
   guint flags;
-
-  gchar *version;
-  gchar *build_id;
-
+  
   AgsThreadPool *thread_pool;
-
-  AgsPollingThread *polling_thread;
 
   GList *worker;
 
+  GMainContext *server_main_context;
+
+  gboolean is_operating;
+
+  AgsServerStatus *server_status;
+  
+  AgsRegistry *registry;
+  
+  GList *server;
+
+  GMainContext *audio_main_context;
+  GMainContext *osc_server_main_context;
+  
   GObject *default_soundcard;
 
   AgsThread *default_soundcard_thread;
   AgsThread *default_export_thread;
-
-  AgsThread *autosave_thread;
-
-  AgsServer *server;
-
+  
   GList *soundcard;
   GList *sequencer;
 
-  GList *sound_server;
   GList *audio;
 
+  GList *sound_server;
+
   GList *osc_server;
+
+  gboolean start_loader;
+  
+  gboolean setup_ready;
+  gboolean loader_ready;
+  
+  gboolean ladspa_loading;
+  gboolean dssi_loading;
+  gboolean lv2_loading;
+  gboolean vst3_loading;
+  
+  GList *ladspa_loader;
+  GList *dssi_loader;
+  GList *lv2_loader;
+  GList *vst3_loader;
+  
+  AgsLv2TurtleScanner *lv2_turtle_scanner;
 };
 
 struct _AgsAudioApplicationContextClass
@@ -93,6 +108,10 @@ struct _AgsAudioApplicationContextClass
 
 GType ags_audio_application_context_get_type();
 
+gboolean ags_audio_application_context_loader_timeout(AgsAudioApplicationContext *audio_application_context);
+
 AgsAudioApplicationContext* ags_audio_application_context_new();
+
+G_END_DECLS
 
 #endif /*__AGS_AUDIO_APPLICATION_CONTEXT_H__*/

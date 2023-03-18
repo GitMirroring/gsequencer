@@ -27,6 +27,8 @@
 
 #include <sndfile.h>
 
+G_BEGIN_DECLS
+
 #define AGS_TYPE_SFZ_SAMPLE                (ags_sfz_sample_get_type())
 #define AGS_SFZ_SAMPLE(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_SFZ_SAMPLE, AgsSFZSample))
 #define AGS_SFZ_SAMPLE_CLASS(class)        (G_TYPE_CHECK_CLASS_CAST((class), AGS_TYPE_SFZ_SAMPLE, AgsSFZSampleClass))
@@ -34,7 +36,7 @@
 #define AGS_IS_SFZ_SAMPLE_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE ((class), AGS_TYPE_SFZ_SAMPLE))
 #define AGS_SFZ_SAMPLE_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS ((obj), AGS_TYPE_SFZ_SAMPLE, AgsSFZSampleClass))
 
-#define AGS_SFZ_SAMPLE_GET_OBJ_MUTEX(obj) (((AgsSFZSample *) obj)->obj_mutex)
+#define AGS_SFZ_SAMPLE_GET_OBJ_MUTEX(obj) (&(((AgsSFZSample *) obj)->obj_mutex))
 
 typedef struct _AgsSFZSample AgsSFZSample;
 typedef struct _AgsSFZSampleClass AgsSFZSampleClass;
@@ -52,14 +54,28 @@ typedef enum{
   AGS_SFZ_SAMPLE_CONNECTED            = 1 <<  1,
 }AgsSFZSampleFlags;
 
+/**
+ * AgsSFZSampleLoopMode:
+ * @AGS_SFZ_SAMPLE_LOOP_ONE_SHOT: one shot
+ * @AGS_SFZ_SAMPLE_LOOP_CONTINUOUS: loop continuous
+ * @AGS_SFZ_SAMPLE_LOOP_SUSTAIN: loop sustain
+ * 
+ * Enum values to control the behavior or indicate internal state of #AgsSFZSample by
+ * enable/disable as flags.
+ */
+typedef enum{
+  AGS_SFZ_SAMPLE_LOOP_ONE_SHOT,
+  AGS_SFZ_SAMPLE_LOOP_CONTINUOUS,
+  AGS_SFZ_SAMPLE_LOOP_SUSTAIN,
+}AgsSFZSampleLoopMode;
+
 struct _AgsSFZSample
 {
   GObject gobject;
 
   guint flags;
 
-  pthread_mutex_t *obj_mutex;
-  pthread_mutexattr_t *obj_mutexattr;
+  GRecMutex obj_mutex;
 
   AgsUUID *uuid;
 
@@ -98,13 +114,32 @@ struct _AgsSFZSampleClass
 
 GType ags_sfz_sample_get_type();
 
-pthread_mutex_t* ags_sfz_sample_get_class_mutex();
-
 gboolean ags_sfz_sample_test_flags(AgsSFZSample *sfz_sample, guint flags);
 void ags_sfz_sample_set_flags(AgsSFZSample *sfz_sample, guint flags);
 void ags_sfz_sample_unset_flags(AgsSFZSample *sfz_sample, guint flags);
 
+GObject* ags_sfz_sample_get_group(AgsSFZSample *sfz_sample);
+void ags_sfz_sample_set_group(AgsSFZSample *sfz_sample,
+			      GObject *group);
+
+GObject* ags_sfz_sample_get_region(AgsSFZSample *sfz_sample);
+void ags_sfz_sample_set_region(AgsSFZSample *sfz_sample,
+			       GObject *region);
+
+gint ags_sfz_sample_get_key(AgsSFZSample *sfz_sample);
+
+gint ags_sfz_sample_get_hikey(AgsSFZSample *sfz_sample);
+gint ags_sfz_sample_get_lokey(AgsSFZSample *sfz_sample);
+
+gint ags_sfz_sample_get_pitch_keycenter(AgsSFZSample *sfz_sample);
+
+guint ags_sfz_sample_get_loop_mode(AgsSFZSample *sfz_sample);
+guint ags_sfz_sample_get_loop_start(AgsSFZSample *sfz_sample);
+guint ags_sfz_sample_get_loop_end(AgsSFZSample *sfz_sample);
+
 /* instantiate */
 AgsSFZSample* ags_sfz_sample_new();
+
+G_END_DECLS
 
 #endif /*__AGS_SFZ_SAMPLE_H__*/

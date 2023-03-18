@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2020 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -18,8 +18,6 @@
  */
 
 #include <ags/audio/ags_recall_dependency.h>
-
-#include <ags/libags.h>
 
 #include <ags/audio/ags_recall_container.h>
 #include <ags/audio/ags_recall_audio.h>
@@ -46,7 +44,7 @@ void ags_recall_dependency_finalize(GObject *gobject);
 
 /**
  * SECTION:ags_recall_dependency
- * @short_description: recall dependency
+ * @short_description: Recall dependency
  * @title: AgsRecallDependency
  * @section_id:
  * @include: ags/audio/ags_recall_dependency.h
@@ -61,8 +59,6 @@ enum{
 };
 
 static gpointer ags_recall_dependency_parent_class = NULL;
-
-static pthread_mutex_t ags_recall_dependency_class_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 GType
 ags_recall_dependency_get_type(void)
@@ -117,7 +113,7 @@ ags_recall_dependency_class_init(AgsRecallDependencyClass *recall_dependency)
    *
    * The dependency.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_object("dependency",
 				   i18n_pspec("dependency of recall"),
@@ -132,27 +128,10 @@ ags_recall_dependency_class_init(AgsRecallDependencyClass *recall_dependency)
 void
 ags_recall_dependency_init(AgsRecallDependency *recall_dependency)
 {
-  pthread_mutex_t *mutex;
-  pthread_mutexattr_t *attr;
-
   recall_dependency->flags = 0;
   
-  /* add recall dependency mutex */
-  recall_dependency->obj_mutexattr = 
-    attr = (pthread_mutexattr_t *) malloc(sizeof(pthread_mutexattr_t));
-  pthread_mutexattr_init(attr);
-  pthread_mutexattr_settype(attr,
-			    PTHREAD_MUTEX_RECURSIVE);
-
-#ifdef __linux__
-  pthread_mutexattr_setprotocol(attr,
-				PTHREAD_PRIO_INHERIT);
-#endif
-
-  recall_dependency->obj_mutex = 
-    mutex = (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t));
-  pthread_mutex_init(mutex,
-		     attr);
+  /* recall dependency mutex */
+  g_rec_mutex_init(&(recall_dependency->obj_mutex)); 
 
   /* dependency */
   recall_dependency->dependency = NULL;
@@ -166,7 +145,7 @@ ags_recall_dependency_set_property(GObject *gobject,
 {
   AgsRecallDependency *recall_dependency;
 
-  pthread_mutex_t *recall_dependency_mutex;
+  GRecMutex *recall_dependency_mutex;
 
   recall_dependency = AGS_RECALL_DEPENDENCY(gobject);
 
@@ -180,10 +159,10 @@ ags_recall_dependency_set_property(GObject *gobject,
       
       dependency = (AgsRecall *) g_value_get_object(value);
       
-      pthread_mutex_lock(recall_dependency_mutex);
+      g_rec_mutex_lock(recall_dependency_mutex);
 
       if(recall_dependency->dependency == (GObject *) dependency){
-	pthread_mutex_unlock(recall_dependency_mutex);
+	g_rec_mutex_unlock(recall_dependency_mutex);
 	
 	return;
       }
@@ -198,7 +177,7 @@ ags_recall_dependency_set_property(GObject *gobject,
 
       recall_dependency->dependency = (GObject *) dependency;
 
-      pthread_mutex_unlock(recall_dependency_mutex);
+      g_rec_mutex_unlock(recall_dependency_mutex);
     }
     break;
   default:
@@ -215,7 +194,7 @@ ags_recall_dependency_get_property(GObject *gobject,
 {
   AgsRecallDependency *recall_dependency;
 
-  pthread_mutex_t *recall_dependency_mutex;
+  GRecMutex *recall_dependency_mutex;
 
   recall_dependency = AGS_RECALL_DEPENDENCY(gobject);
 
@@ -225,11 +204,11 @@ ags_recall_dependency_get_property(GObject *gobject,
   switch(prop_id){
   case PROP_DEPENDENCY:
     {
-      pthread_mutex_lock(recall_dependency_mutex);
+      g_rec_mutex_lock(recall_dependency_mutex);
 
       g_value_set_object(value, recall_dependency->dependency);
 
-      pthread_mutex_unlock(recall_dependency_mutex);
+      g_rec_mutex_unlock(recall_dependency_mutex);
     }
     break;
   default:
@@ -262,12 +241,6 @@ ags_recall_dependency_finalize(GObject *gobject)
   AgsRecallDependency *recall_dependency;
 
   recall_dependency = AGS_RECALL_DEPENDENCY(gobject);
-
-  pthread_mutex_destroy(recall_dependency->obj_mutex);
-  free(recall_dependency->obj_mutex);
-
-  pthread_mutexattr_destroy(recall_dependency->obj_mutexattr);
-  free(recall_dependency->obj_mutexattr);
   
   /* dependency */
   if(recall_dependency->dependency != NULL){
@@ -279,30 +252,15 @@ ags_recall_dependency_finalize(GObject *gobject)
 }
 
 /**
- * ags_recall_dependency_get_class_mutex:
- * 
- * Use this function's returned mutex to access mutex fields.
- *
- * Returns: the class mutex
- * 
- * Since: 2.0.0
- */
-pthread_mutex_t*
-ags_recall_dependency_get_class_mutex()
-{
-  return(&ags_recall_dependency_class_mutex);
-}
-
-/**
  * ags_recall_dependency_find_dependency:
- * @recall_dependency: a #GList-struct containing  #AgsRecallDependency
+ * @recall_dependency: (element-type AgsAudio.RecallDependency) (transfer none): the #GList-struct containing  #AgsRecallDependency
  * @dependency: the #AgsRecall depending on
  *
  * Retrieve dependency.
  *
- * Returns: next matching #GList-struct or %NULL.
+ * Returns: (element-type AgsAudio.RecallDependency) (transfer none): next matching #GList-struct or %NULL.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 GList*
 ags_recall_dependency_find_dependency(GList *recall_dependency, GObject *dependency)
@@ -311,6 +269,8 @@ ags_recall_dependency_find_dependency(GList *recall_dependency, GObject *depende
     GObject *current_dependency;
 
     gboolean success;
+
+    current_dependency = NULL;
     
     g_object_get(recall_dependency->data,
 		 "dependency", &current_dependency,
@@ -318,7 +278,9 @@ ags_recall_dependency_find_dependency(GList *recall_dependency, GObject *depende
 
     success = (current_dependency == dependency) ? TRUE: FALSE;
 
-    g_object_unref(current_dependency);
+    if(current_dependency != NULL){
+      g_object_unref(current_dependency);
+    }
     
     if(success){
       return(recall_dependency);
@@ -332,14 +294,14 @@ ags_recall_dependency_find_dependency(GList *recall_dependency, GObject *depende
 
 /**
  * ags_recall_dependency_find_dependency_by_provider:
- * @recall_dependency: a #GList-struct containing  #AgsRecallDependency
+ * @recall_dependency: (element-type AgsAudio.RecallDependency) (transfer none): the #GList-struct containing  #AgsRecallDependency
  * @provider: the object providing recall, like #AgsAudio or #AgsChannel
  *
  * Retrieve dependency by provider.
  *
- * Returns: next matching #GList-struct or %NULL.
+ * Returns: (element-type AgsAudio.RecallDependency) (transfer none): next matching #GList-struct or %NULL.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 GList*
 ags_recall_dependency_find_dependency_by_provider(GList *recall_dependency,
@@ -358,13 +320,17 @@ ags_recall_dependency_find_dependency_by_provider(GList *recall_dependency,
        AGS_IS_RECALL_CHANNEL_RUN(current_dependency)){
       AgsChannel *channel;
 
+      channel = NULL;
+      
       g_object_get(current_dependency,
 		   "source", &channel,
 		   NULL);
 
       success = (channel == AGS_CHANNEL(provider)) ? TRUE: FALSE;
 
-      g_object_unref(channel);
+      if(channel != NULL){
+	g_object_unref(channel);
+      }
       
       if(success){
 	g_object_unref(current_dependency);
@@ -377,13 +343,17 @@ ags_recall_dependency_find_dependency_by_provider(GList *recall_dependency,
        AGS_IS_RECALL_AUDIO_RUN(current_dependency)){
       AgsAudio *audio;
 
+      audio = NULL;
+      
       g_object_get(current_dependency,
 		   "audio", &audio,
 		   NULL);
 
       success = (audio == AGS_AUDIO(provider)) ? TRUE: FALSE;
 
-      g_object_unref(audio);
+      if(audio != NULL){
+	g_object_unref(audio);
+      }
       
       if(success){
 	g_object_unref(current_dependency);
@@ -407,9 +377,9 @@ ags_recall_dependency_find_dependency_by_provider(GList *recall_dependency,
  *
  * Resolve dependency.
  *
- * Returns: the #AgsRecall dependency.
+ * Returns: (transfer none): the #AgsRecall dependency.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 GObject*
 ags_recall_dependency_resolve(AgsRecallDependency *recall_dependency, AgsRecallID *recall_id)
@@ -418,6 +388,8 @@ ags_recall_dependency_resolve(AgsRecallDependency *recall_dependency, AgsRecallI
   AgsRecall *dependency;
 
   GObject *retval;
+
+  dependency = NULL;
   
   g_object_get(recall_dependency,
 	       "dependency", &dependency,
@@ -427,6 +399,8 @@ ags_recall_dependency_resolve(AgsRecallDependency *recall_dependency, AgsRecallI
     return(NULL);
   }
 
+  recall_container = NULL;
+  
   g_object_get(dependency,
 	       "recall-container", &recall_container,
 	       NULL);
@@ -442,13 +416,17 @@ ags_recall_dependency_resolve(AgsRecallDependency *recall_dependency, AgsRecallI
   if(AGS_IS_RECALL_AUDIO(dependency)){
     GObject *recall_audio;
 
+    recall_audio = NULL;
+    
     g_object_get(recall_container,
 		 "recall-audio", &recall_audio,
 		 NULL);
 
     retval = recall_audio;
-    
-    g_object_unref(recall_audio);    
+
+    if(recall_audio != NULL){
+      g_object_unref(recall_audio);
+    }
   }else if(AGS_IS_RECALL_AUDIO_RUN(dependency)){
     AgsRecyclingContext *recycling_context;
 
@@ -462,9 +440,13 @@ ags_recall_dependency_resolve(AgsRecallDependency *recall_dependency, AgsRecallI
       goto ags_recall_dependency_resolve_END;
     }
 
+    recycling_context = NULL;
+    
     g_object_get(recall_id,
 		 "recycling-context", &recycling_context,
 		 NULL);
+
+    list_start = NULL;
     
     g_object_get(recall_container,
 		 "recall-audio-run", &list_start,
@@ -478,7 +460,9 @@ ags_recall_dependency_resolve(AgsRecallDependency *recall_dependency, AgsRecallI
       retval = recall_audio_run;
     }
 
-    g_object_unref(recycling_context);
+    if(recycling_context != NULL){
+      g_object_unref(recycling_context);
+    }
     
     g_list_free_full(list_start,
 		     g_object_unref);
@@ -489,10 +473,14 @@ ags_recall_dependency_resolve(AgsRecallDependency *recall_dependency, AgsRecallI
     
     GList *list_start, *list;
 
+    list_start = NULL;
+
     g_object_get(recall_container,
 		 "recall-channel", &list_start,
 		 NULL);
 
+    source = NULL;
+    
     g_object_get(dependency,
 		 "source", &source,
 		 NULL);
@@ -506,7 +494,9 @@ ags_recall_dependency_resolve(AgsRecallDependency *recall_dependency, AgsRecallI
       retval = recall_channel;
     }
 
-    g_object_unref(source);
+    if(source != NULL){
+      g_object_unref(source);
+    }
     
     g_list_free_full(list_start,
 		     g_object_unref);
@@ -523,13 +513,18 @@ ags_recall_dependency_resolve(AgsRecallDependency *recall_dependency, AgsRecallI
       goto ags_recall_dependency_resolve_END;
     }
 
+    recycling_context = NULL;
+    
     g_object_get(recall_id,
 		 "recycling-context", &recycling_context,
 		 NULL);
     
+    list_start = NULL;
+
     g_object_get(recall_container,
 		 "recall-channel-run", &list_start,
 		 NULL);
+
     list = ags_recall_find_recycling_context(list_start,
 					     (GObject *) recycling_context);
 
@@ -539,8 +534,10 @@ ags_recall_dependency_resolve(AgsRecallDependency *recall_dependency, AgsRecallI
       retval = recall_channel_run;
     }
 
-    g_object_unref(recycling_context);
-
+    if(recycling_context != NULL){
+      g_object_unref(recycling_context);
+    }
+    
     g_list_free_full(list_start,
 		     g_object_unref);
   }
@@ -565,7 +562,7 @@ ags_recall_dependency_resolve_END:
  *
  * Returns: the new #AgsRecallDependency
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 AgsRecallDependency*
 ags_recall_dependency_new(GObject *dependency)

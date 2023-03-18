@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2018 Joël Krähemann
+ * Copyright (C) 2005-2021 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -23,6 +23,19 @@
 #include <glib.h>
 #include <glib-object.h>
 
+G_BEGIN_DECLS
+
+#define AGS_TYPE_STRING_UTIL         (ags_string_util_get_type())
+
+typedef struct _AgsStringUtil AgsStringUtil;
+
+struct _AgsStringUtil
+{
+  //empty
+};
+
+GType ags_string_util_get_type(void);
+
 gchar* ags_string_util_escape_single_quote(gchar *str);
 
 guint ags_strv_length(gchar **str_array);
@@ -31,5 +44,10 @@ gboolean ags_strv_contains(gchar **str_array,
 
 gint ags_strv_index(gchar **str_array,
 		    gchar *str);
+
+gboolean ags_strv_equal(gchar **strv1,
+			gchar **strv2);
+
+G_END_DECLS
 
 #endif /*__AGS_STRING_UTIL__*/

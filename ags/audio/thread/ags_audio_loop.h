@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2020 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -25,7 +25,11 @@
 
 #include <ags/libags.h>
 
+#include <ags/audio/ags_sound_enums.h>
+
 #include <math.h>
+
+G_BEGIN_DECLS
 
 #define AGS_TYPE_AUDIO_LOOP                (ags_audio_loop_get_type())
 #define AGS_AUDIO_LOOP(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_AUDIO_LOOP, AgsAudioLoop))
@@ -60,48 +64,19 @@ typedef enum{
   AGS_AUDIO_LOOP_PLAY_AUDIO_TERMINATING         = 1 << 5,
 }AgsAudioLoopFlags;
 
-/**
- * AgsAudioLoopTimingFlags:
- * @AGS_AUDIO_LOOP_TIMING_WAITING: timing waiting
- * @AGS_AUDIO_LOOP_TIMING_WAKEUP: timing wakeup
- * 
- * Enum values to control timing.
- */
-typedef enum{
-  AGS_AUDIO_LOOP_TIMING_WAITING                 = 1,
-  AGS_AUDIO_LOOP_TIMING_WAKEUP                  = 1 <<  1,
-}AgsAudioLoopTimingFlags;
-
 struct _AgsAudioLoop
 {
   AgsThread thread;
 
   guint flags;
-  volatile guint timing_flags;
-  
-  volatile guint tic;
-  volatile guint last_sync;
+      
+  GRecMutex tree_lock;
 
-  guint time_cycle;
-  volatile guint time_spent;
+  volatile gboolean is_syncing;
 
-  guint sync_tic;
-  guint sync_counter[6];
+  volatile gboolean is_critical_region;
+  volatile guint critical_region_ref;
   
-  GObject *application_context;
-  GObject *default_output_soundcard;
-  
-  GObject *async_queue;
-    
-  pthread_mutexattr_t *tree_lock_mutexattr;
-  pthread_mutex_t *tree_lock;
-  pthread_mutex_t *recall_mutex;
-
-  pthread_mutex_t *timing_mutex;
-  pthread_cond_t *timing_cond;
-  
-  pthread_t *timing_thread;
-
   guint play_channel_ref;
   GList *play_channel; // play AgsChannel
 
@@ -109,6 +84,11 @@ struct _AgsAudioLoop
   GList *play_audio; // play AgsAudio
 
   GList *sync_thread;
+
+  gboolean do_fx_staging;
+  
+  guint *staging_program;
+  guint staging_program_count;
 };
 
 struct _AgsAudioLoopClass
@@ -118,16 +98,31 @@ struct _AgsAudioLoopClass
 
 GType ags_audio_loop_get_type();
 
+/* flags */
 gboolean ags_audio_loop_test_flags(AgsAudioLoop *audio_loop, guint flags);
 void ags_audio_loop_set_flags(AgsAudioLoop *audio_loop, guint flags);
 void ags_audio_loop_unset_flags(AgsAudioLoop *audio_loop, guint flags);
 
+/* runtime */
 void ags_audio_loop_add_audio(AgsAudioLoop *audio_loop, GObject *audio);
 void ags_audio_loop_remove_audio(AgsAudioLoop *audio_loop, GObject *audio);
 
 void ags_audio_loop_add_channel(AgsAudioLoop *audio_loop, GObject *channel);
 void ags_audio_loop_remove_channel(AgsAudioLoop *audio_loop, GObject *channel);
 
-AgsAudioLoop* ags_audio_loop_new(GObject *soundcard, GObject *application_context);
+/* staging */
+gboolean ags_audio_loop_get_do_fx_staging(AgsAudioLoop *audio_loop);
+void ags_audio_loop_set_do_fx_staging(AgsAudioLoop *audio_loop, gboolean do_fx_staging);
+
+guint* ags_audio_loop_get_staging_program(AgsAudioLoop *audio_loop,
+					  guint *staging_program_count);
+void ags_audio_loop_set_staging_program(AgsAudioLoop *audio_loop,
+					guint *staging_program,
+					guint staging_program_count);
+
+/* instantiate */
+AgsAudioLoop* ags_audio_loop_new();
+
+G_END_DECLS
 
 #endif /*__AGS_AUDIO_LOOP_H__*/

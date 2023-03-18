@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -23,9 +23,9 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include <pthread.h>
-
 #include <ags/libags.h>
+
+G_BEGIN_DECLS
 
 #define AGS_TYPE_AUDIO_UNIT_DEVIN                (ags_audio_unit_devin_get_type())
 #define AGS_AUDIO_UNIT_DEVIN(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_AUDIO_UNIT_DEVIN, AgsAudioUnitDevin))
@@ -34,55 +34,61 @@
 #define AGS_IS_AUDIO_UNIT_DEVIN_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE ((class), AGS_TYPE_AUDIO_UNIT_DEVIN))
 #define AGS_AUDIO_UNIT_DEVIN_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS(obj, AGS_TYPE_AUDIO_UNIT_DEVIN, AgsAudioUnitDevinClass))
 
-#define AGS_AUDIO_UNIT_DEVIN_GET_OBJ_MUTEX(obj) (((AgsAudioUnitDevin *) obj)->obj_mutex)
+#define AGS_AUDIO_UNIT_DEVIN_GET_OBJ_MUTEX(obj) (&(((AgsAudioUnitDevin *) obj)->obj_mutex))
+
+#define AGS_AUDIO_UNIT_DEVIN_DEFAULT_APP_BUFFER_SIZE (8)
 
 typedef struct _AgsAudioUnitDevin AgsAudioUnitDevin;
 typedef struct _AgsAudioUnitDevinClass AgsAudioUnitDevinClass;
 
 /**
  * AgsAudioUnitDevinFlags:
- * @AGS_AUDIO_UNIT_DEVIN_ADDED_TO_REGISTRY: the core-audio devin was added to registry, see #AgsConnectable::add_to_registry()
- * @AGS_AUDIO_UNIT_DEVIN_CONNECTED: indicates the core-audio devin was connected by calling #AgsConnectable::connect()
- * @AGS_AUDIO_UNIT_DEVIN_BUFFER0: ring-buffer 0
- * @AGS_AUDIO_UNIT_DEVIN_BUFFER1: ring-buffer 1
- * @AGS_AUDIO_UNIT_DEVIN_BUFFER2: ring-buffer 2
- * @AGS_AUDIO_UNIT_DEVIN_BUFFER3: ring-buffer 3
- * @AGS_AUDIO_UNIT_DEVIN_BUFFER4: ring-buffer 4
- * @AGS_AUDIO_UNIT_DEVIN_BUFFER5: ring-buffer 5
- * @AGS_AUDIO_UNIT_DEVIN_BUFFER6: ring-buffer 6
- * @AGS_AUDIO_UNIT_DEVIN_BUFFER7: ring-buffer 7
- * @AGS_AUDIO_UNIT_DEVIN_ATTACK_FIRST: use first attack, instead of second one
+ * @AGS_AUDIO_UNIT_DEVIN_INITIALIZED: the soundcard was initialized
+ * @AGS_AUDIO_UNIT_DEVIN_START_RECORD: capture starting
  * @AGS_AUDIO_UNIT_DEVIN_RECORD: do capture
  * @AGS_AUDIO_UNIT_DEVIN_SHUTDOWN: stop capture
- * @AGS_AUDIO_UNIT_DEVIN_START_RECORD: capture starting
  * @AGS_AUDIO_UNIT_DEVIN_NONBLOCKING: do non-blocking calls
- * @AGS_AUDIO_UNIT_DEVIN_INITIALIZED: the soundcard was initialized
+ * @AGS_AUDIO_UNIT_DEVIN_ATTACK_FIRST: use first attack, instead of second one
  *
  * Enum values to control the behavior or indicate internal state of #AgsAudioUnitDevin by
  * enable/disable as flags.
  */
 typedef enum{
-  AGS_AUDIO_UNIT_DEVIN_ADDED_TO_REGISTRY              = 1,
-  AGS_AUDIO_UNIT_DEVIN_CONNECTED                      = 1 <<  1,
+  AGS_AUDIO_UNIT_DEVIN_INITIALIZED                    = 1,
 
-  AGS_AUDIO_UNIT_DEVIN_BUFFER0                        = 1 <<  2,
-  AGS_AUDIO_UNIT_DEVIN_BUFFER1                        = 1 <<  3,
-  AGS_AUDIO_UNIT_DEVIN_BUFFER2                        = 1 <<  4,
-  AGS_AUDIO_UNIT_DEVIN_BUFFER3                        = 1 <<  5,
-  AGS_AUDIO_UNIT_DEVIN_BUFFER4                        = 1 <<  6,
-  AGS_AUDIO_UNIT_DEVIN_BUFFER5                        = 1 <<  7,
-  AGS_AUDIO_UNIT_DEVIN_BUFFER6                        = 1 <<  8,
-  AGS_AUDIO_UNIT_DEVIN_BUFFER7                        = 1 <<  9,
+  AGS_AUDIO_UNIT_DEVIN_START_RECORD                   = 1 <<  1,
+  AGS_AUDIO_UNIT_DEVIN_RECORD                         = 1 <<  2,
+  AGS_AUDIO_UNIT_DEVIN_SHUTDOWN                       = 1 <<  3,
 
-  AGS_AUDIO_UNIT_DEVIN_ATTACK_FIRST                   = 1 << 10,
-
-  AGS_AUDIO_UNIT_DEVIN_RECORD                         = 1 << 11,
-  AGS_AUDIO_UNIT_DEVIN_SHUTDOWN                       = 1 << 12,
-  AGS_AUDIO_UNIT_DEVIN_START_RECORD                   = 1 << 13,
-
-  AGS_AUDIO_UNIT_DEVIN_NONBLOCKING                    = 1 << 14,
-  AGS_AUDIO_UNIT_DEVIN_INITIALIZED                    = 1 << 15,
+  AGS_AUDIO_UNIT_DEVIN_NONBLOCKING                    = 1 <<  4,
+  
+  AGS_AUDIO_UNIT_DEVIN_ATTACK_FIRST                   = 1 <<  5,
 }AgsAudioUnitDevinFlags;
+
+/**
+ * AgsAudioUnitDevinAppBufferMode:
+ * @AGS_AUDIO_UNIT_DEVIN_APP_BUFFER_0: ring-buffer 0
+ * @AGS_AUDIO_UNIT_DEVIN_APP_BUFFER_1: ring-buffer 1
+ * @AGS_AUDIO_UNIT_DEVIN_APP_BUFFER_2: ring-buffer 2
+ * @AGS_AUDIO_UNIT_DEVIN_APP_BUFFER_3: ring-buffer 3
+ * @AGS_AUDIO_UNIT_DEVIN_APP_BUFFER_4: ring-buffer 4
+ * @AGS_AUDIO_UNIT_DEVIN_APP_BUFFER_5: ring-buffer 5
+ * @AGS_AUDIO_UNIT_DEVIN_APP_BUFFER_6: ring-buffer 6
+ * @AGS_AUDIO_UNIT_DEVIN_APP_BUFFER_7: ring-buffer 7
+ * 
+ * Enum values to indicate internal state of #AgsAudioUnitDevin application buffer by
+ * setting mode.
+ */
+typedef enum{
+  AGS_AUDIO_UNIT_DEVIN_APP_BUFFER_0,
+  AGS_AUDIO_UNIT_DEVIN_APP_BUFFER_1,
+  AGS_AUDIO_UNIT_DEVIN_APP_BUFFER_2,
+  AGS_AUDIO_UNIT_DEVIN_APP_BUFFER_3,
+  AGS_AUDIO_UNIT_DEVIN_APP_BUFFER_4,
+  AGS_AUDIO_UNIT_DEVIN_APP_BUFFER_5,
+  AGS_AUDIO_UNIT_DEVIN_APP_BUFFER_6,
+  AGS_AUDIO_UNIT_DEVIN_APP_BUFFER_7,
+}AgsAudioUnitDevinAppBufferMode;
 
 /**
  * AgsAudioUnitDevinSyncFlags:
@@ -115,12 +121,10 @@ struct _AgsAudioUnitDevin
   GObject gobject;
 
   guint flags;
+  guint connectable_flags;
   volatile guint sync_flags;
   
-  pthread_mutex_t *obj_mutex;
-  pthread_mutexattr_t *obj_mutexattr;
-
-  AgsApplicationContext *application_context;
+  GRecMutex obj_mutex;
 
   AgsUUID *uuid;
 
@@ -130,8 +134,13 @@ struct _AgsAudioUnitDevin
   guint buffer_size;
   guint samplerate;
 
-  pthread_mutex_t **buffer_mutex;
-  void** buffer;
+  guint app_buffer_mode;
+
+  GRecMutex **app_buffer_mutex;
+  void** app_buffer;
+
+  guint sub_block_count;
+  GRecMutex **sub_block_mutex;
 
   double bpm; // beats per minute
   gdouble delay_factor;
@@ -159,11 +168,11 @@ struct _AgsAudioUnitDevin
   gchar **port_name;
   GList *audio_unit_port;
 
-  pthread_mutex_t *callback_mutex;
-  pthread_cond_t *callback_cond;
+  GMutex callback_mutex;
+  GCond callback_cond;
 
-  pthread_mutex_t *callback_finish_mutex;
-  pthread_cond_t *callback_finish_cond;
+  GMutex callback_finish_mutex;
+  GCond callback_finish_cond;
 
   GObject *notify_soundcard;
 };
@@ -174,10 +183,9 @@ struct _AgsAudioUnitDevinClass
 };
 
 GType ags_audio_unit_devin_get_type();
+GType ags_audio_unit_devin_flags_get_type();
 
 GQuark ags_audio_unit_devin_error_quark();
-
-pthread_mutex_t* ags_audio_unit_devin_get_class_mutex();
 
 gboolean ags_audio_unit_devin_test_flags(AgsAudioUnitDevin *audio_unit_devin, guint flags);
 void ags_audio_unit_devin_set_flags(AgsAudioUnitDevin *audio_unit_devin, guint flags);
@@ -188,6 +196,8 @@ void ags_audio_unit_devin_switch_buffer_flag(AgsAudioUnitDevin *audio_unit_devin
 void ags_audio_unit_devin_adjust_delay_and_attack(AgsAudioUnitDevin *audio_unit_devin);
 void ags_audio_unit_devin_realloc_buffer(AgsAudioUnitDevin *audio_unit_devin);
 
-AgsAudioUnitDevin* ags_audio_unit_devin_new(AgsApplicationContext *application_context);
+AgsAudioUnitDevin* ags_audio_unit_devin_new();
+
+G_END_DECLS
 
 #endif /*__AGS_AUDIO_UNIT_DEVIN_H__*/

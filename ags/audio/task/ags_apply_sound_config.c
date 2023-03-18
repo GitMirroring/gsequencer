@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2018 Joël Krähemann
+ * Copyright (C) 2005-2021 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -21,10 +21,12 @@
 
 #include <ags/libags.h>
 
+#include <ags/plugin/ags_lv2_manager.h>
+#include <ags/plugin/ags_lv2_plugin.h>
+#include <ags/plugin/ags_lv2_option_manager.h>
+#include <ags/plugin/ags_lv2_urid_manager.h>
+
 #include <ags/audio/ags_sound_provider.h>
-#include <ags/audio/ags_devout.h>
-#include <ags/audio/ags_devin.h>
-#include <ags/audio/ags_midiin.h>
 #include <ags/audio/ags_audio.h>
 #include <ags/audio/ags_channel.h>
 #include <ags/audio/ags_playback_domain.h>
@@ -43,7 +45,13 @@
 #include <ags/audio/thread/ags_channel_thread.h>
 #include <ags/audio/thread/ags_export_thread.h>
 
-#include <ags/audio/task/ags_notify_soundcard.h>
+#include <ags/audio/alsa/ags_alsa_devout.h>
+#include <ags/audio/alsa/ags_alsa_devin.h>
+#include <ags/audio/alsa/ags_alsa_midiin.h>
+
+#include <ags/audio/oss/ags_oss_devout.h>
+#include <ags/audio/oss/ags_oss_devin.h>
+#include <ags/audio/oss/ags_oss_midiin.h>
 
 #include <ags/audio/jack/ags_jack_server.h>
 #include <ags/audio/jack/ags_jack_client.h>
@@ -102,7 +110,6 @@ void ags_apply_sound_config_launch(AgsTask *task);
 enum{
   PROP_0,
   PROP_CONFIG_DATA,
-  PROP_APPLICATION_CONTEXT,
 };
 
 static gpointer ags_apply_sound_config_parent_class = NULL;
@@ -162,7 +169,7 @@ ags_apply_sound_config_class_init(AgsApplySoundConfigClass *apply_sound_config)
    *
    * The assigned sound config data as string.
    * 
-   * Since: 2.1.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_string("config-data",
 				   i18n_pspec("sound config data"),
@@ -171,22 +178,6 @@ ags_apply_sound_config_class_init(AgsApplySoundConfigClass *apply_sound_config)
 				   G_PARAM_READABLE | G_PARAM_WRITABLE);
   g_object_class_install_property(gobject,
 				  PROP_CONFIG_DATA,
-				  param_spec);
-
-  /**
-   * AgsStartSoundcard:application-context:
-   *
-   * The assigned #AgsApplicationContext
-   * 
-   * Since: 2.1.0
-   */
-  param_spec = g_param_spec_object("application-context",
-				   i18n_pspec("application context of start soundcard"),
-				   i18n_pspec("The application context of start soundcard task"),
-				   G_TYPE_OBJECT,
-				   G_PARAM_READABLE | G_PARAM_WRITABLE);
-  g_object_class_install_property(gobject,
-				  PROP_APPLICATION_CONTEXT,
 				  param_spec);
 
   /* AgsTaskClass */
@@ -227,27 +218,6 @@ ags_apply_sound_config_set_property(GObject *gobject,
       apply_sound_config->config_data = g_strdup(config_data);
     }
     break;
-  case PROP_APPLICATION_CONTEXT:
-    {
-      AgsApplicationContext *application_context;
-
-      application_context = (GObject *) g_value_get_object(value);
-
-      if(apply_sound_config->application_context == application_context){
-	return;
-      }
-
-      if(apply_sound_config->application_context != NULL){
-	g_object_unref(apply_sound_config->application_context);
-      }
-
-      if(application_context != NULL){
-	g_object_ref(application_context);
-      }
-
-      apply_sound_config->application_context = application_context;
-    }
-    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(gobject, prop_id, param_spec);
     break;
@@ -271,11 +241,6 @@ ags_apply_sound_config_get_property(GObject *gobject,
 			 apply_sound_config->config_data);
     }
     break;
-  case PROP_APPLICATION_CONTEXT:
-    {
-      g_value_set_object(value, apply_sound_config->application_context);
-    }
-    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(gobject, prop_id, param_spec);
     break;
@@ -288,12 +253,6 @@ ags_apply_sound_config_dispose(GObject *gobject)
   AgsApplySoundConfig *apply_sound_config;
 
   apply_sound_config = AGS_APPLY_SOUND_CONFIG(gobject);
-
-  if(apply_sound_config->application_context != NULL){
-    g_object_unref(apply_sound_config->application_context);
-
-    apply_sound_config->application_context = NULL;
-  }
   
   /* call parent */
   G_OBJECT_CLASS(ags_apply_sound_config_parent_class)->dispose(gobject);
@@ -305,10 +264,6 @@ ags_apply_sound_config_finalize(GObject *gobject)
   AgsApplySoundConfig *apply_sound_config;
 
   apply_sound_config = AGS_APPLY_SOUND_CONFIG(gobject);
-
-  if(apply_sound_config->application_context != NULL){
-    g_object_unref(apply_sound_config->application_context);
-  }
 
   /* call parent */
   G_OBJECT_CLASS(ags_apply_sound_config_parent_class)->finalize(gobject);
@@ -343,19 +298,23 @@ ags_apply_sound_config_launch(AgsTask *task)
   AgsPulseServer *pulse_server;
   AgsCoreAudioServer *core_audio_server;
 
+  AgsLv2Manager *lv2_manager;
+  
   AgsThread *audio_loop;
   AgsThread *soundcard_thread;
   AgsThread *export_thread;
   AgsThread *sequencer_thread;
   AgsThread *audio_thread;
   AgsThread *channel_thread;
-
+  AgsTaskLauncher *task_launcher;
+  
   AgsApplicationContext *application_context;
   AgsConfig *config;
 
   GObject *soundcard;
   GObject *sequencer;
 
+  GList *start_lv2_plugin, *lv2_plugin;
   GList *start_sound_server, *sound_server;
   GList *start_orig_soundcard, *orig_soundcard;
   GList *start_orig_sequencer, *orig_sequencer;
@@ -381,9 +340,11 @@ ags_apply_sound_config_launch(AgsTask *task)
 
   apply_sound_config = AGS_APPLY_SOUND_CONFIG(task);
 
-  application_context = apply_sound_config->application_context;
+  application_context = ags_application_context_get_instance();
 
   audio_loop = ags_concurrency_provider_get_main_loop(AGS_CONCURRENCY_PROVIDER(application_context));
+
+  task_launcher = ags_concurrency_provider_get_task_launcher(AGS_CONCURRENCY_PROVIDER(application_context));
   
   start_orig_soundcard = ags_sound_provider_get_soundcard(AGS_SOUND_PROVIDER(application_context));
   start_orig_sequencer = ags_sound_provider_get_sequencer(AGS_SOUND_PROVIDER(application_context));
@@ -396,7 +357,7 @@ ags_apply_sound_config_launch(AgsTask *task)
     ags_config_load_from_data(config,
 			      apply_sound_config->config_data, -1);
   }
-
+  
   jack_server = NULL;
   pulse_server = NULL;
   core_audio_server = NULL;
@@ -484,7 +445,8 @@ ags_apply_sound_config_launch(AgsTask *task)
 	ags_audio_recursive_run_stage(audio->data,
 				      sound_scope, staging_flags);
       
-	ags_thread_stop(audio_thread);
+	ags_audio_thread_set_processing(audio_thread,
+					FALSE);
       }
 
       /* output */
@@ -505,7 +467,8 @@ ags_apply_sound_config_launch(AgsTask *task)
 				   sound_scope);
 
 	if(channel_thread != NULL){
-	  ags_thread_stop(channel_thread);
+	  ags_channel_thread_set_processing(channel_thread,
+					    FALSE);
 	}
 
 	g_object_unref(channel);
@@ -532,7 +495,8 @@ ags_apply_sound_config_launch(AgsTask *task)
 				   sound_scope);
 
 	if(channel_thread != NULL){
-	  ags_thread_stop(channel_thread);
+	  ags_channel_thread_set_processing(channel_thread,
+					    FALSE);
 	}
 
 	g_object_unref(channel);
@@ -712,7 +676,7 @@ ags_apply_sound_config_launch(AgsTask *task)
 					    orig_sequencer->data);
     }
     
-    orig_soundcard = orig_soundcard->next;
+    orig_sequencer = orig_sequencer->next;
   }
 
   ags_sound_provider_set_default_soundcard(AGS_SOUND_PROVIDER(application_context),
@@ -743,42 +707,6 @@ ags_apply_sound_config_launch(AgsTask *task)
     pulse_server->n_soundcards = 0;
     pulse_server->n_sequencers = 0;
 #endif
-  }
-
-  /* remove cyclic task */
-  orig_soundcard = start_orig_soundcard;
-  
-  while(orig_soundcard != NULL){
-    AgsNotifySoundcard *notify_soundcard;
-
-    notify_soundcard = NULL;
-    
-    if(AGS_IS_DEVOUT(orig_soundcard->data)){
-      notify_soundcard = (AgsNotifySoundcard *) AGS_DEVOUT(orig_soundcard->data)->notify_soundcard;
-    }else if(AGS_IS_WASAPI_DEVOUT(orig_soundcard->data)){
-      notify_soundcard = (AgsNotifySoundcard *) AGS_WASAPI_DEVOUT(orig_soundcard->data)->notify_soundcard;
-    }else if(AGS_IS_JACK_DEVOUT(orig_soundcard->data)){
-      notify_soundcard = (AgsNotifySoundcard *) AGS_JACK_DEVOUT(orig_soundcard->data)->notify_soundcard;
-    }else if(AGS_IS_PULSE_DEVOUT(orig_soundcard->data)){
-      notify_soundcard = (AgsNotifySoundcard *) AGS_PULSE_DEVOUT(orig_soundcard->data)->notify_soundcard;
-    }else if(AGS_IS_CORE_AUDIO_DEVOUT(orig_soundcard->data)){
-      notify_soundcard = (AgsNotifySoundcard *) AGS_CORE_AUDIO_DEVOUT(orig_soundcard->data)->notify_soundcard;
-    }else if(AGS_IS_DEVIN(orig_soundcard->data)){
-      notify_soundcard = (AgsNotifySoundcard *) AGS_DEVIN(orig_soundcard->data)->notify_soundcard;
-    }else if(AGS_IS_WASAPI_DEVIN(orig_soundcard->data)){
-      notify_soundcard = (AgsNotifySoundcard *) AGS_WASAPI_DEVIN(orig_soundcard->data)->notify_soundcard;
-    }else if(AGS_IS_JACK_DEVIN(orig_soundcard->data)){
-      notify_soundcard = (AgsNotifySoundcard *) AGS_JACK_DEVIN(orig_soundcard->data)->notify_soundcard;
-    }else if(AGS_IS_PULSE_DEVIN(orig_soundcard->data)){
-      notify_soundcard = (AgsNotifySoundcard *) AGS_PULSE_DEVIN(orig_soundcard->data)->notify_soundcard;
-    }else if(AGS_IS_CORE_AUDIO_DEVIN(orig_soundcard->data)){
-      notify_soundcard = (AgsNotifySoundcard *) AGS_CORE_AUDIO_DEVIN(orig_soundcard->data)->notify_soundcard;
-    }
-
-    ags_task_thread_remove_cyclic_task((AgsTaskThread *) application_context->task_thread,
-				       (AgsTask *) notify_soundcard);
-        
-    orig_soundcard = orig_soundcard->next;
   }
   
   /* read config */
@@ -886,7 +814,7 @@ ags_apply_sound_config_launch(AgsTask *task)
 				    "wasapi",
 				    7)){
 	if(is_output){
-	  soundcard = (GObject *) ags_wasapi_devout_new((GObject *) application_context);
+	  soundcard = (GObject *) ags_wasapi_devout_new();
 
 	  str = ags_config_get_value(config,
 				     soundcard_group,
@@ -917,7 +845,7 @@ ags_apply_sound_config_launch(AgsTask *task)
 	    g_free(str);
 	  }
 	}else{
-	  soundcard = (GObject *) ags_wasapi_devin_new((GObject *) application_context);
+	  soundcard = (GObject *) ags_wasapi_devin_new();
 
 	  str = ags_config_get_value(config,
 				     soundcard_group,
@@ -954,29 +882,17 @@ ags_apply_sound_config_launch(AgsTask *task)
 	gchar *str;
 	
 	if(is_output){
-	  soundcard = (GObject *) ags_devout_new((GObject *) application_context);
-	  
-	  AGS_DEVOUT(soundcard)->flags &= (~AGS_DEVOUT_OSS);
-	  AGS_DEVOUT(soundcard)->flags |= AGS_DEVOUT_ALSA;
+	  soundcard = (GObject *) ags_alsa_devout_new();
 	}else{
-	  soundcard = (GObject *) ags_devin_new((GObject *) application_context);
-	  
-	  AGS_DEVIN(soundcard)->flags &= (~AGS_DEVIN_OSS);
-	  AGS_DEVIN(soundcard)->flags |= AGS_DEVIN_ALSA;
+	  soundcard = (GObject *) ags_alsa_devin_new();
 	}
       }else if(!g_ascii_strncasecmp(str,
 				    "oss",
 				    4)){
 	if(is_output){
-	  soundcard = (GObject *) ags_devout_new((GObject *) application_context);
-
-	  AGS_DEVOUT(soundcard)->flags &= (~AGS_DEVOUT_ALSA);
-	  AGS_DEVOUT(soundcard)->flags |= AGS_DEVOUT_OSS;
+	  soundcard = (GObject *) ags_oss_devout_new();
 	}else{
-	  soundcard = (GObject *) ags_devin_new((GObject *) application_context);
-
-	  AGS_DEVIN(soundcard)->flags &= (~AGS_DEVIN_ALSA);
-	  AGS_DEVIN(soundcard)->flags |= AGS_DEVIN_OSS;	  
+	  soundcard = (GObject *) ags_oss_devin_new();
 	}
       }else{
 	g_warning(i18n("unknown soundcard backend - %s"), str);
@@ -1002,10 +918,6 @@ ags_apply_sound_config_launch(AgsTask *task)
     if(ags_sound_provider_get_default_soundcard(AGS_SOUND_PROVIDER(application_context)) == NULL){
       ags_sound_provider_set_default_soundcard(AGS_SOUND_PROVIDER(application_context),
 					       soundcard);
-      
-      g_object_set(audio_loop,
-		   "default-output-soundcard", G_OBJECT(soundcard),
-		   NULL);
     }
     
     ags_sound_provider_set_soundcard(AGS_SOUND_PROVIDER(application_context),
@@ -1223,15 +1135,11 @@ ags_apply_sound_config_launch(AgsTask *task)
       }else if(!g_ascii_strncasecmp(str,
 				    "alsa",
 				    5)){
-	sequencer = (GObject *) ags_midiin_new((GObject *) application_context);
-	AGS_MIDIIN(sequencer)->flags &= (~AGS_MIDIIN_OSS);
-	AGS_MIDIIN(sequencer)->flags |= AGS_MIDIIN_ALSA;
+	sequencer = (GObject *) ags_alsa_midiin_new();
       }else if(!g_ascii_strncasecmp(str,
 				    "oss",
 				    4)){
-	sequencer = (GObject *) ags_midiin_new((GObject *) application_context);
-	AGS_MIDIIN(sequencer)->flags &= (~AGS_MIDIIN_ALSA);
-	AGS_MIDIIN(sequencer)->flags |= AGS_MIDIIN_OSS;
+	sequencer = (GObject *) ags_oss_midiin_new();
       }else{
 	g_warning(i18n("unknown sequencer backend - %s"), str);
 
@@ -1282,8 +1190,6 @@ ags_apply_sound_config_launch(AgsTask *task)
     start_list = ags_sound_provider_get_soundcard(AGS_SOUND_PROVIDER(application_context));
 
   while(list != NULL){
-    AgsNotifySoundcard *notify_soundcard;
-
     guint soundcard_capability;
 
     soundcard_capability = ags_soundcard_get_capability(AGS_SOUNDCARD(list->data));
@@ -1294,42 +1200,12 @@ ags_apply_sound_config_launch(AgsTask *task)
 				  (AgsThread *) soundcard_thread,
 				  TRUE, TRUE);
 
-    /* notify soundcard and export thread */
+    /* export thread */
     export_thread = NULL;
     
-    notify_soundcard = ags_notify_soundcard_new((AgsSoundcardThread *) soundcard_thread);
-
-    g_object_set(notify_soundcard,
-		 "task-thread", application_context->task_thread,
-		 NULL);
-    
-    if(AGS_IS_DEVOUT(list->data)){
-      AGS_DEVOUT(list->data)->notify_soundcard = (GObject *) notify_soundcard;
-    }else if(AGS_IS_WASAPI_DEVOUT(list->data)){
-      AGS_WASAPI_DEVOUT(list->data)->notify_soundcard = (GObject *) notify_soundcard;
-    }else if(AGS_IS_JACK_DEVOUT(list->data)){
-      AGS_JACK_DEVOUT(list->data)->notify_soundcard = (GObject *) notify_soundcard;
-    }else if(AGS_IS_PULSE_DEVOUT(list->data)){
-      AGS_PULSE_DEVOUT(list->data)->notify_soundcard = (GObject *) notify_soundcard;
-    }else if(AGS_IS_CORE_AUDIO_DEVOUT(list->data)){
-      AGS_CORE_AUDIO_DEVOUT(list->data)->notify_soundcard = (GObject *) notify_soundcard;
-    }else if(AGS_IS_DEVIN(list->data)){
-      AGS_DEVIN(list->data)->notify_soundcard = (GObject *) notify_soundcard;
-    }else if(AGS_IS_WASAPI_DEVIN(list->data)){
-      AGS_WASAPI_DEVIN(list->data)->notify_soundcard = (GObject *) notify_soundcard;
-    }else if(AGS_IS_JACK_DEVIN(list->data)){
-      AGS_JACK_DEVIN(list->data)->notify_soundcard = (GObject *) notify_soundcard;
-    }else if(AGS_IS_PULSE_DEVIN(list->data)){
-      AGS_PULSE_DEVIN(list->data)->notify_soundcard = (GObject *) notify_soundcard;
-    }else if(AGS_IS_CORE_AUDIO_DEVIN(list->data)){
-      AGS_CORE_AUDIO_DEVIN(list->data)->notify_soundcard = (GObject *) notify_soundcard;
-    }
-
-    ags_task_thread_append_cyclic_task((AgsTaskThread *) application_context->task_thread,
-				       (AgsTask *) notify_soundcard);
-
     /* export thread */
-    if(AGS_IS_DEVOUT(list->data) ||
+    if(AGS_IS_ALSA_DEVOUT(list->data) ||
+       AGS_IS_OSS_DEVOUT(list->data) ||
        AGS_IS_WASAPI_DEVOUT(list->data) ||
        AGS_IS_JACK_DEVOUT(list->data) ||
        AGS_IS_PULSE_DEVOUT(list->data) ||
@@ -1375,6 +1251,73 @@ ags_apply_sound_config_launch(AgsTask *task)
   ags_main_loop_change_frequency(AGS_MAIN_LOOP(audio_loop),
 				 frequency);
   
+  /* lv2 */
+  lv2_manager = ags_lv2_manager_get_instance();
+  
+  lv2_plugin = 
+    start_lv2_plugin = ags_lv2_manager_get_lv2_plugin(lv2_manager);
+
+  while(lv2_plugin != NULL){
+    LV2_Feature **feature;
+    
+    feature = AGS_LV2_PLUGIN(lv2_plugin->data)->feature;
+
+    if(feature != NULL){
+      for(; feature[0] != NULL; feature++){
+	if(!g_strcmp0(feature[0]->URI, LV2_OPTIONS__options)){
+	  LV2_Options_Option *options;
+
+	  guint i;
+	  
+	  options = feature[0]->data;
+
+	  for(i = 0; ; i++){
+	    if(options[i].context == 0 &&
+	       options[i].subject == 0 &&
+	       options[i].key == 0 &&
+	       options[i].size == 0 &&
+	       options[i].type == 0 &&
+	       options[i].value == NULL){
+	      break;
+	    }
+	    
+	    if(options[i].key == ags_lv2_urid_manager_lookup(ags_lv2_urid_manager_get_instance(),
+							     LV2_PARAMETERS__sampleRate)){
+	      ((float *) options[i].value)[0] = (float) samplerate;
+	    }
+	    
+	    if(options[i].key == ags_lv2_urid_manager_lookup(ags_lv2_urid_manager_get_instance(),
+							     LV2_BUF_SIZE__minBlockLength)){
+	      ((float *) options[i].value)[0] = (float) buffer_size;
+	    }
+	    
+	    if(options[i].key == ags_lv2_urid_manager_lookup(ags_lv2_urid_manager_get_instance(),
+							     LV2_BUF_SIZE__maxBlockLength)){
+	      ((float *) options[i].value)[0] = (float) buffer_size;
+	    }
+	    
+	    if(options[i].key == ags_lv2_urid_manager_lookup(ags_lv2_urid_manager_get_instance(),
+							     LV2_BUF_SIZE__boundedBlockLength)){
+	      ((float *) options[i].value)[0] = (float) buffer_size;
+	    }
+
+	    if(options[i].key == ags_lv2_urid_manager_lookup(ags_lv2_urid_manager_get_instance(),
+							     LV2_BUF_SIZE__fixedBlockLength)){
+	      ((float *) options[i].value)[0] = (float) buffer_size;
+	    }
+	  }
+	  
+	  break;
+	}
+      }
+    }
+    
+    lv2_plugin = lv2_plugin->next;
+  }
+  
+  g_list_free_full(start_lv2_plugin,
+		   (GDestroyNotify) g_object_unref);
+
   /* reset audio's soundcard */
   audio = start_audio;
 
@@ -1439,23 +1382,20 @@ ags_apply_sound_config_launch(AgsTask *task)
 
 /**
  * ags_apply_sound_config_new:
- * @application_context: the #AgsApplicationContext
  * @config_data: the config file as string data
  *
  * Creates a new instance of #AgsApplySoundConfig.
  *
  * Returns: the new #AgsApplySoundConfig.
  *
- * Since: 2.1.0
+ * Since: 3.0.0
  */
 AgsApplySoundConfig*
-ags_apply_sound_config_new(AgsApplicationContext *application_context,
-			   gchar *config_data)
+ags_apply_sound_config_new(gchar *config_data)
 {
   AgsApplySoundConfig *apply_sound_config;
 
   apply_sound_config = (AgsApplySoundConfig *) g_object_new(AGS_TYPE_APPLY_SOUND_CONFIG,
-							    "application-context", application_context,
 							    "config-data", config_data,
 							    NULL);
 

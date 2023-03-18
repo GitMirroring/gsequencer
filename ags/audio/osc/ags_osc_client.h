@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -23,11 +23,9 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include <pthread.h>
+#include <gio/gio.h>
 
-#ifndef AGS_W32API
-#include <netinet/in.h>
-#endif
+G_BEGIN_DECLS
 
 #define AGS_TYPE_OSC_CLIENT                (ags_osc_client_get_type ())
 #define AGS_OSC_CLIENT(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_OSC_CLIENT, AgsOscClient))
@@ -36,7 +34,7 @@
 #define AGS_IS_OSC_CLIENT_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE ((class), AGS_TYPE_OSC_CLIENT))
 #define AGS_OSC_CLIENT_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS ((obj), AGS_TYPE_OSC_CLIENT, AgsOscClientClass))
 
-#define AGS_OSC_CLIENT_GET_OBJ_MUTEX(obj) (((AgsOscClient *) obj)->obj_mutex)
+#define AGS_OSC_CLIENT_GET_OBJ_MUTEX(obj) (&(((AgsOscClient *) obj)->obj_mutex))
 
 #define AGS_OSC_CLIENT_DEFAULT_MAX_ADDRESS_LENGTH (2048)
 
@@ -54,6 +52,15 @@
 typedef struct _AgsOscClient AgsOscClient;
 typedef struct _AgsOscClientClass AgsOscClientClass;
 
+/**
+ * AgsOscClientFlags:
+ * @AGS_OSC_CLIENT_INET4: use IPv4 socket
+ * @AGS_OSC_CLIENT_INET6: use IPv6 socket
+ * @AGS_OSC_CLIENT_UDP: use UDP transport protocol
+ * @AGS_OSC_CLIENT_TCP: used TCP transport protocol
+ * 
+ * Enum values to configure OSC client.
+ */
 typedef enum{
   AGS_OSC_CLIENT_INET4      = 1,
   AGS_OSC_CLIENT_INET6      = 1 <<  1,
@@ -66,9 +73,9 @@ struct _AgsOscClient
   GObject gobject;
 
   guint flags;
-
-  pthread_mutex_t *obj_mutex;
-  pthread_mutexattr_t *obj_mutexattr;
+  guint connectable_flags;
+  
+  GRecMutex obj_mutex;
   
   gchar *ip4;
   gchar *ip6;
@@ -79,13 +86,11 @@ struct _AgsOscClient
   int ip4_fd;
   int ip6_fd;
 
-#ifdef AGS_W32API
-  gpointer ip4_address;
-  gpointer ip6_address;
-#else
-  struct sockaddr_in *ip4_address;
-  struct sockaddr_in6 *ip6_address;
-#endif
+  GSocket *ip4_socket;
+  GSocket *ip6_socket;
+
+  GSocketAddress *ip4_address;
+  GSocketAddress *ip6_address;
   
   guint max_retry_count;
 
@@ -93,10 +98,10 @@ struct _AgsOscClient
 
   struct timespec *start_time;
 
-  unsigned char *cache_data;
+  guchar *cache_data;
   guint cache_data_length;
 
-  unsigned char *buffer;
+  guchar *buffer;
   guint allocated_buffer_size;
   
   guint read_count;
@@ -112,32 +117,30 @@ struct _AgsOscClientClass
   void (*resolve)(AgsOscClient *osc_client);
   void (*connect)(AgsOscClient *osc_client);
 
-  unsigned char* (*read_bytes)(AgsOscClient *osc_client,
-			       guint *data_length);
+  guchar* (*read_bytes)(AgsOscClient *osc_client,
+			guint *data_length);
   gboolean (*write_bytes)(AgsOscClient *osc_client,
 			  guchar *data, guint data_length);
 };
 
 GType ags_osc_client_get_type(void);
-
-pthread_mutex_t* ags_osc_client_get_class_mutex();
+GType ags_osc_client_flags_get_type();
 
 gboolean ags_osc_client_test_flags(AgsOscClient *osc_client, guint flags);
 void ags_osc_client_set_flags(AgsOscClient *osc_client, guint flags);
 void ags_osc_client_unset_flags(AgsOscClient *osc_client, guint flags);
 
-gboolean ags_osc_client_timeout_expired(struct timespec *start_time,
-					struct timespec *timeout_delay);
-
 void ags_osc_client_resolve(AgsOscClient *osc_client);
 void ags_osc_client_connect(AgsOscClient *osc_client);
 
-unsigned char* ags_osc_client_read_bytes(AgsOscClient *osc_client,
-					 guint *data_length);
+guchar* ags_osc_client_read_bytes(AgsOscClient *osc_client,
+				  guint *data_length);
 
 gboolean ags_osc_client_write_bytes(AgsOscClient *osc_client,
 				    guchar *data, guint data_length);
 
 AgsOscClient* ags_osc_client_new();
+
+G_END_DECLS
 
 #endif /*__AGS_OSC_CLIENT_H__*/

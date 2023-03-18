@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2018 Joël Krähemann
+ * Copyright (C) 2005-2019 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -23,9 +23,7 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include <ags/object/ags_application_context.h>
-
-#include <pthread.h>
+G_BEGIN_DECLS
 
 #define AGS_TYPE_SEQUENCER                    (ags_sequencer_get_type())
 #define AGS_SEQUENCER(obj)                    (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_SEQUENCER, AgsSequencer))
@@ -36,6 +34,10 @@
 
 typedef struct _AgsSequencer AgsSequencer;
 typedef struct _AgsSequencerInterface AgsSequencerInterface;
+
+#define AGS_SEQUENCER_MAX_MIDI_CHANNELS (16)
+
+#define AGS_SEQUENCER_MAX_MIDI_KEYS (128)
 
 #define AGS_SEQUENCER_DEFAULT_SAMPLERATE (44100.0)
 #define AGS_SEQUENCER_DEFAULT_BUFFER_SIZE (944)
@@ -58,10 +60,6 @@ typedef struct _AgsSequencerInterface AgsSequencerInterface;
 struct _AgsSequencerInterface
 {
   GTypeInterface ginterface;
-
-  void (*set_application_context)(AgsSequencer *sequencer,
-				  AgsApplicationContext *application_context);
-  AgsApplicationContext* (*get_application_context)(AgsSequencer *sequencer);
 
   void (*set_device)(AgsSequencer *sequencer,
 		     gchar *card_id);
@@ -119,12 +117,8 @@ struct _AgsSequencerInterface
 
 GType ags_sequencer_get_type();
 
-void ags_sequencer_set_application_context(AgsSequencer *sequencer,
-					   AgsApplicationContext *application_context);
-AgsApplicationContext* ags_sequencer_get_application_context(AgsSequencer *sequencer);
-
 void ags_sequencer_set_device(AgsSequencer *sequencer,
-			      gchar *device_id);
+			      gchar *card_id);
 gchar* ags_sequencer_get_device(AgsSequencer *sequencer);
 
 void ags_sequencer_list_cards(AgsSequencer *sequencer,
@@ -175,5 +169,7 @@ guint ags_sequencer_get_start_note_offset(AgsSequencer *sequencer);
 void ags_sequencer_set_note_offset(AgsSequencer *sequencer,
 				   guint note_offset);
 guint ags_sequencer_get_note_offset(AgsSequencer *sequencer);
+
+G_END_DECLS
 
 #endif /*__AGS_SEQUENCER_H__*/

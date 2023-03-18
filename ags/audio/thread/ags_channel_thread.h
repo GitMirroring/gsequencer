@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2021 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -25,6 +25,10 @@
 
 #include <ags/libags.h>
 
+#include <ags/audio/ags_sound_enums.h>
+
+G_BEGIN_DECLS
+
 #define AGS_TYPE_CHANNEL_THREAD                (ags_channel_thread_get_type())
 #define AGS_CHANNEL_THREAD(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_CHANNEL_THREAD, AgsChannelThread))
 #define AGS_CHANNEL_THREAD_CLASS(class)        (G_TYPE_CHECK_CLASS_CAST(class, AGS_TYPE_CHANNEL_THREAD, AgsChannelThreadClass))
@@ -39,39 +43,47 @@ typedef struct _AgsChannelThreadClass AgsChannelThreadClass;
 
 /**
  * AgsChannelThreadFlags:
- * @AGS_CHANNEL_THREAD_DONE: sync done parent thread, initial wait during #AgsThread::run()
- * @AGS_CHANNEL_THREAD_WAIT: sync wait parent thread, initial wait during #AgsThread::run()
- * @AGS_CHANNEL_THREAD_DONE_SYNC: sync done parent thread, signal completed during #AgsThread::run()
- * @AGS_CHANNEL_THREAD_WAIT_SYNC: sync wait parent thread, signal completed during #AgsThread::run()
+ * @AGS_CHANNEL_THREAD_STATUS_DONE: sync done parent thread, initial wait during #AgsThread::run()
+ * @AGS_CHANNEL_THREAD_STATUS_WAIT: sync wait parent thread, initial wait during #AgsThread::run()
+ * @AGS_CHANNEL_THREAD_STATUS_DONE_SYNC: sync done parent thread, signal completed during #AgsThread::run()
+ * @AGS_CHANNEL_THREAD_STATUS_WAIT_SYNC: sync wait parent thread, signal completed during #AgsThread::run()
  *
  * Enum values to control the behavior or indicate internal state of #AgsChannelThread by
  * enable/disable as flags.
  */
 typedef enum{
-  AGS_CHANNEL_THREAD_DONE            = 1,
-  AGS_CHANNEL_THREAD_WAIT            = 1 <<  1,
-  AGS_CHANNEL_THREAD_DONE_SYNC       = 1 <<  2,
-  AGS_CHANNEL_THREAD_WAIT_SYNC       = 1 <<  3,
+  AGS_CHANNEL_THREAD_STATUS_DONE            = 1,
+  AGS_CHANNEL_THREAD_STATUS_WAIT            = 1 <<  1,
+  AGS_CHANNEL_THREAD_STATUS_DONE_SYNC       = 1 <<  2,
+  AGS_CHANNEL_THREAD_STATUS_WAIT_SYNC       = 1 <<  3,
 }AgsChannelThreadFlags;
 
 struct _AgsChannelThread
 {
   AgsThread thread;
 
-  volatile guint flags;
+  volatile guint status_flags;
 
   GObject *default_output_soundcard;
     
-  pthread_mutexattr_t wakeup_attr;
-  pthread_mutex_t *wakeup_mutex;
-  pthread_cond_t *wakeup_cond;
+  GMutex wakeup_mutex;
+  GCond wakeup_cond;
 
-  pthread_mutexattr_t done_attr;
-  pthread_mutex_t *done_mutex;
-  pthread_cond_t *done_cond;
+  GMutex done_mutex;
+  GCond done_cond;
 
   GObject *channel;
+  
   gint sound_scope;
+
+  gboolean do_fx_staging;
+  
+  guint *staging_program;
+  guint staging_program_count;
+
+  gboolean processing;
+
+  AgsTaskLauncher *task_launcher;
 };
 
 struct _AgsChannelThreadClass
@@ -81,10 +93,34 @@ struct _AgsChannelThreadClass
 
 GType ags_channel_thread_get_type();
 
+/* flags */
+gboolean ags_channel_thread_test_status_flags(AgsChannelThread *channel_thread, guint status_flags);
+void ags_channel_thread_set_status_flags(AgsChannelThread *channel_thread, guint status_flags);
+void ags_channel_thread_unset_status_flags(AgsChannelThread *channel_thread, guint status_flags);
+
+gboolean ags_channel_thread_get_processing(AgsChannelThread *channel_thread);
+void ags_channel_thread_set_processing(AgsChannelThread *channel_thread,
+				       gboolean processing);
+
+AgsTaskLauncher* ags_channel_thread_get_task_launcher(AgsChannelThread *channel_thread);
+
 void ags_channel_thread_set_sound_scope(AgsChannelThread *channel_thread,
 					gint sound_scope);
 
+/* staging */
+gboolean ags_channel_thread_get_do_fx_staging(AgsChannelThread *channel_thread);
+void ags_channel_thread_set_do_fx_staging(AgsChannelThread *channel_thread, gboolean do_fx_staging);
+
+guint* ags_channel_thread_get_staging_program(AgsChannelThread *channel_thread,
+					      guint *staging_program_count);
+void ags_channel_thread_set_staging_program(AgsChannelThread *channel_thread,
+					    guint *staging_program,
+					    guint staging_program_count);
+
+/* instantiate */
 AgsChannelThread* ags_channel_thread_new(GObject *default_output_soundcard,
 					 GObject *channel);
+
+G_END_DECLS
 
 #endif /*__AGS_CHANNEL_THREAD_H__*/

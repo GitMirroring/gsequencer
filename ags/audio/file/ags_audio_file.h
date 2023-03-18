@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -25,6 +25,8 @@
 
 #include <ags/libags.h>
 
+G_BEGIN_DECLS
+
 #define AGS_TYPE_AUDIO_FILE                (ags_audio_file_get_type())
 #define AGS_AUDIO_FILE(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_AUDIO_FILE, AgsAudioFile))
 #define AGS_AUDIO_FILE_CLASS(class)        (G_TYPE_CHECK_CLASS_CAST((class), AGS_TYPE_AUDIO_FILE, AgsAudioFileClass))
@@ -32,22 +34,20 @@
 #define AGS_IS_AUDIO_FILE_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE((class), AGS_TYPE_AUDIO_FILE))
 #define AGS_AUDIO_FILE_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS((obj), AGS_TYPE_AUDIO_FILE, AgsAudioFileClass))
 
-#define AGS_AUDIO_FILE_GET_OBJ_MUTEX(obj) (((AgsAudioFile *) obj)->obj_mutex)
+#define AGS_AUDIO_FILE_GET_OBJ_MUTEX(obj) (&(((AgsAudioFile *) obj)->obj_mutex))
 
 typedef struct _AgsAudioFile AgsAudioFile;
 typedef struct _AgsAudioFileClass AgsAudioFileClass;
 
 /**
  * AgsAudioFileFlags:
- * @AGS_AUDIO_FILE_ADDED_TO_REGISTRY: the audio file was added to registry, see #AgsConnectable::add_to_registry()
- * @AGS_AUDIO_FILE_CONNECTED: indicates the audio file was connected by calling #AgsConnectable::connect()
- * 
+ * @AGS_AUDIO_FILE_READ_SAMPLE_AT_ONCE: read all audio sample data at once
+ *
  * Enum values to control the behavior or indicate internal state of #AgsAudioFile by
  * enable/disable as flags.
  */
 typedef enum{
-  AGS_AUDIO_FILE_ADDED_TO_REGISTRY    = 1,
-  AGS_AUDIO_FILE_CONNECTED            = 1 <<  1,
+  AGS_AUDIO_FILE_READ_SAMPLE_AT_ONCE      = 1,
 }AgsAudioFileFlags;
 
 struct _AgsAudioFile
@@ -55,9 +55,9 @@ struct _AgsAudioFile
   GObject gobject;
 
   guint flags;
-
-  pthread_mutex_t *obj_mutex;
-  pthread_mutexattr_t *obj_mutexattr;
+  guint connectable_flags;
+  
+  GRecMutex obj_mutex;
 
   AgsUUID *uuid;
 
@@ -88,8 +88,6 @@ struct _AgsAudioFileClass
 
 GType ags_audio_file_get_type();
 
-pthread_mutex_t* ags_audio_file_get_class_mutex();
-
 gboolean ags_audio_file_test_flags(AgsAudioFile *audio_file, guint flags);
 void ags_audio_file_set_flags(AgsAudioFile *audio_file, guint flags);
 void ags_audio_file_unset_flags(AgsAudioFile *audio_file, guint flags);
@@ -97,6 +95,46 @@ void ags_audio_file_unset_flags(AgsAudioFile *audio_file, guint flags);
 gboolean ags_audio_file_check_suffix(gchar *filename);
 
 /* fields */
+GObject* ags_audio_file_get_soundcard(AgsAudioFile *audio_file);
+void ags_audio_file_set_soundcard(AgsAudioFile *audio_file,
+				  GObject *soundcard);
+
+gchar* ags_audio_file_get_filename(AgsAudioFile *audio_file);
+void ags_audio_file_set_filename(AgsAudioFile *audio_file,
+				 gchar *filename);
+
+guint ags_audio_file_get_file_audio_channels(AgsAudioFile *audio_file);
+void ags_audio_file_set_file_audio_channels(AgsAudioFile *audio_file,
+					    guint file_audio_channels);
+
+guint ags_audio_file_get_file_samplerate(AgsAudioFile *audio_file);
+void ags_audio_file_set_file_samplerate(AgsAudioFile *audio_file,
+					guint file_samplerate);
+
+guint ags_audio_file_get_file_frame_count(AgsAudioFile *audio_file);
+void ags_audio_file_set_file_frame_count(AgsAudioFile *audio_file,
+					 guint file_frame_count);
+
+guint ags_audio_file_get_samplerate(AgsAudioFile *audio_file);
+void ags_audio_file_set_samplerate(AgsAudioFile *audio_file,
+				   guint samplerate);
+
+guint ags_audio_file_get_frame_count(AgsAudioFile *audio_file);
+void ags_audio_file_set_frame_count(AgsAudioFile *audio_file,
+				    guint frame_count);
+
+guint ags_audio_file_get_format(AgsAudioFile *audio_file);
+void ags_audio_file_set_format(AgsAudioFile *audio_file,
+			       guint format);
+
+guint ags_audio_file_get_audio_channel(AgsAudioFile *audio_file);
+void ags_audio_file_set_audio_channel(AgsAudioFile *audio_file,
+				      gint audio_channel);
+
+GObject* ags_audio_file_get_sound_resource(AgsAudioFile *audio_file);
+void ags_audio_file_set_sound_resource(AgsAudioFile *audio_file,
+				       GObject *sound_resource);
+
 void ags_audio_file_add_audio_signal(AgsAudioFile *audio_file, GObject *audio_signal);
 void ags_audio_file_remove_audio_signal(AgsAudioFile *audio_file, GObject *audio_signal);
 
@@ -128,5 +166,7 @@ void ags_audio_file_flush(AgsAudioFile *audio_file);
 AgsAudioFile* ags_audio_file_new(gchar *filename,
 				 GObject *soundcard,
 				 gint audio_channel);
+
+G_END_DECLS
 
 #endif /*__AGS_AUDIO_FILE_H__*/

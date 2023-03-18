@@ -23,11 +23,14 @@
 #include <glib.h>
 #include <glib-object.h>
 
+#include <ags/libags.h>
+
 #include <ags/plugin/ags_base_plugin.h>
-#include <ags/lib/ags_turtle.h>
 
 #include <lv2.h>
 #include <lv2/lv2plug.in/ns/extensions/ui/ui.h>
+
+G_BEGIN_DECLS
 
 #define AGS_TYPE_LV2UI_PLUGIN                (ags_lv2ui_plugin_get_type())
 #define AGS_LV2UI_PLUGIN(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_LV2UI_PLUGIN, AgsLv2uiPlugin))
@@ -82,6 +85,7 @@ struct _AgsLv2uiPluginClass
 };
 
 GType ags_lv2ui_plugin_get_type(void);
+GType ags_lv2ui_plugin_flags_get_type();
 
 gboolean ags_lv2ui_plugin_test_flags(AgsLv2uiPlugin *lv2ui_plugin, guint flags);
 void ags_lv2ui_plugin_set_flags(AgsLv2uiPlugin *lv2ui_plugin, guint flags);
@@ -95,5 +99,7 @@ AgsLv2uiPlugin* ags_lv2ui_plugin_new(AgsTurtle *gui_turtle,
 				     gchar *effect,
 				     gchar *gui_uri,
 				     guint effect_index);
+
+G_END_DECLS
 
 #endif /*__AGS_LV2UI_PLUGIN_H__*/

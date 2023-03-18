@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2017 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -33,13 +33,18 @@ void* ags_woker_thread_do_poll_loop(void *ptr);
 
 /**
  * SECTION:ags_worker_thread
- * @short_description: worker thread
+ * @short_description: Worker thread class discarding base frequency
  * @title: AgsWorkerThread
  * @section_id:
  * @include: ags/thread/ags_worker_thread.h
  *
  * The #AgsWorkerThread does non-realtime work. You might want
  * to synchronize to the run signal within your ::do_poll() method.
+ *
+ * You usually connect to AgsThread::do_poll() event. The poll event
+ * is invoked as long as %AGS_WORKER_THREAD_STATUS_RUNNING status flag is set.
+ *
+ * You might want to inject to a thread tree using a #AgsTask implementation.
  */
 
 enum{
@@ -81,6 +86,28 @@ ags_worker_thread_get_type()
   return g_define_type_id__volatile;
 }
 
+GType
+ags_worker_thread_status_flags_get_type()
+{
+  static volatile gsize g_flags_type_id__volatile;
+
+  if(g_once_init_enter (&g_flags_type_id__volatile)){
+    static const GFlagsValue values[] = {
+      { AGS_WORKER_THREAD_STATUS_RUNNING, "AGS_WORKER_THREAD_STATUS_RUNNING", "worker-thread-status-running" },
+      { AGS_WORKER_THREAD_STATUS_RUN_WAIT, "AGS_WORKER_THREAD_STATUS_RUN_WAIT", "worker-thread-status-run-wait" },
+      { AGS_WORKER_THREAD_STATUS_RUN_DONE, "AGS_WORKER_THREAD_STATUS_RUN_DONE", "worker-thread-status-run-done" },
+      { AGS_WORKER_THREAD_STATUS_RUN_SYNC, "AGS_WORKER_THREAD_STATUS_RUN_SYNC", "worker-thread-status-run-sync" },
+      { 0, NULL, NULL }
+    };
+
+    GType g_flags_type_id = g_flags_register_static(g_intern_static_string("AgsWorkerThreadStatusFlags"), values);
+
+    g_once_init_leave (&g_flags_type_id__volatile, g_flags_type_id);
+  }
+  
+  return g_flags_type_id__volatile;
+}
+
 void
 ags_worker_thread_class_init(AgsWorkerThreadClass *worker_thread)
 {
@@ -112,7 +139,7 @@ ags_worker_thread_class_init(AgsWorkerThreadClass *worker_thread)
    * The ::do_poll() signal runs independently of ::run() but
    * might be synchronized using a conditional lock.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   worker_thread_signals[DO_POLL] =
     g_signal_new("do-poll",
@@ -130,26 +157,21 @@ ags_worker_thread_init(AgsWorkerThread *worker_thread)
   AgsThread *thread;
 
   thread = (AgsThread *) worker_thread;
-  thread->freq = AGS_WORKER_THREAD_DEFAULT_JIFFIE;
+
+  g_object_set(thread,
+	       "frequency", AGS_WORKER_THREAD_DEFAULT_JIFFIE,
+	       NULL);
   
-  g_atomic_int_set(&(worker_thread->flags),
+  g_atomic_int_set(&(worker_thread->status_flags),
 		   0);
 
   /* synchronization */
-  worker_thread->run_mutexattr = (pthread_mutexattr_t *) malloc(sizeof(pthread_mutexattr_t));
+  g_mutex_init(&(worker_thread->run_mutex));
 
-  pthread_mutexattr_init(worker_thread->run_mutexattr);
-  pthread_mutexattr_settype(worker_thread->run_mutexattr,
-			    PTHREAD_MUTEX_RECURSIVE);
-
-  worker_thread->run_mutex = (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t));
-  pthread_mutex_init(worker_thread->run_mutex, worker_thread->run_mutexattr);
-
-  worker_thread->run_cond = (pthread_cond_t *) malloc(sizeof(pthread_cond_t));
-  pthread_cond_init(worker_thread->run_cond, NULL);
+  g_cond_init(&(worker_thread->run_cond));
 
   /* worker thread */
-  worker_thread->worker_thread = (pthread_t *) malloc(sizeof(pthread_t));  
+  worker_thread->worker_thread = NULL;
 }
 
 void
@@ -160,12 +182,6 @@ ags_worker_thread_finalize(GObject *gobject)
   gboolean running;
   gboolean do_exit;
   
-  pthread_t *thread_ptr;
-  pthread_attr_t *thread_attr;
-
-  void *stackaddr;
-  size_t stacksize;
-
   worker_thread = AGS_WORKER_THREAD(gobject);
 
   if(worker_thread == ags_thread_self()){
@@ -173,46 +189,14 @@ ags_worker_thread_finalize(GObject *gobject)
   }else{
     do_exit = FALSE;
   }
-  
-  thread_attr = worker_thread->worker_thread_attr;
-  thread_ptr = worker_thread->worker_thread;
 
-  running = ((AGS_WORKER_THREAD_RUNNING & (g_atomic_int_get(&(worker_thread->flags)))) != 0) ? TRUE: FALSE;
-
-  /*  */
-#ifndef AGS_W32API
-  pthread_attr_getstack(thread_attr,
-			&stackaddr, &stacksize);
-#endif
-  
-  /* run mutex and condition */
-  pthread_mutex_destroy(worker_thread->run_mutex);
-  free(worker_thread->run_mutex);
-
-  pthread_cond_destroy(worker_thread->run_cond);
-  free(worker_thread->run_cond);
+  running = ags_worker_thread_test_status_flags(worker_thread, AGS_WORKER_THREAD_STATUS_RUNNING);
 
   /* call parent */
   G_OBJECT_CLASS(ags_worker_thread_parent_class)->finalize(gobject);
-
-  if(running){
-    pthread_detach(*thread_ptr);
-  }
-
-  pthread_attr_destroy(thread_attr);
-  free(thread_attr);
-
-  //  free(*thread_ptr);
-  free(thread_ptr);
-
-#ifndef AGS_W32API
-  if(stackaddr != NULL){
-    //    free(stackaddr);
-  }
-#endif
   
   if(do_exit){
-    pthread_exit(NULL);
+    g_thread_exit(NULL);
   }
 }
 
@@ -224,15 +208,13 @@ ags_worker_thread_start(AgsThread *thread)
   worker_thread = AGS_WORKER_THREAD(thread);
   
   /*  */
-  if((AGS_THREAD_SINGLE_LOOP & (g_atomic_int_get(&(thread->flags)))) == 0){
-    AGS_THREAD_CLASS(ags_worker_thread_parent_class)->start(thread);
-  }
+  AGS_THREAD_CLASS(ags_worker_thread_parent_class)->start(thread);
 
-  g_atomic_int_or(&(worker_thread->flags),
-		  AGS_WORKER_THREAD_RUNNING);
+  ags_worker_thread_set_status_flags(worker_thread, AGS_WORKER_THREAD_STATUS_RUNNING);
 
-  pthread_create(worker_thread->worker_thread, worker_thread->worker_thread_attr,
-		 ags_woker_thread_do_poll_loop, worker_thread);
+  worker_thread->worker_thread = g_thread_new("Advanced Gtk+ Sequencer - worker",
+					      ags_woker_thread_do_poll_loop,
+					      worker_thread);
 }
 
 void
@@ -243,24 +225,22 @@ ags_worker_thread_run(AgsThread *thread)
   worker_thread = AGS_WORKER_THREAD(thread);
   
   /* synchronization point */
-  if((AGS_WORKER_THREAD_RUN_WAIT & (g_atomic_int_get(&(worker_thread->flags)))) != 0 &&
-     (AGS_WORKER_THREAD_RUN_DONE & (g_atomic_int_get(&(worker_thread->flags)))) == 0){
-    pthread_mutex_lock(worker_thread->run_mutex);
+  if(ags_worker_thread_test_status_flags(worker_thread, AGS_WORKER_THREAD_STATUS_RUN_WAIT) &&
+     !ags_worker_thread_test_status_flags(worker_thread, AGS_WORKER_THREAD_STATUS_RUN_DONE)){
+    g_mutex_lock(&(worker_thread->run_mutex));
 
-    g_atomic_int_or(&(worker_thread->flags),
-		    AGS_WORKER_THREAD_RUN_SYNC);
+    ags_worker_thread_set_status_flags(worker_thread, AGS_WORKER_THREAD_STATUS_RUN_SYNC);
     
-    while((AGS_WORKER_THREAD_RUN_WAIT & (g_atomic_int_get(&(worker_thread->flags)))) != 0 &&
-	  (AGS_WORKER_THREAD_RUN_DONE & (g_atomic_int_get(&(worker_thread->flags)))) == 0){
-      pthread_cond_wait(worker_thread->run_cond,
-			worker_thread->run_mutex);
+    while(ags_worker_thread_test_status_flags(worker_thread, AGS_WORKER_THREAD_STATUS_RUN_WAIT) &&
+	  !ags_worker_thread_test_status_flags(worker_thread, AGS_WORKER_THREAD_STATUS_RUN_DONE)){
+      g_cond_wait(&(worker_thread->run_cond),
+		  &(worker_thread->run_mutex));
     }
 
-    g_atomic_int_and(&(worker_thread->flags),
-		     (~(AGS_WORKER_THREAD_RUN_WAIT |
-			AGS_WORKER_THREAD_RUN_DONE)));
+    ags_worker_thread_set_status_flags(worker_thread, (AGS_WORKER_THREAD_STATUS_RUN_WAIT |
+						       AGS_WORKER_THREAD_STATUS_RUN_DONE));
 
-    pthread_mutex_unlock(worker_thread->run_mutex);
+    g_mutex_unlock(&(worker_thread->run_mutex));
   }
 }
 
@@ -271,11 +251,75 @@ ags_worker_thread_stop(AgsThread *thread)
 
   worker_thread = AGS_WORKER_THREAD(thread);
 
-  g_atomic_int_and(&(worker_thread->flags),
-		   (~(AGS_WORKER_THREAD_RUNNING)));
+  ags_worker_thread_unset_status_flags(worker_thread, AGS_WORKER_THREAD_STATUS_RUNNING);
   
   /* call parent */
   AGS_THREAD_CLASS(ags_worker_thread_parent_class)->stop(thread);  
+}
+
+/**
+ * ags_worker_thread_test_status_flags:
+ * @worker_thread: the #AgsWorkerThread
+ * @status_flags: status flags
+ * 
+ * Test @status_flags of @worker_thread.
+ * 
+ * Returns: %TRUE if status flags set, otherwise %FALSE
+ * 
+ * Since: 3.0.0
+ */
+gboolean
+ags_worker_thread_test_status_flags(AgsWorkerThread *worker_thread, guint status_flags)
+{
+  gboolean retval;
+  
+  if(!AGS_IS_WORKER_THREAD(worker_thread)){
+    return(FALSE);
+  }
+
+  retval = ((status_flags & (g_atomic_int_get(&(worker_thread->status_flags)))) != 0) ? TRUE: FALSE;
+
+  return(retval);
+}
+
+/**
+ * ags_worker_thread_set_status_flags:
+ * @worker_thread: the #AgsWorkerThread
+ * @status_flags: status flags
+ * 
+ * Set status flags.
+ * 
+ * Since: 3.0.0
+ */
+void
+ags_worker_thread_set_status_flags(AgsWorkerThread *worker_thread, guint status_flags)
+{
+  if(!AGS_IS_WORKER_THREAD(worker_thread)){
+    return;
+  }
+
+  g_atomic_int_or(&(worker_thread->status_flags),
+		  status_flags);
+}
+
+/**
+ * ags_worker_thread_unset_status_flags:
+ * @worker_thread: the #AgsWorkerThread
+ * @status_flags: status flags
+ * 
+ * Unset status flags.
+ * 
+ * Since: 3.0.0
+ */
+void
+ags_worker_thread_unset_status_flags(AgsWorkerThread *worker_thread, guint status_flags)
+{
+  if(!AGS_IS_WORKER_THREAD(worker_thread)){
+    return;
+  }
+
+  g_atomic_int_and(&(worker_thread->status_flags),
+		   (~status_flags));
 }
 
 /**
@@ -285,7 +329,7 @@ ags_worker_thread_stop(AgsThread *thread)
  * Do loop and invoke ags_worker_thread_do_poll() unless flag
  * AGS_WORKER_THREAD_RUNNING was unset.
  * 
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void*
 ags_woker_thread_do_poll_loop(void *ptr)
@@ -294,15 +338,13 @@ ags_woker_thread_do_poll_loop(void *ptr)
 
   worker_thread = (AgsWorkerThread *) ptr;
   
-  while((AGS_WORKER_THREAD_RUNNING & (g_atomic_int_get(&(worker_thread->flags)))) != 0){
+  while(ags_worker_thread_test_status_flags(worker_thread, AGS_WORKER_THREAD_STATUS_RUNNING)){
     ags_worker_thread_do_poll(worker_thread);
   }
   
-  pthread_exit(NULL);
+  g_thread_exit(NULL);
 
-#ifdef AGS_W32API
   return(NULL);
-#endif  
 }
 
 /**
@@ -311,7 +353,7 @@ ags_woker_thread_do_poll_loop(void *ptr)
  *
  * Do poll your work. It is called of the worker thread.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 void
 ags_worker_thread_do_poll(AgsWorkerThread *worker_thread)
@@ -330,7 +372,7 @@ ags_worker_thread_do_poll(AgsWorkerThread *worker_thread)
  *
  * Returns: the new #AgsWorkerThread
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 AgsWorkerThread*
 ags_worker_thread_new()

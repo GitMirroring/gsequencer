@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2017 Joël Krähemann
+ * Copyright (C) 2005-2019 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -23,10 +23,11 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include <pthread.h>
 #include <time.h>
 
 #include <ags/thread/ags_worker_thread.h>
+
+G_BEGIN_DECLS
 
 #define AGS_TYPE_DESTROY_WORKER                (ags_destroy_worker_get_type())
 #define AGS_DESTROY_WORKER(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_DESTROY_WORKER, AgsDestroyWorker))
@@ -49,8 +50,7 @@ struct _AgsDestroyWorker
 
   struct timespec *destroy_interval;
   
-  pthread_mutex_t *destroy_mutex;
-  pthread_mutexattr_t *destroy_mutexattr;
+  GRecMutex destroy_mutex;
 
   GList *destroy_list;
 };
@@ -84,5 +84,7 @@ void ags_destroy_worker_add(AgsDestroyWorker *destroy_worker,
 AgsDestroyWorker* ags_destroy_worker_get_instance();
 
 AgsDestroyWorker* ags_destroy_worker_new();
+
+G_END_DECLS
 
 #endif /*__AGS_DESTROY_WORKER_H__*/

@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -23,15 +23,15 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include <pthread.h>
-
-#include <ags/config.h>
+#include <ags/ags_api_config.h>
 
 #ifdef AGS_WITH_JACK
 #include <jack/jack.h>
 #endif
 
 #include <ags/libags.h>
+
+G_BEGIN_DECLS
 
 #define AGS_TYPE_JACK_PORT                (ags_jack_port_get_type())
 #define AGS_JACK_PORT(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_JACK_PORT, AgsJackPort))
@@ -40,15 +40,13 @@
 #define AGS_IS_JACK_PORT_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE ((class), AGS_TYPE_JACK_PORT))
 #define AGS_JACK_PORT_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS(obj, AGS_TYPE_JACK_PORT, AgsJackPortClass))
 
-#define AGS_JACK_PORT_GET_OBJ_MUTEX(obj) (((AgsJackPort *) obj)->obj_mutex)
+#define AGS_JACK_PORT_GET_OBJ_MUTEX(obj) (&(((AgsJackPort *) obj)->obj_mutex))
 
 typedef struct _AgsJackPort AgsJackPort;
 typedef struct _AgsJackPortClass AgsJackPortClass;
 
 /**
  * AgsJackPortFlags:
- * @AGS_JACK_PORT_ADDED_TO_REGISTRY: the JACK port was added to registry, see #AgsConnectable::add_to_registry()
- * @AGS_JACK_PORT_CONNECTED: indicates the port was connected by calling #AgsConnectable::connect()
  * @AGS_JACK_PORT_REGISTERED: the port was registered
  * @AGS_JACK_PORT_IS_AUDIO: the port provides audio data
  * @AGS_JACK_PORT_IS_MIDI: the port provides midi data
@@ -59,13 +57,11 @@ typedef struct _AgsJackPortClass AgsJackPortClass;
  * enable/disable as flags.
  */
 typedef enum{
-  AGS_JACK_PORT_ADDED_TO_REGISTRY  = 1,
-  AGS_JACK_PORT_CONNECTED          = 1 <<  1,
-  AGS_JACK_PORT_REGISTERED         = 1 <<  2,
-  AGS_JACK_PORT_IS_AUDIO           = 1 <<  3,
-  AGS_JACK_PORT_IS_MIDI            = 1 <<  4,
-  AGS_JACK_PORT_IS_OUTPUT          = 1 <<  5,
-  AGS_JACK_PORT_IS_INPUT           = 1 <<  6,
+  AGS_JACK_PORT_REGISTERED         = 1,
+  AGS_JACK_PORT_IS_AUDIO           = 1 <<  1,
+  AGS_JACK_PORT_IS_MIDI            = 1 <<  2,
+  AGS_JACK_PORT_IS_OUTPUT          = 1 <<  3,
+  AGS_JACK_PORT_IS_INPUT           = 1 <<  4,
 }AgsJackPortFlags;
 
 struct _AgsJackPort
@@ -73,9 +69,9 @@ struct _AgsJackPort
   GObject gobject;
 
   guint flags;
-
-  pthread_mutex_t *obj_mutex;
-  pthread_mutexattr_t *obj_mutexattr;
+  guint connectable_flags;
+  
+  GRecMutex obj_mutex;
 
   GObject *jack_client;
 
@@ -97,8 +93,7 @@ struct _AgsJackPortClass
 };
 
 GType ags_jack_port_get_type();
-
-pthread_mutex_t* ags_jack_port_get_class_mutex();
+GType ags_jack_port_flags_get_type();
 
 gboolean ags_jack_port_test_flags(AgsJackPort *jack_port, guint flags);
 void ags_jack_port_set_flags(AgsJackPort *jack_port, guint flags);
@@ -114,5 +109,7 @@ void ags_jack_port_register(AgsJackPort *jack_port,
 void ags_jack_port_unregister(AgsJackPort *jack_port);
 
 AgsJackPort* ags_jack_port_new(GObject *jack_client);
+
+G_END_DECLS
 
 #endif /*__AGS_JACK_PORT_H__*/

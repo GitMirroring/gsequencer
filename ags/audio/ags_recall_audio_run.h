@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2018 Joël Krähemann
+ * Copyright (C) 2005-2020 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -23,10 +23,13 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include <ags/audio/ags_recall.h>
+#include <ags/libags.h>
 
 #include <ags/audio/ags_audio.h>
+#include <ags/audio/ags_recall.h>
 #include <ags/audio/ags_recall_audio.h>
+
+G_BEGIN_DECLS
 
 #define AGS_TYPE_RECALL_AUDIO_RUN                (ags_recall_audio_run_get_type())
 #define AGS_RECALL_AUDIO_RUN(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_RECALL_AUDIO_RUN, AgsRecallAudioRun))
@@ -54,6 +57,16 @@ struct _AgsRecallAudioRunClass
 
 GType ags_recall_audio_run_get_type();
 
+AgsAudio* ags_recall_audio_run_get_audio(AgsRecallAudioRun *recall_audio_run);
+void ags_recall_audio_run_set_audio(AgsRecallAudioRun *recall_audio_run,
+				    AgsAudio *audio);
+
+AgsRecallAudio* ags_recall_audio_run_get_recall_audio(AgsRecallAudioRun *recall_audio_run);
+void ags_recall_audio_run_set_recall_audio(AgsRecallAudioRun *recall_audio_run,
+					   AgsRecallAudio *recall_audio);
+
 AgsRecallAudioRun* ags_recall_audio_run_new();
+
+G_END_DECLS
 
 #endif /*__AGS_RECALL_AUDIO_RUN_H__*/

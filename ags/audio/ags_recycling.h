@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -23,11 +23,11 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include <pthread.h>
-
 #include <ags/libags.h>
 
 #include <ags/audio/ags_audio_signal.h>
+
+G_BEGIN_DECLS
 
 #define AGS_TYPE_RECYCLING                (ags_recycling_get_type())
 #define AGS_RECYCLING(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_RECYCLING, AgsRecycling))
@@ -36,23 +36,19 @@
 #define AGS_IS_RECYCLING_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE ((class), AGS_TYPE_RECYCLING))
 #define AGS_RECYCLING_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS ((obj), AGS_TYPE_RECYCLING, AgsRecyclingClass))
 
-#define AGS_RECYCLING_GET_OBJ_MUTEX(obj) (((AgsRecycling *) obj)->obj_mutex)
+#define AGS_RECYCLING_GET_OBJ_MUTEX(obj) (&(((AgsRecycling *) obj)->obj_mutex))
 
 typedef struct _AgsRecycling AgsRecycling;
 typedef struct _AgsRecyclingClass AgsRecyclingClass;
 
 /**
  * AgsRecyclingFlags:
- * @AGS_RECYCLING_ADDED_TO_REGISTRY: the recycling was added to registry, see #AgsConnectable::add_to_registry()
- * @AGS_RECYCLING_CONNECTED: indicates the port was connected by calling #AgsConnectable::connect()
  * @AGS_RECYCLING_MUTED: recycling is muted
  * 
  * Enum values to control the behavior or indicate internal state of #AgsRecycling by
  * enable/disable as flags.
  */
 typedef enum{
-  AGS_RECYCLING_ADDED_TO_REGISTRY  = 1,
-  AGS_RECYCLING_CONNECTED          = 1 <<  1,
   AGS_RECYCLING_MUTED              = 1 <<  2,
 }AgsRecyclingFlags;
 
@@ -61,9 +57,9 @@ struct _AgsRecycling
   GObject gobject;
 
   guint flags;
-
-  pthread_mutex_t *obj_mutex;
-  pthread_mutexattr_t *obj_mutexattr;
+  guint connectable_flags;
+  
+  GRecMutex obj_mutex;
 
   AgsUUID *uuid;
 
@@ -101,27 +97,43 @@ struct _AgsRecyclingClass
 };
 
 GType ags_recycling_get_type(void);
+GType ags_recycling_flags_get_type();
 
-pthread_mutex_t* ags_recycling_get_class_mutex();
+GRecMutex* ags_recycling_get_obj_mutex(AgsRecycling *recycling);
 
 gboolean ags_recycling_test_flags(AgsRecycling *recycling, guint flags);
 void ags_recycling_set_flags(AgsRecycling *recycling, guint flags);
 void ags_recycling_unset_flags(AgsRecycling *recycling, guint flags);
+
+/* parent */
+GObject* ags_recycling_get_channel(AgsRecycling *recycling);
+void ags_recycling_set_channel(AgsRecycling *recycling, GObject *channel);
 
 /* recycling */
 AgsRecycling* ags_recycling_next(AgsRecycling *recycling);
 AgsRecycling* ags_recycling_prev(AgsRecycling *recycling);
 
 /* soundcard */
+GObject* ags_recycling_get_output_soundcard(AgsRecycling *recycling);
 void ags_recycling_set_output_soundcard(AgsRecycling *recycling, GObject *output_soundcard);
+
+GObject* ags_recycling_get_input_soundcard(AgsRecycling *recycling);
 void ags_recycling_set_input_soundcard(AgsRecycling *recycling, GObject *input_soundcard);
 
 /* presets */
+guint ags_recycling_get_samplerate(AgsRecycling *recycling);
 void ags_recycling_set_samplerate(AgsRecycling *recycling, guint samplerate);
+
+guint ags_recycling_get_buffer_size(AgsRecycling *recycling);
 void ags_recycling_set_buffer_size(AgsRecycling *recycling, guint buffer_size);
+
+guint ags_recycling_get_format(AgsRecycling *recycling);
 void ags_recycling_set_format(AgsRecycling *recycling, guint format);
 
 /* children */
+GList* ags_recycling_get_audio_signal(AgsRecycling *recycling);
+void ags_recycling_set_audio_signal(AgsRecycling *recycling, GList *audio_signal);
+
 void ags_recycling_add_audio_signal(AgsRecycling *recycling,
 				    AgsAudioSignal *audio_signal);
 void ags_recycling_remove_audio_signal(AgsRecycling *recycling,
@@ -150,6 +162,8 @@ void ags_recycling_create_audio_signal_with_frame_count(AgsRecycling *recycling,
 							gdouble delay, guint attack);
 
 /* instantiate */
-AgsRecycling* ags_recycling_new(GObject *channel);
+AgsRecycling* ags_recycling_new(GObject *output_soundcard);
+
+G_END_DECLS
 
 #endif /*__AGS_RECYCLING_H__*/

@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2018 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -23,7 +23,11 @@
 #include <glib.h>
 #include <glib-object.h>
 
+#include <ags/libags.h>
+
 #include <ags/audio/osc/controller/ags_osc_controller.h>
+
+G_BEGIN_DECLS
 
 #define AGS_TYPE_OSC_CONFIG_CONTROLLER                (ags_osc_config_controller_get_type())
 #define AGS_OSC_CONFIG_CONTROLLER(obj)                (G_TYPE_CHECK_INSTANCE_CAST((obj), AGS_TYPE_OSC_CONFIG_CONTROLLER, AgsOscConfigController))
@@ -46,15 +50,17 @@ struct _AgsOscConfigControllerClass
 
   gpointer (*apply_config)(AgsOscConfigController *osc_config_controller,
 			    AgsOscConnection *osc_connection,
-			    unsigned char *message, guint message_size);
+			    guchar *message, guint message_size);
 };
 
 GType ags_osc_config_controller_get_type();
 
 gpointer ags_osc_config_controller_apply_config(AgsOscConfigController *osc_config_controller,
 						AgsOscConnection *osc_connection,
-						unsigned char *message, guint message_size);
+						guchar *message, guint message_size);
 
 AgsOscConfigController* ags_osc_config_controller_new();
+
+G_END_DECLS
 
 #endif /*__AGS_OSC_CONFIG_CONTROLLER_H__*/

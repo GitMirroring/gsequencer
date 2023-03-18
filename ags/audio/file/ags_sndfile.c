@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2022 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -18,8 +18,6 @@
  */
 
 #include <ags/audio/file/ags_sndfile.h>
-
-#include <ags/libags.h>
 
 #include <ags/audio/ags_audio_signal.h>
 #include <ags/audio/ags_audio_buffer_util.h>
@@ -121,8 +119,6 @@ static AgsSoundResourceInterface *ags_sndfile_parent_sound_resource_interface;
 
 static SF_VIRTUAL_IO *ags_sndfile_virtual_io = NULL;
 
-static pthread_mutex_t ags_sndfile_class_mutex = PTHREAD_MUTEX_INITIALIZER;
-
 GType
 ags_sndfile_get_type()
 {
@@ -174,6 +170,26 @@ ags_sndfile_get_type()
   return g_define_type_id__volatile;
 }
 
+GType
+ags_sndfile_flags_get_type()
+{
+  static volatile gsize g_flags_type_id__volatile;
+
+  if(g_once_init_enter (&g_flags_type_id__volatile)){
+    static const GFlagsValue values[] = {
+      { AGS_SNDFILE_VIRTUAL, "AGS_SNDFILE_VIRTUAL", "sndfile-virtual" },
+      { AGS_SNDFILE_FILL_CACHE, "AGS_SNDFILE_FILL_CACHE", "sndfile-fill-cache" },
+      { 0, NULL, NULL }
+    };
+
+    GType g_flags_type_id = g_flags_register_static(g_intern_static_string("AgsSndfileFlags"), values);
+
+    g_once_init_leave (&g_flags_type_id__volatile, g_flags_type_id);
+  }
+  
+  return g_flags_type_id__volatile;
+}
+
 void
 ags_sndfile_class_init(AgsSndfileClass *sndfile)
 {
@@ -208,7 +224,7 @@ ags_sndfile_class_init(AgsSndfileClass *sndfile)
    *
    * The audio channels to be used.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("audio-channels",
 				 i18n_pspec("using audio channels"),
@@ -226,7 +242,7 @@ ags_sndfile_class_init(AgsSndfileClass *sndfile)
    *
    * The buffer size to be used.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("buffer-size",
 				 i18n_pspec("using buffer size"),
@@ -244,7 +260,7 @@ ags_sndfile_class_init(AgsSndfileClass *sndfile)
    *
    * The format to be used.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_uint("format",
 				 i18n_pspec("using format"),
@@ -262,7 +278,7 @@ ags_sndfile_class_init(AgsSndfileClass *sndfile)
    *
    * The assigned output #SNDFILE-struct.
    * 
-   * Since: 2.0.0
+   * Since: 3.0.0
    */
   param_spec = g_param_spec_pointer("file",
 				    i18n_pspec("assigned file"),
@@ -326,27 +342,11 @@ ags_sndfile_init(AgsSndfile *sndfile)
 {
   AgsConfig *config;
 
-  pthread_mutex_t *mutex;
-  pthread_mutexattr_t *attr;
-
   sndfile->flags = AGS_SNDFILE_FILL_CACHE;
+  sndfile->connectable_flags = 0;
 
   /* add audio file mutex */
-  sndfile->obj_mutexattr = 
-    attr = (pthread_mutexattr_t *) malloc(sizeof(pthread_mutexattr_t));
-  pthread_mutexattr_init(attr);
-  pthread_mutexattr_settype(attr,
-			    PTHREAD_MUTEX_RECURSIVE);
-
-#ifdef __linux__
-  pthread_mutexattr_setprotocol(attr,
-				PTHREAD_PRIO_INHERIT);
-#endif
-
-  sndfile->obj_mutex = 
-    mutex = (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t));
-  pthread_mutex_init(mutex,
-		     attr);  
+  g_rec_mutex_init(&(sndfile->obj_mutex));  
 
   /* uuid */
   sndfile->uuid = ags_uuid_alloc();
@@ -385,7 +385,7 @@ ags_sndfile_set_property(GObject *gobject,
 {
   AgsSndfile *sndfile;
 
-  pthread_mutex_t *sndfile_mutex;
+  GRecMutex *sndfile_mutex;
 
   sndfile = AGS_SNDFILE(gobject);
 
@@ -400,10 +400,10 @@ ags_sndfile_set_property(GObject *gobject,
       
       audio_channels = g_value_get_uint(value);
 
-      pthread_mutex_lock(sndfile_mutex);
+      g_rec_mutex_lock(sndfile_mutex);
 
       if(audio_channels == sndfile->audio_channels){
-	pthread_mutex_unlock(sndfile_mutex);
+	g_rec_mutex_unlock(sndfile_mutex);
 
 	return;	
       }
@@ -426,7 +426,7 @@ ags_sndfile_set_property(GObject *gobject,
       sndfile->buffer = ags_stream_alloc(sndfile->audio_channels * sndfile->buffer_size,
 					 sndfile->format);
 
-      pthread_mutex_unlock(sndfile_mutex);
+      g_rec_mutex_unlock(sndfile_mutex);
     }
     break;
   case PROP_BUFFER_SIZE:
@@ -435,10 +435,10 @@ ags_sndfile_set_property(GObject *gobject,
 
       buffer_size = g_value_get_uint(value);
 
-      pthread_mutex_lock(sndfile_mutex);
+      g_rec_mutex_lock(sndfile_mutex);
 
       if(buffer_size == sndfile->buffer_size){
-	pthread_mutex_unlock(sndfile_mutex);
+	g_rec_mutex_unlock(sndfile_mutex);
 	
 	return;	
       }
@@ -449,7 +449,7 @@ ags_sndfile_set_property(GObject *gobject,
       sndfile->buffer = ags_stream_alloc(sndfile->audio_channels * sndfile->buffer_size,
 					 sndfile->format);
 
-      pthread_mutex_unlock(sndfile_mutex);
+      g_rec_mutex_unlock(sndfile_mutex);
     }
     break;
   case PROP_FORMAT:
@@ -458,10 +458,10 @@ ags_sndfile_set_property(GObject *gobject,
 
       format = g_value_get_uint(value);
 
-      pthread_mutex_lock(sndfile_mutex);
+      g_rec_mutex_lock(sndfile_mutex);
 
       if(format == sndfile->format){
-	pthread_mutex_unlock(sndfile_mutex);
+	g_rec_mutex_unlock(sndfile_mutex);
       
 	return;	
       }
@@ -472,7 +472,7 @@ ags_sndfile_set_property(GObject *gobject,
       sndfile->buffer = ags_stream_alloc(sndfile->audio_channels * sndfile->buffer_size,
 					 sndfile->format);
 
-      pthread_mutex_unlock(sndfile_mutex);
+      g_rec_mutex_unlock(sndfile_mutex);
     }
     break;
   case PROP_FILE:
@@ -481,17 +481,17 @@ ags_sndfile_set_property(GObject *gobject,
 
       file = g_value_get_pointer(value);
 
-      pthread_mutex_lock(sndfile_mutex);
+      g_rec_mutex_lock(sndfile_mutex);
 
       if(sndfile->file == file){
-	pthread_mutex_unlock(sndfile_mutex);
+	g_rec_mutex_unlock(sndfile_mutex);
 	
 	return;
       }
       
       sndfile->file = file;
 
-      pthread_mutex_unlock(sndfile_mutex);
+      g_rec_mutex_unlock(sndfile_mutex);
     }
     break;
   default:
@@ -507,7 +507,7 @@ ags_sndfile_get_property(GObject *gobject,
 {
   AgsSndfile *sndfile;
 
-  pthread_mutex_t *sndfile_mutex;
+  GRecMutex *sndfile_mutex;
 
   sndfile = AGS_SNDFILE(gobject);
 
@@ -517,38 +517,38 @@ ags_sndfile_get_property(GObject *gobject,
   switch(prop_id){
   case PROP_AUDIO_CHANNELS:
     {
-      pthread_mutex_lock(sndfile_mutex);
+      g_rec_mutex_lock(sndfile_mutex);
 
       g_value_set_uint(value, sndfile->audio_channels);
 
-      pthread_mutex_unlock(sndfile_mutex);
+      g_rec_mutex_unlock(sndfile_mutex);
     }
     break;
   case PROP_BUFFER_SIZE:
     {
-      pthread_mutex_lock(sndfile_mutex);
+      g_rec_mutex_lock(sndfile_mutex);
 
       g_value_set_uint(value, sndfile->buffer_size);
 
-      pthread_mutex_unlock(sndfile_mutex);
+      g_rec_mutex_unlock(sndfile_mutex);
     }
     break;
   case PROP_FORMAT:
     {
-      pthread_mutex_lock(sndfile_mutex);
+      g_rec_mutex_lock(sndfile_mutex);
 
       g_value_set_uint(value, sndfile->format);
 
-      pthread_mutex_unlock(sndfile_mutex);
+      g_rec_mutex_unlock(sndfile_mutex);
     }
     break;
   case PROP_FILE:
     {
-      pthread_mutex_lock(sndfile_mutex);
+      g_rec_mutex_lock(sndfile_mutex);
 
       g_value_set_pointer(value, sndfile->file);
 
-      pthread_mutex_unlock(sndfile_mutex);
+      g_rec_mutex_unlock(sndfile_mutex);
     }
     break;
   default:
@@ -578,7 +578,7 @@ ags_sndfile_get_uuid(AgsConnectable *connectable)
   
   AgsUUID *ptr;
 
-  pthread_mutex_t *sndfile_mutex;
+  GRecMutex *sndfile_mutex;
 
   sndfile = AGS_SNDFILE(connectable);
 
@@ -586,11 +586,11 @@ ags_sndfile_get_uuid(AgsConnectable *connectable)
   sndfile_mutex = AGS_SNDFILE_GET_OBJ_MUTEX(sndfile);
 
   /* get UUID */
-  pthread_mutex_lock(sndfile_mutex);
+  g_rec_mutex_lock(sndfile_mutex);
 
   ptr = sndfile->uuid;
 
-  pthread_mutex_unlock(sndfile_mutex);
+  g_rec_mutex_unlock(sndfile_mutex);
   
   return(ptr);
 }
@@ -608,20 +608,20 @@ ags_sndfile_is_ready(AgsConnectable *connectable)
   
   gboolean is_ready;
 
-  pthread_mutex_t *sndfile_mutex;
+  GRecMutex *sndfile_mutex;
 
   sndfile = AGS_SNDFILE(connectable);
 
-  /* get audio file mutex */
+  /* get sndfile mutex */
   sndfile_mutex = AGS_SNDFILE_GET_OBJ_MUTEX(sndfile);
 
   /* check is ready */
-  pthread_mutex_lock(sndfile_mutex);
-  
-  is_ready = (((AGS_SNDFILE_ADDED_TO_REGISTRY & (sndfile->flags)) != 0) ? TRUE: FALSE);
-  
-  pthread_mutex_unlock(sndfile_mutex);
+  g_rec_mutex_lock(sndfile_mutex);
 
+  is_ready = ((AGS_CONNECTABLE_ADDED_TO_REGISTRY & (sndfile->connectable_flags)) != 0) ? TRUE: FALSE;
+
+  g_rec_mutex_unlock(sndfile_mutex);
+  
   return(is_ready);
 }
 
@@ -635,13 +635,22 @@ ags_sndfile_add_to_registry(AgsConnectable *connectable)
 
   AgsApplicationContext *application_context;
 
+  GRecMutex *sndfile_mutex;
+
   if(ags_connectable_is_ready(connectable)){
     return;
   }
 
   sndfile = AGS_SNDFILE(connectable);
 
-  ags_sndfile_set_flags(sndfile, AGS_SNDFILE_ADDED_TO_REGISTRY);
+  /* get sndfile mutex */
+  sndfile_mutex = AGS_SNDFILE_GET_OBJ_MUTEX(sndfile);
+
+  g_rec_mutex_lock(sndfile_mutex);
+
+  sndfile->connectable_flags |= AGS_CONNECTABLE_ADDED_TO_REGISTRY;
+  
+  g_rec_mutex_unlock(sndfile_mutex);
 
   application_context = ags_application_context_get_instance();
 
@@ -659,9 +668,24 @@ ags_sndfile_add_to_registry(AgsConnectable *connectable)
 void
 ags_sndfile_remove_from_registry(AgsConnectable *connectable)
 {
+  AgsSndfile *sndfile;
+
+  GRecMutex *sndfile_mutex;
+
   if(!ags_connectable_is_ready(connectable)){
     return;
   }
+
+  sndfile = AGS_SNDFILE(connectable);
+
+  /* get sndfile mutex */
+  sndfile_mutex = AGS_SNDFILE_GET_OBJ_MUTEX(sndfile);
+
+  g_rec_mutex_lock(sndfile_mutex);
+
+  sndfile->connectable_flags &= (~AGS_CONNECTABLE_ADDED_TO_REGISTRY);
+  
+  g_rec_mutex_unlock(sndfile_mutex);
 
   //TODO:JK: implement me
 }
@@ -704,20 +728,20 @@ ags_sndfile_is_connected(AgsConnectable *connectable)
   
   gboolean is_connected;
 
-  pthread_mutex_t *sndfile_mutex;
+  GRecMutex *sndfile_mutex;
 
   sndfile = AGS_SNDFILE(connectable);
 
-  /* get audio file mutex */
+  /* get sndfile mutex */
   sndfile_mutex = AGS_SNDFILE_GET_OBJ_MUTEX(sndfile);
 
   /* check is connected */
-  pthread_mutex_lock(sndfile_mutex);
+  g_rec_mutex_lock(sndfile_mutex);
 
-  is_connected = (((AGS_SNDFILE_CONNECTED & (sndfile->flags)) != 0) ? TRUE: FALSE);
+  is_connected = ((AGS_CONNECTABLE_CONNECTED & (sndfile->connectable_flags)) != 0) ? TRUE: FALSE;
+
+  g_rec_mutex_unlock(sndfile_mutex);
   
-  pthread_mutex_unlock(sndfile_mutex);
-
   return(is_connected);
 }
 
@@ -726,13 +750,22 @@ ags_sndfile_connect(AgsConnectable *connectable)
 {
   AgsSndfile *sndfile;
 
+  GRecMutex *sndfile_mutex;
+
   if(ags_connectable_is_connected(connectable)){
     return;
   }
 
   sndfile = AGS_SNDFILE(connectable);
+
+  /* get sndfile mutex */
+  sndfile_mutex = AGS_SNDFILE_GET_OBJ_MUTEX(sndfile);
+
+  g_rec_mutex_lock(sndfile_mutex);
+
+  sndfile->connectable_flags |= AGS_CONNECTABLE_CONNECTED;
   
-  ags_sndfile_set_flags(sndfile, AGS_SNDFILE_CONNECTED);
+  g_rec_mutex_unlock(sndfile_mutex);
 }
 
 void
@@ -740,28 +773,22 @@ ags_sndfile_disconnect(AgsConnectable *connectable)
 {
   AgsSndfile *sndfile;
 
+  GRecMutex *sndfile_mutex;
+
   if(!ags_connectable_is_connected(connectable)){
     return;
   }
 
   sndfile = AGS_SNDFILE(connectable);
 
-  ags_sndfile_unset_flags(sndfile, AGS_SNDFILE_CONNECTED);
-}
+  /* get sndfile mutex */
+  sndfile_mutex = AGS_SNDFILE_GET_OBJ_MUTEX(sndfile);
 
-/**
- * ags_sndfile_get_class_mutex:
- * 
- * Use this function's returned mutex to access mutex fields.
- *
- * Returns: the class mutex
- * 
- * Since: 2.0.36
- */
-pthread_mutex_t*
-ags_sndfile_get_class_mutex()
-{
-  return(&ags_sndfile_class_mutex);
+  g_rec_mutex_lock(sndfile_mutex);
+
+  sndfile->connectable_flags &= (~AGS_CONNECTABLE_CONNECTED);
+  
+  g_rec_mutex_unlock(sndfile_mutex);
 }
 
 /**
@@ -773,14 +800,14 @@ ags_sndfile_get_class_mutex()
  * 
  * Returns: %TRUE if flags are set, else %FALSE
  *
- * Since: 2.0.36
+ * Since: 3.0.0
  */
 gboolean
 ags_sndfile_test_flags(AgsSndfile *sndfile, guint flags)
 {
   gboolean retval;  
   
-  pthread_mutex_t *sndfile_mutex;
+  GRecMutex *sndfile_mutex;
 
   if(!AGS_IS_SNDFILE(sndfile)){
     return(FALSE);
@@ -790,11 +817,11 @@ ags_sndfile_test_flags(AgsSndfile *sndfile, guint flags)
   sndfile_mutex = AGS_SNDFILE_GET_OBJ_MUTEX(sndfile);
 
   /* test */
-  pthread_mutex_lock(sndfile_mutex);
+  g_rec_mutex_lock(sndfile_mutex);
 
   retval = (flags & (sndfile->flags)) ? TRUE: FALSE;
   
-  pthread_mutex_unlock(sndfile_mutex);
+  g_rec_mutex_unlock(sndfile_mutex);
 
   return(retval);
 }
@@ -806,12 +833,12 @@ ags_sndfile_test_flags(AgsSndfile *sndfile, guint flags)
  *
  * Enable a feature of @sndfile.
  *
- * Since: 2.0.36
+ * Since: 3.0.0
  */
 void
 ags_sndfile_set_flags(AgsSndfile *sndfile, guint flags)
 {
-  pthread_mutex_t *sndfile_mutex;
+  GRecMutex *sndfile_mutex;
 
   if(!AGS_IS_SNDFILE(sndfile)){
     return;
@@ -823,11 +850,11 @@ ags_sndfile_set_flags(AgsSndfile *sndfile, guint flags)
   //TODO:JK: add more?
 
   /* set flags */
-  pthread_mutex_lock(sndfile_mutex);
+  g_rec_mutex_lock(sndfile_mutex);
 
   sndfile->flags |= flags;
   
-  pthread_mutex_unlock(sndfile_mutex);
+  g_rec_mutex_unlock(sndfile_mutex);
 }
     
 /**
@@ -837,12 +864,12 @@ ags_sndfile_set_flags(AgsSndfile *sndfile, guint flags)
  *
  * Disable a feature of @sndfile.
  *
- * Since: 2.0.36
+ * Since: 3.0.0
  */
 void
 ags_sndfile_unset_flags(AgsSndfile *sndfile, guint flags)
 {  
-  pthread_mutex_t *sndfile_mutex;
+  GRecMutex *sndfile_mutex;
 
   if(!AGS_IS_SNDFILE(sndfile)){
     return;
@@ -854,11 +881,11 @@ ags_sndfile_unset_flags(AgsSndfile *sndfile, guint flags)
   //TODO:JK: add more?
 
   /* unset flags */
-  pthread_mutex_lock(sndfile_mutex);
+  g_rec_mutex_lock(sndfile_mutex);
 
   sndfile->flags &= (~flags);
   
-  pthread_mutex_unlock(sndfile_mutex);
+  g_rec_mutex_unlock(sndfile_mutex);
 }
 
 gboolean
@@ -869,7 +896,7 @@ ags_sndfile_open(AgsSoundResource *sound_resource,
 
   guint format;
   
-  pthread_mutex_t *sndfile_mutex;
+  GRecMutex *sndfile_mutex;
 
   sndfile = AGS_SNDFILE(sound_resource);
 
@@ -877,10 +904,10 @@ ags_sndfile_open(AgsSoundResource *sound_resource,
   sndfile_mutex = AGS_SNDFILE_GET_OBJ_MUTEX(sndfile);
 
   /* info */
-  pthread_mutex_lock(sndfile_mutex);
+  g_rec_mutex_lock(sndfile_mutex);
 
   if(sndfile->info != NULL){
-    pthread_mutex_unlock(sndfile_mutex);
+    g_rec_mutex_unlock(sndfile_mutex);
     
     return(FALSE);
   }
@@ -889,8 +916,6 @@ ags_sndfile_open(AgsSoundResource *sound_resource,
   sndfile->info->format = 0;
   sndfile->info->channels = 0;
   sndfile->info->samplerate = 0;
-
-  pthread_mutex_unlock(sndfile_mutex);
   
   if(!ags_sndfile_test_flags(sndfile, AGS_SNDFILE_VIRTUAL)){
     if(filename != NULL){
@@ -901,6 +926,8 @@ ags_sndfile_open(AgsSoundResource *sound_resource,
   }
   
   if(sndfile->file == NULL){
+    g_rec_mutex_unlock(sndfile_mutex);
+    
     return(FALSE);
   }
 
@@ -949,6 +976,8 @@ ags_sndfile_open(AgsSoundResource *sound_resource,
   }
   break;
   }
+
+  g_rec_mutex_unlock(sndfile_mutex);
   
   g_object_set(sndfile,
 	       "audio-channels", sndfile->info->channels,
@@ -971,8 +1000,9 @@ ags_sndfile_rw_open(AgsSoundResource *sound_resource,
   AgsSndfile *sndfile;
   
   guint major_format;
-
-  pthread_mutex_t *sndfile_mutex;
+  gboolean success;
+    
+  GRecMutex *sndfile_mutex;
 
   sndfile = AGS_SNDFILE(sound_resource);
 
@@ -980,10 +1010,10 @@ ags_sndfile_rw_open(AgsSoundResource *sound_resource,
   sndfile_mutex = AGS_SNDFILE_GET_OBJ_MUTEX(sndfile);
 
   /* info */
-  pthread_mutex_lock(sndfile_mutex);
+  g_rec_mutex_lock(sndfile_mutex);
 
   if(sndfile->info != NULL){
-    pthread_mutex_unlock(sndfile_mutex);
+    g_rec_mutex_unlock(sndfile_mutex);
     
     return(FALSE);
   }
@@ -991,7 +1021,7 @@ ags_sndfile_rw_open(AgsSoundResource *sound_resource,
   if(!create &&
      !g_file_test(filename,
 		  (G_FILE_TEST_EXISTS | G_FILE_TEST_IS_REGULAR))){
-    pthread_mutex_unlock(sndfile_mutex);
+    g_rec_mutex_unlock(sndfile_mutex);
 
     return(FALSE);
   }  
@@ -1002,12 +1032,16 @@ ags_sndfile_rw_open(AgsSoundResource *sound_resource,
   sndfile->info->samplerate = (int) samplerate;
   sndfile->info->channels = (int) audio_channels;
 
-  pthread_mutex_unlock(sndfile_mutex);
+  g_rec_mutex_unlock(sndfile_mutex);
 
   if(g_str_has_suffix(filename, ".wav")){
     major_format = SF_FORMAT_WAV;
 
+    g_rec_mutex_lock(sndfile_mutex);
+    
     sndfile->info->format = major_format | SF_FORMAT_PCM_16;
+
+    g_rec_mutex_unlock(sndfile_mutex);
 
     g_object_set(sndfile,
 		 "format", AGS_SOUNDCARD_SIGNED_16_BIT,
@@ -1015,7 +1049,11 @@ ags_sndfile_rw_open(AgsSoundResource *sound_resource,
   }else if(g_str_has_suffix(filename, ".flac")){    
     major_format = SF_FORMAT_FLAC;
 
+    g_rec_mutex_lock(sndfile_mutex);
+    
     sndfile->info->format = major_format | SF_FORMAT_PCM_16;
+
+    g_rec_mutex_unlock(sndfile_mutex);
 
     g_object_set(sndfile,
 		 "format", AGS_SOUNDCARD_SIGNED_16_BIT,
@@ -1023,7 +1061,11 @@ ags_sndfile_rw_open(AgsSoundResource *sound_resource,
   }else if(g_str_has_suffix(filename, ".aiff")){    
     major_format = SF_FORMAT_AIFF;
 
+    g_rec_mutex_lock(sndfile_mutex);
+    
     sndfile->info->format = major_format | SF_FORMAT_PCM_16;
+
+    g_rec_mutex_unlock(sndfile_mutex);
 
     g_object_set(sndfile,
 		 "format", AGS_SOUNDCARD_SIGNED_16_BIT,
@@ -1031,7 +1073,11 @@ ags_sndfile_rw_open(AgsSoundResource *sound_resource,
   }else if(g_str_has_suffix(filename, ".ogg")){
     major_format = SF_FORMAT_OGG;
 
+    g_rec_mutex_lock(sndfile_mutex);
+    
     sndfile->info->format = major_format | SF_FORMAT_VORBIS;
+
+    g_rec_mutex_unlock(sndfile_mutex);
 
     g_object_set(sndfile,
 		 "format", AGS_SOUNDCARD_DOUBLE,
@@ -1039,13 +1085,19 @@ ags_sndfile_rw_open(AgsSoundResource *sound_resource,
   }else{
     major_format = SF_FORMAT_WAV;
 
+    g_rec_mutex_lock(sndfile_mutex);
+    
     sndfile->info->format = major_format | SF_FORMAT_PCM_16;
+
+    g_rec_mutex_unlock(sndfile_mutex);
 
     g_object_set(sndfile,
 		 "format", AGS_SOUNDCARD_SIGNED_16_BIT,
 		 NULL);
   }
   
+  g_rec_mutex_lock(sndfile_mutex);
+    
   sndfile->info->frames = 0;
   sndfile->info->seekable = 0;
   sndfile->info->sections = 0;
@@ -1062,19 +1114,19 @@ ags_sndfile_rw_open(AgsSoundResource *sound_resource,
     sndfile->file = (SNDFILE *) sf_open_virtual(ags_sndfile_virtual_io, SFM_RDWR, sndfile->info, sndfile);
   }
 
+  success = (sndfile->file != NULL) ? TRUE: FALSE;
+  
+  g_rec_mutex_unlock(sndfile_mutex);
+
   g_object_set(sndfile,
 	       "audio-channels", audio_channels,
 	       NULL);
-
-  if(sndfile->file == NULL){
-    return(FALSE);
-  }
 
 #ifdef AGS_DEBUG
   g_message("ags_sndfile_rw_open(): channels %d frames %d", sndfile->info->channels, sndfile->info->frames);
 #endif
 
-  return(TRUE);
+  return(success);
 }
 
 gboolean
@@ -1084,7 +1136,7 @@ ags_sndfile_info(AgsSoundResource *sound_resource,
 {
   AgsSndfile *sndfile;
 
-  pthread_mutex_t *sndfile_mutex;
+  GRecMutex *sndfile_mutex;
 
   sndfile = AGS_SNDFILE(sound_resource);
 
@@ -1092,32 +1144,34 @@ ags_sndfile_info(AgsSoundResource *sound_resource,
   sndfile_mutex = AGS_SNDFILE_GET_OBJ_MUTEX(sndfile);
 
   if(loop_start != NULL){
-    *loop_start = 0;
+    loop_start[0] = 0;
   }
 
   if(loop_end != NULL){
-    *loop_end = 0;
+    loop_end[0] = 0;
   }
   
+  g_rec_mutex_lock(sndfile_mutex);
+
   if(sndfile->info == NULL){
+    g_rec_mutex_unlock(sndfile_mutex);
+    
     if(frame_count != NULL){
-      *frame_count = 0;
+      frame_count[0] = 0;
     }
 
     return(FALSE);
   }
-  
-  pthread_mutex_lock(sndfile_mutex);
 
   if(frame_count != NULL){
     if(sndfile->info != NULL){
-      *frame_count = sndfile->info->frames;
+      frame_count[0] = sndfile->info->frames;
     }else{
-      *frame_count = 0;
+      frame_count[0] = 0;
     }
   }
 
-  pthread_mutex_unlock(sndfile_mutex);
+  g_rec_mutex_unlock(sndfile_mutex);
 
   return(TRUE);
 }
@@ -1131,14 +1185,23 @@ ags_sndfile_set_presets(AgsSoundResource *sound_resource,
 {
   AgsSndfile *sndfile;
 
+  GRecMutex *sndfile_mutex;
+
   sndfile = AGS_SNDFILE(sound_resource);
+
+  /* get sndfile mutex */
+  sndfile_mutex = AGS_SNDFILE_GET_OBJ_MUTEX(sndfile);
 
   g_object_set(sndfile,
 	       "buffer-size", buffer_size,
 	       "format", format,
 	       NULL);
   
+  g_rec_mutex_lock(sndfile_mutex);
+
   if(sndfile->info == NULL){
+    g_rec_mutex_unlock(sndfile_mutex);
+
     return;
   }
 
@@ -1183,6 +1246,8 @@ ags_sndfile_set_presets(AgsSoundResource *sound_resource,
     }
     break;
   }
+  
+  g_rec_mutex_unlock(sndfile_mutex);
 }
 
 void
@@ -1194,14 +1259,18 @@ ags_sndfile_get_presets(AgsSoundResource *sound_resource,
 {
   AgsSndfile *sndfile;
    
-  pthread_mutex_t *sndfile_mutex;
+  GRecMutex *sndfile_mutex;
 
   sndfile = AGS_SNDFILE(sound_resource);
 
   /* get sndfile mutex */
   sndfile_mutex = AGS_SNDFILE_GET_OBJ_MUTEX(sndfile);
 
+  g_rec_mutex_lock(sndfile_mutex);
+
   if(sndfile->info == NULL){
+    g_rec_mutex_unlock(sndfile_mutex);
+
     if(channels != NULL){
       *channels = 0;
     }
@@ -1221,8 +1290,6 @@ ags_sndfile_get_presets(AgsSoundResource *sound_resource,
     return;
   }
   
-  pthread_mutex_lock(sndfile_mutex);
-
   if(channels != NULL){
     *channels = sndfile->info->channels;
   }
@@ -1275,7 +1342,7 @@ ags_sndfile_get_presets(AgsSoundResource *sound_resource,
     }
   }
 
-  pthread_mutex_unlock(sndfile_mutex);
+  g_rec_mutex_unlock(sndfile_mutex);
 }
 
 guint
@@ -1293,21 +1360,23 @@ ags_sndfile_read(AgsSoundResource *sound_resource,
   gboolean use_cache;
   guint i;
 
-  pthread_mutex_t *sndfile_mutex;
+  GRecMutex *sndfile_mutex;
 
   sndfile = AGS_SNDFILE(sound_resource);
 
   /* get sndfile mutex */
   sndfile_mutex = AGS_SNDFILE_GET_OBJ_MUTEX(sndfile);
 
+  total_frame_count = 0;
+
   ags_sound_resource_info(sound_resource,
 			  &total_frame_count,
 			  NULL, NULL);
   
-  pthread_mutex_lock(sndfile_mutex);
+  g_rec_mutex_lock(sndfile_mutex);
 
   if(sndfile->offset >= total_frame_count){
-    pthread_mutex_unlock(sndfile_mutex);
+    g_rec_mutex_unlock(sndfile_mutex);
     
     return(0);
   }
@@ -1316,7 +1385,7 @@ ags_sndfile_read(AgsSoundResource *sound_resource,
     if(total_frame_count > sndfile->offset){
       frame_count = total_frame_count - sndfile->offset;
     }else{
-      pthread_mutex_unlock(sndfile_mutex);
+      g_rec_mutex_unlock(sndfile_mutex);
     
       return(0);
     }
@@ -1337,9 +1406,7 @@ ags_sndfile_read(AgsSoundResource *sound_resource,
 
   copy_mode = ags_audio_buffer_util_get_copy_mode(ags_audio_buffer_util_format_from_soundcard(format),
 						  ags_audio_buffer_util_format_from_soundcard(sndfile->format));
-  
-  pthread_mutex_unlock(sndfile_mutex);
-    
+      
   for(i = 0; i < frame_count && sndfile->offset + i < total_frame_count; ){
     sf_count_t retval;
     
@@ -1412,6 +1479,8 @@ ags_sndfile_read(AgsSoundResource *sound_resource,
     
     i += read_count;
   }
+
+  g_rec_mutex_unlock(sndfile_mutex);
   
   return(frame_count);
 }
@@ -1429,14 +1498,14 @@ ags_sndfile_write(AgsSoundResource *sound_resource,
   guint i;
   gboolean do_write;
   
-  pthread_mutex_t *sndfile_mutex;
+  GRecMutex *sndfile_mutex;
 
   sndfile = AGS_SNDFILE(sound_resource);
 
   /* get sndfile mutex */
   sndfile_mutex = AGS_SNDFILE_GET_OBJ_MUTEX(sndfile);
   
-  pthread_mutex_lock(sndfile_mutex);
+  g_rec_mutex_lock(sndfile_mutex);
 
   copy_mode = ags_audio_buffer_util_get_copy_mode(ags_audio_buffer_util_format_from_soundcard(sndfile->format),
 						  ags_audio_buffer_util_format_from_soundcard(format));
@@ -1455,8 +1524,6 @@ ags_sndfile_write(AgsSoundResource *sound_resource,
       break;
     }
   }
-  
-  pthread_mutex_unlock(sndfile_mutex);
 
   if(do_write){
     multi_frames = frame_count * sndfile->info->channels;
@@ -1511,20 +1578,33 @@ ags_sndfile_write(AgsSoundResource *sound_resource,
     
     sndfile->offset += frame_count;
   }
+  
+  g_rec_mutex_unlock(sndfile_mutex);
 }
 
 void
 ags_sndfile_flush(AgsSoundResource *sound_resource)
 {
   AgsSndfile *sndfile;
+  
+  GRecMutex *sndfile_mutex;
    
   sndfile = AGS_SNDFILE(sound_resource);
 
+  /* get sndfile mutex */
+  sndfile_mutex = AGS_SNDFILE_GET_OBJ_MUTEX(sndfile);
+
+  g_rec_mutex_lock(sndfile_mutex);
+
   if(sndfile->file == NULL){
+    g_rec_mutex_unlock(sndfile_mutex);
+
     return;
   }
   
   sf_write_sync(sndfile->file);
+
+  g_rec_mutex_unlock(sndfile_mutex);
 }
 
 void
@@ -1536,7 +1616,7 @@ ags_sndfile_seek(AgsSoundResource *sound_resource,
   guint total_frame_count;
   sf_count_t retval;
   
-  pthread_mutex_t *sndfile_mutex;
+  GRecMutex *sndfile_mutex;
 
   sndfile = AGS_SNDFILE(sound_resource);
 
@@ -1547,7 +1627,7 @@ ags_sndfile_seek(AgsSoundResource *sound_resource,
 			  &total_frame_count,
 			  NULL, NULL);
 
-  pthread_mutex_lock(sndfile_mutex);
+  g_rec_mutex_lock(sndfile_mutex);
 
   if(whence == G_SEEK_CUR){
     if(frame_count >= 0){
@@ -1585,9 +1665,9 @@ ags_sndfile_seek(AgsSoundResource *sound_resource,
     }
   }
 
-  pthread_mutex_unlock(sndfile_mutex);
-
   retval = sf_seek(sndfile->file, sndfile->offset, SEEK_SET);
+
+  g_rec_mutex_unlock(sndfile_mutex);
 
   if(retval == -1){
     g_warning("seek failed");
@@ -1599,7 +1679,7 @@ ags_sndfile_close(AgsSoundResource *sound_resource)
 {
   AgsSndfile *sndfile;
    
-  pthread_mutex_t *sndfile_mutex;
+  GRecMutex *sndfile_mutex;
 
   sndfile = AGS_SNDFILE(sound_resource);
 
@@ -1612,7 +1692,7 @@ ags_sndfile_close(AgsSoundResource *sound_resource)
 
   sf_close(sndfile->file);
 
-  pthread_mutex_lock(sndfile_mutex);
+  g_rec_mutex_lock(sndfile_mutex);
 
   if(sndfile->info != NULL){
     free(sndfile->info);
@@ -1621,57 +1701,165 @@ ags_sndfile_close(AgsSoundResource *sound_resource)
   sndfile->file = NULL;
   sndfile->info = NULL;
 
-  pthread_mutex_unlock(sndfile_mutex);
+  g_rec_mutex_unlock(sndfile_mutex);
 }
 
 sf_count_t
 ags_sndfile_vio_get_filelen(void *user_data)
 {
-  return(AGS_SNDFILE(user_data)->length);
+  AgsSndfile *sndfile;
+
+  sf_count_t length;
+   
+  GRecMutex *sndfile_mutex;
+  
+  sndfile = AGS_SNDFILE(user_data);
+
+  /* get sndfile mutex */
+  sndfile_mutex = AGS_SNDFILE_GET_OBJ_MUTEX(sndfile);
+
+  g_rec_mutex_lock(sndfile_mutex);
+
+  length = AGS_SNDFILE(user_data)->length;
+
+  g_rec_mutex_unlock(sndfile_mutex);
+  
+  return(length);
 }
 
 sf_count_t
 ags_sndfile_vio_seek(sf_count_t offset, int whence, void *user_data)
 {
+  AgsSndfile *sndfile;
+
+  sf_count_t retval;
+  
+  GRecMutex *sndfile_mutex;
+
+  sndfile = AGS_SNDFILE(user_data);
+  
+  /* get sndfile mutex */
+  sndfile_mutex = AGS_SNDFILE_GET_OBJ_MUTEX(sndfile);
+
+  g_rec_mutex_lock(sndfile_mutex);
+
   switch(whence){
   case SEEK_CUR:
-    AGS_SNDFILE(user_data)->current += offset;
+    sndfile->current += offset;
     break;
   case SEEK_SET:
-    AGS_SNDFILE(user_data)->current = &(AGS_SNDFILE(user_data)->pointer[offset]);
+    sndfile->current = &(sndfile->pointer[offset]);
     break;
   case SEEK_END:
-    AGS_SNDFILE(user_data)->current = &(AGS_SNDFILE(user_data)->pointer[AGS_SNDFILE(user_data)->length - offset]);
+    sndfile->current = &(sndfile->pointer[sndfile->length - offset]);
     break;
   }
 
-  return(AGS_SNDFILE(user_data)->current - AGS_SNDFILE(user_data)->pointer);
+  retval = sndfile->current - sndfile->pointer;
+
+  g_rec_mutex_unlock(sndfile_mutex);
+  
+  return(retval);
 }
 
 sf_count_t
 ags_sndfile_vio_read(void *ptr, sf_count_t count, void *user_data)
 {
+  AgsSndfile *sndfile;
+
   guchar *retval;
 
-  retval = memcpy(ptr, AGS_SNDFILE(user_data)->current, count * sizeof(guchar));
+  sf_count_t num_read;
+  
+  GRecMutex *sndfile_mutex;
 
-  return(retval - AGS_SNDFILE(user_data)->pointer);
+  sndfile = AGS_SNDFILE(user_data);
+  
+  /* get sndfile mutex */
+  sndfile_mutex = AGS_SNDFILE_GET_OBJ_MUTEX(sndfile);
+
+  g_rec_mutex_lock(sndfile_mutex);
+
+  retval = (guchar *) memcpy(ptr, sndfile->current, count * sizeof(guchar));
+
+  num_read = (sf_count_t) (retval - sndfile->pointer);
+  
+  g_rec_mutex_unlock(sndfile_mutex);
+
+  return(num_read);
 }
 
 sf_count_t
 ags_sndfile_vio_write(const void *ptr, sf_count_t count, void *user_data)
 {
+  AgsSndfile *sndfile;
+
   guchar *retval;
 
-  retval = memcpy(AGS_SNDFILE(user_data)->current, ptr, count * sizeof(guchar));
+  sf_count_t num_read;
+  
+  GRecMutex *sndfile_mutex;
 
-  return(retval - AGS_SNDFILE(user_data)->pointer);
+  sndfile = AGS_SNDFILE(user_data);
+  
+  /* get sndfile mutex */
+  sndfile_mutex = AGS_SNDFILE_GET_OBJ_MUTEX(sndfile);
+
+  g_rec_mutex_lock(sndfile_mutex);
+
+  retval = (guchar *) memcpy(sndfile->current, ptr, count * sizeof(guchar));
+
+  num_read = (sf_count_t) (retval - sndfile->pointer);
+  
+  g_rec_mutex_unlock(sndfile_mutex);
+
+  return(num_read);
 }
 
 sf_count_t
 ags_sndfile_vio_tell(const void *ptr, sf_count_t count, void *user_data)
 {
-  return(AGS_SNDFILE(user_data)->current - AGS_SNDFILE(user_data)->pointer);
+  AgsSndfile *sndfile;
+
+  sf_count_t retval;
+  
+  GRecMutex *sndfile_mutex;
+
+  sndfile = AGS_SNDFILE(user_data);
+  
+  /* get sndfile mutex */
+  sndfile_mutex = AGS_SNDFILE_GET_OBJ_MUTEX(sndfile);
+
+  g_rec_mutex_lock(sndfile_mutex);
+
+  retval = sndfile->current - sndfile->pointer;
+  
+  g_rec_mutex_unlock(sndfile_mutex);
+
+  return(retval);
+}
+
+/**
+ * ags_sndfile_check_suffix:
+ * @filename: the filename
+ * 
+ * Check suffix.
+ * 
+ * Returns: %TRUE if suffix supported, else %FALSE
+ * 
+ * Since: 3.6.0
+ */
+gboolean
+ags_sndfile_check_suffix(gchar *filename)
+{
+  if(g_str_has_suffix(filename, ".wav") ||
+     g_str_has_suffix(filename, ".ogg") ||
+     g_str_has_suffix(filename, ".flac") ||
+     g_str_has_suffix(filename, ".aiff")){
+    return(TRUE);
+  }
+
+  return(FALSE);
 }
 
 /**
@@ -1681,7 +1869,7 @@ ags_sndfile_vio_tell(const void *ptr, sf_count_t count, void *user_data)
  *
  * Returns: the new #AgsSndfile.
  *
- * Since: 2.0.0
+ * Since: 3.0.0
  */
 AgsSndfile*
 ags_sndfile_new()
