@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2023 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -925,8 +925,8 @@ ags_effect_bulk_add_ladspa_effect(AgsEffectBulk *effect_bulk,
   guint i, j;
   guint k;
 
-  pthread_mutex_t *audio_mutex;
-  pthread_mutex_t *channel_mutex;
+  GRecMutex *audio_mutex;
+  GRecMutex *channel_mutex;
 
   /* get window and application context */
   window = (AgsWindow *) gtk_widget_get_ancestor((GtkWidget * )effect_bulk,
@@ -943,14 +943,10 @@ ags_effect_bulk_add_ladspa_effect(AgsEffectBulk *effect_bulk,
 				      effect_bulk_plugin);  
 
   /* get audio mutex */
-  pthread_mutex_lock(ags_audio_get_class_mutex());
-
-  audio_mutex = effect_bulk->audio->obj_mutex;
-  
-  pthread_mutex_unlock(ags_audio_get_class_mutex());
+  audio_mutex = AGS_AUDIO_GET_OBJ_MUTEX(effect_bulk->audio);
 
   /* get audio properties */
-  pthread_mutex_lock(audio_mutex);
+  g_rec_mutex_lock(audio_mutex);
 
   output_soundcard = effect_bulk->audio->output_soundcard;
   
@@ -966,7 +962,7 @@ ags_effect_bulk_add_ladspa_effect(AgsEffectBulk *effect_bulk,
     pads = effect_bulk->audio->input_pads;
   }
 
-  pthread_mutex_unlock(audio_mutex);
+  g_rec_mutex_unlock(audio_mutex);
 
   /* load plugin */
   ladspa_plugin = ags_ladspa_manager_find_ladspa_plugin(ags_ladspa_manager_get_instance(),
@@ -981,11 +977,7 @@ ags_effect_bulk_add_ladspa_effect(AgsEffectBulk *effect_bulk,
   for(i = 0; i < pads; i++){
     for(j = 0; j < audio_channels; j++){
       /* get channel mutex */
-      pthread_mutex_lock(ags_channel_get_class_mutex());
-
-      channel_mutex = current->obj_mutex;
-  
-      pthread_mutex_unlock(ags_channel_get_class_mutex());
+      channel_mutex = AGS_CHANNEL_GET_OBJ_MUTEX(current);
 
       /* ladspa play */
       recall_container = ags_recall_container_new();
@@ -1122,11 +1114,11 @@ ags_effect_bulk_add_ladspa_effect(AgsEffectBulk *effect_bulk,
       ags_connectable_connect(AGS_CONNECTABLE(generic_recall_channel_run));
       
       /* iterate */
-      pthread_mutex_lock(channel_mutex);
+      g_rec_mutex_lock(channel_mutex);
       
       current = current->next;
 
-      pthread_mutex_unlock(channel_mutex);
+      g_rec_mutex_unlock(channel_mutex);
     }
   }
 
@@ -1178,7 +1170,7 @@ ags_effect_bulk_add_ladspa_effect(AgsEffectBulk *effect_bulk,
       gboolean disable_seemless;
       gboolean do_step_conversion;
       
-      pthread_mutex_t *plugin_port_mutex;
+      GRecMutex *plugin_port_mutex;
 
       control_count++;
       
@@ -1225,21 +1217,17 @@ ags_effect_bulk_add_ladspa_effect(AgsEffectBulk *effect_bulk,
       }
 
       /* get plugin port mutex */
-      pthread_mutex_lock(ags_plugin_port_get_class_mutex());
-
-      plugin_port_mutex = AGS_PLUGIN_PORT(plugin_port->data)->obj_mutex;
-      
-      pthread_mutex_unlock(ags_plugin_port_get_class_mutex());
+      plugin_port_mutex = AGS_PLUGIN_PORT_GET_OBJ_MUTEX(plugin_port->data);
 
       /* get port name */
-      pthread_mutex_lock(plugin_port_mutex);
+      g_rec_mutex_lock(plugin_port_mutex);
 
       port_name = g_strdup(AGS_PLUGIN_PORT(plugin_port->data)->port_name);
       port_index = AGS_PLUGIN_PORT(plugin_port->data)->port_index;
 
       unique_id = ladspa_plugin->unique_id;
       
-      pthread_mutex_unlock(plugin_port_mutex);
+      g_rec_mutex_unlock(plugin_port_mutex);
 
       /* add bulk member */
       plugin_name = g_strdup_printf("ladspa-%u",
@@ -1335,12 +1323,12 @@ ags_effect_bulk_add_ladspa_effect(AgsEffectBulk *effect_bulk,
 	}
 
 	/* add controls of ports and apply range  */
-	pthread_mutex_lock(plugin_port_mutex);
+	g_rec_mutex_lock(plugin_port_mutex);
 	
 	lower_bound = g_value_get_float(AGS_PLUGIN_PORT(plugin_port->data)->lower_value);
 	upper_bound = g_value_get_float(AGS_PLUGIN_PORT(plugin_port->data)->upper_value);
 
-	pthread_mutex_unlock(plugin_port_mutex);
+	g_rec_mutex_unlock(plugin_port_mutex);
 
 	if(do_step_conversion){
 	  g_object_set(ladspa_conversion,
@@ -1384,11 +1372,11 @@ ags_effect_bulk_add_ladspa_effect(AgsEffectBulk *effect_bulk,
 				 upper);
 
 	/* get/set default value */
-	pthread_mutex_lock(plugin_port_mutex);
+	g_rec_mutex_lock(plugin_port_mutex);
 	
 	default_value = g_value_get_float(AGS_PLUGIN_PORT(plugin_port->data)->default_value);
 
-	pthread_mutex_unlock(plugin_port_mutex);
+	g_rec_mutex_unlock(plugin_port_mutex);
 
 	control_value = default_value;
 	
@@ -1489,8 +1477,8 @@ ags_effect_bulk_add_dssi_effect(AgsEffectBulk *effect_bulk,
   guint i, j;
   guint k;
 
-  pthread_mutex_t *audio_mutex;
-  pthread_mutex_t *channel_mutex;
+  GRecMutex *audio_mutex;
+  GRecMutex *channel_mutex;
 
   /* get window and application context */
   window = (AgsWindow *) gtk_widget_get_ancestor((GtkWidget *) effect_bulk,
@@ -1507,14 +1495,10 @@ ags_effect_bulk_add_dssi_effect(AgsEffectBulk *effect_bulk,
 				      effect_bulk_plugin);  
 
   /* get audio mutex */
-  pthread_mutex_lock(ags_audio_get_class_mutex());
-
-  audio_mutex = effect_bulk->audio->obj_mutex;
-  
-  pthread_mutex_unlock(ags_audio_get_class_mutex());
+  audio_mutex = AGS_AUDIO_GET_OBJ_MUTEX(effect_bulk->audio);
 
   /* get audio properties */
-  pthread_mutex_lock(audio_mutex);
+  g_rec_mutex_lock(audio_mutex);
 
   output_soundcard = effect_bulk->audio->output_soundcard;
   
@@ -1530,7 +1514,7 @@ ags_effect_bulk_add_dssi_effect(AgsEffectBulk *effect_bulk,
     pads = effect_bulk->audio->input_pads;
   }
 
-  pthread_mutex_unlock(audio_mutex);
+  g_rec_mutex_unlock(audio_mutex);
 
   /* load plugin */
   dssi_plugin = ags_dssi_manager_find_dssi_plugin(ags_dssi_manager_get_instance(),
@@ -1547,11 +1531,7 @@ ags_effect_bulk_add_dssi_effect(AgsEffectBulk *effect_bulk,
   for(i = 0; i < pads; i++){
     for(j = 0; j < audio_channels; j++){
       /* get channel mutex */
-      pthread_mutex_lock(ags_channel_get_class_mutex());
-
-      channel_mutex = current->obj_mutex;
-  
-      pthread_mutex_unlock(ags_channel_get_class_mutex());
+      channel_mutex = AGS_CHANNEL_GET_OBJ_MUTEX(current);
 
       /* dssi play */
       recall_container = ags_recall_container_new();
@@ -1693,11 +1673,11 @@ ags_effect_bulk_add_dssi_effect(AgsEffectBulk *effect_bulk,
       ags_connectable_connect(AGS_CONNECTABLE(generic_recall_channel_run));
       
       /* iterate */
-      pthread_mutex_lock(channel_mutex);
+      g_rec_mutex_lock(channel_mutex);
       
       current = current->next;
 
-      pthread_mutex_unlock(channel_mutex);
+      g_rec_mutex_unlock(channel_mutex);
     }
   }
 
@@ -1746,7 +1726,7 @@ ags_effect_bulk_add_dssi_effect(AgsEffectBulk *effect_bulk,
       gboolean disable_seemless;
       gboolean do_step_conversion;
 
-      pthread_mutex_t *plugin_port_mutex;
+      GRecMutex *plugin_port_mutex;
 
       control_count++;
       
@@ -1793,19 +1773,15 @@ ags_effect_bulk_add_dssi_effect(AgsEffectBulk *effect_bulk,
       }
 
       /* get plugin port mutex */
-      pthread_mutex_lock(ags_plugin_port_get_class_mutex());
-
-      plugin_port_mutex = AGS_PLUGIN_PORT(plugin_port->data)->obj_mutex;
-      
-      pthread_mutex_unlock(ags_plugin_port_get_class_mutex());
+      plugin_port_mutex = AGS_PLUGIN_PORT_GET_OBJ_MUTEX(plugin_port->data);
 
       /* get port name */
-      pthread_mutex_lock(plugin_port_mutex);
+      g_rec_mutex_lock(plugin_port_mutex);
 
       port_name = g_strdup(AGS_PLUGIN_PORT(plugin_port->data)->port_name);
       port_index = AGS_PLUGIN_PORT(plugin_port->data)->port_index;
 	
-      pthread_mutex_unlock(plugin_port_mutex);
+      g_rec_mutex_unlock(plugin_port_mutex);
 
       /* add bulk member */
       plugin_name = g_strdup_printf("dssi-%u",
@@ -1900,12 +1876,12 @@ ags_effect_bulk_add_dssi_effect(AgsEffectBulk *effect_bulk,
 	}
 
 	/* add controls of ports and apply range  */
-	pthread_mutex_lock(plugin_port_mutex);
+	g_rec_mutex_lock(plugin_port_mutex);
 	
 	lower_bound = g_value_get_float(AGS_PLUGIN_PORT(plugin_port->data)->lower_value);
 	upper_bound = g_value_get_float(AGS_PLUGIN_PORT(plugin_port->data)->upper_value);
 
-	pthread_mutex_unlock(plugin_port_mutex);
+	g_rec_mutex_unlock(plugin_port_mutex);
 
 	if(do_step_conversion){
 	  g_object_set(ladspa_conversion,
@@ -1948,11 +1924,11 @@ ags_effect_bulk_add_dssi_effect(AgsEffectBulk *effect_bulk,
 	gtk_adjustment_set_upper(adjustment,
 				 upper);
 
-	pthread_mutex_lock(plugin_port_mutex);
+	g_rec_mutex_lock(plugin_port_mutex);
 	
 	default_value = (LADSPA_Data) g_value_get_float(AGS_PLUGIN_PORT(plugin_port->data)->default_value);
 
-	pthread_mutex_unlock(plugin_port_mutex);
+	g_rec_mutex_unlock(plugin_port_mutex);
 
 	control_value = default_value;
 	
@@ -2053,9 +2029,9 @@ ags_effect_bulk_add_lv2_effect(AgsEffectBulk *effect_bulk,
   
   float lower_bound, upper_bound, default_bound;
 
-  pthread_mutex_t *audio_mutex;
-  pthread_mutex_t *channel_mutex;
-  pthread_mutex_t *base_plugin_mutex;
+  GRecMutex *audio_mutex;
+  GRecMutex *channel_mutex;
+  GRecMutex *base_plugin_mutex;
 
   /* alloc effect bulk plugin */
   effect_bulk_plugin = ags_effect_bulk_plugin_alloc(filename,
@@ -2066,14 +2042,10 @@ ags_effect_bulk_add_lv2_effect(AgsEffectBulk *effect_bulk,
 				      effect_bulk_plugin);  
 
   /* get audio mutex */
-  pthread_mutex_lock(ags_audio_get_class_mutex());
-
-  audio_mutex = effect_bulk->audio->obj_mutex;
-  
-  pthread_mutex_unlock(ags_audio_get_class_mutex());
+  audio_mutex = AGS_AUDIO_GET_OBJ_MUTEX(effect_bulk->audio);
 
   /* get audio properties */
-  pthread_mutex_lock(audio_mutex);
+  g_rec_mutex_lock(audio_mutex);
   
   output_soundcard = effect_bulk->audio->output_soundcard;
   
@@ -2089,7 +2061,7 @@ ags_effect_bulk_add_lv2_effect(AgsEffectBulk *effect_bulk,
     pads = effect_bulk->audio->input_pads;
   }
 
-  pthread_mutex_unlock(audio_mutex);
+  g_rec_mutex_unlock(audio_mutex);
   
   /* load plugin */
   lv2_plugin = ags_lv2_manager_find_lv2_plugin(ags_lv2_manager_get_instance(),
@@ -2099,29 +2071,21 @@ ags_effect_bulk_add_lv2_effect(AgsEffectBulk *effect_bulk,
 	       NULL);
 
   /* get base plugin mutex */
-  pthread_mutex_lock(ags_base_plugin_get_class_mutex());
-  
-  base_plugin_mutex = AGS_BASE_PLUGIN(lv2_plugin)->obj_mutex;
-  
-  pthread_mutex_unlock(ags_base_plugin_get_class_mutex());
+  base_plugin_mutex = AGS_BASE_PLUGIN_GET_OBJ_MUTEX(lv2_plugin);
 
   /* get uri */
-  pthread_mutex_lock(base_plugin_mutex);
+  g_rec_mutex_lock(base_plugin_mutex);
 
   uri = g_strdup(lv2_plugin->uri);
   
-  pthread_mutex_unlock(base_plugin_mutex);
+  g_rec_mutex_unlock(base_plugin_mutex);
 
   retport = NULL;
   
   for(i = 0; i < pads; i++){
     for(j = 0; j < audio_channels; j++){
       /* get channel mutex */
-      pthread_mutex_lock(ags_channel_get_class_mutex());
-
-      channel_mutex = current->obj_mutex;
-  
-      pthread_mutex_unlock(ags_channel_get_class_mutex());
+      channel_mutex = AGS_CHANNEL_GET_OBJ_MUTEX(current);
 
       /* lv2 play */
       recall_container = ags_recall_container_new();
@@ -2262,11 +2226,11 @@ ags_effect_bulk_add_lv2_effect(AgsEffectBulk *effect_bulk,
       ags_connectable_connect(AGS_CONNECTABLE(generic_recall_channel_run));
 
       /* iterate */
-      pthread_mutex_lock(channel_mutex);
+      g_rec_mutex_lock(channel_mutex);
       
       current = current->next;
 
-      pthread_mutex_unlock(channel_mutex);
+      g_rec_mutex_unlock(channel_mutex);
     }
   }
 
@@ -2314,7 +2278,7 @@ ags_effect_bulk_add_lv2_effect(AgsEffectBulk *effect_bulk,
       gboolean disable_seemless;
       gboolean do_step_conversion;
 
-      pthread_mutex_t *plugin_port_mutex;
+      GRecMutex *plugin_port_mutex;
 
       control_count++;
       
@@ -2361,19 +2325,15 @@ ags_effect_bulk_add_lv2_effect(AgsEffectBulk *effect_bulk,
       }
 
       /* get plugin port mutex */
-      pthread_mutex_lock(ags_plugin_port_get_class_mutex());
-
-      plugin_port_mutex = AGS_PLUGIN_PORT(plugin_port->data)->obj_mutex;
-      
-      pthread_mutex_unlock(ags_plugin_port_get_class_mutex());
+      plugin_port_mutex = AGS_PLUGIN_PORT_GET_OBJ_MUTEX(plugin_port->data);
 
       /* get port name */
-      pthread_mutex_lock(plugin_port_mutex);
+      g_rec_mutex_lock(plugin_port_mutex);
 
       port_name = g_strdup(AGS_PLUGIN_PORT(plugin_port->data)->port_name);
       port_index = AGS_PLUGIN_PORT(plugin_port->data)->port_index;
       
-      pthread_mutex_unlock(plugin_port_mutex);
+      g_rec_mutex_unlock(plugin_port_mutex);
 
       /* add bulk member */
       plugin_name = g_strdup_printf("lv2-<%s>",
@@ -2444,12 +2404,12 @@ ags_effect_bulk_add_lv2_effect(AgsEffectBulk *effect_bulk,
 	}
 
 	/* add controls of ports and apply range  */
-	pthread_mutex_lock(plugin_port_mutex);
+	g_rec_mutex_lock(plugin_port_mutex);
 	
 	lower_bound = g_value_get_float(AGS_PLUGIN_PORT(plugin_port->data)->lower_value);
 	upper_bound = g_value_get_float(AGS_PLUGIN_PORT(plugin_port->data)->upper_value);
 
-	pthread_mutex_unlock(plugin_port_mutex);
+	g_rec_mutex_unlock(plugin_port_mutex);
 
 	if(do_step_conversion){
 	  g_object_set(lv2_conversion,
@@ -2493,11 +2453,11 @@ ags_effect_bulk_add_lv2_effect(AgsEffectBulk *effect_bulk,
 				 upper);
 
 	/* get/set default value */
-	pthread_mutex_lock(plugin_port_mutex);
+	g_rec_mutex_lock(plugin_port_mutex);
 	
 	default_value = (float) g_value_get_float(AGS_PLUGIN_PORT(plugin_port->data)->default_value);
 
-	pthread_mutex_unlock(plugin_port_mutex);
+	g_rec_mutex_unlock(plugin_port_mutex);
 
 	control_value = default_value;
 	
@@ -2664,24 +2624,20 @@ ags_effect_bulk_real_remove_effect(AgsEffectBulk *effect_bulk,
   guint control_count;
   guint i, j;
 
-  pthread_mutex_t *audio_mutex;
+  GRecMutex *audio_mutex;
 
   /* get audio mutex */
-  pthread_mutex_lock(ags_audio_get_class_mutex());
-
-  audio_mutex = effect_bulk->audio->obj_mutex;
-  
-  pthread_mutex_unlock(ags_audio_get_class_mutex());
+  audio_mutex = AGS_AUDIO_GET_OBJ_MUTEX(effect_bulk->audio);
   
   /* retrieve audio properties and channel */
   current = 
     start_channel = NULL;
   
-  pthread_mutex_lock(audio_mutex);
+  g_rec_mutex_lock(audio_mutex);
 
   audio_channels = effect_bulk->audio->audio_channels;
 
-  pthread_mutex_unlock(audio_mutex);
+  g_rec_mutex_unlock(audio_mutex);
 
   if(effect_bulk->channel_type == AGS_TYPE_OUTPUT){
     g_object_get(effect_bulk->audio,
@@ -2884,14 +2840,10 @@ ags_effect_bulk_real_resize_audio_channels(AgsEffectBulk *effect_bulk,
   guint pads;
   guint i, j;
 
-  pthread_mutex_t *audio_mutex;
+  GRecMutex *audio_mutex;
 
   /* get audio mutex */
-  pthread_mutex_lock(ags_audio_get_class_mutex());
-
-  audio_mutex = effect_bulk->audio->obj_mutex;
-  
-  pthread_mutex_unlock(ags_audio_get_class_mutex());
+  audio_mutex = AGS_AUDIO_GET_OBJ_MUTEX(effect_bulk->audio);
   
   /* retrieve channel */
   if(effect_bulk->channel_type == AGS_TYPE_OUTPUT){
@@ -3147,21 +3099,17 @@ ags_effect_bulk_real_resize_pads(AgsEffectBulk *effect_bulk,
   guint audio_channels;
   guint i, j;
 
-  pthread_mutex_t *audio_mutex;
+  GRecMutex *audio_mutex;
 
   /* get audio mutex */
-  pthread_mutex_lock(ags_audio_get_class_mutex());
-
-  audio_mutex = effect_bulk->audio->obj_mutex;
-  
-  pthread_mutex_unlock(ags_audio_get_class_mutex());
+  audio_mutex = AGS_AUDIO_GET_OBJ_MUTEX(effect_bulk->audio);
   
   /* retrieve channel */
-  pthread_mutex_lock(audio_mutex);
+  g_rec_mutex_lock(audio_mutex);
   
   audio_channels = effect_bulk->audio->audio_channels;
 
-  pthread_mutex_unlock(audio_mutex);
+  g_rec_mutex_unlock(audio_mutex);
 
   if(audio_channels == 0){
     return;
