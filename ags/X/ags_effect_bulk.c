@@ -899,9 +899,9 @@ ags_effect_bulk_add_ladspa_effect(AgsEffectBulk *effect_bulk,
 
   AgsChannel *current;
   AgsRecallContainer *recall_container;
-  AgsGenericRecallChannelRun *generic_recall_channel_run;
-  AgsRecallLadspa *recall_ladspa;
-  AgsRecallHandler *recall_handler;
+  //TODO:JK: backport ags-fx-ladspa
+  //  AgsRecallLadspa *recall_ladspa;
+  //  AgsRecallHandler *recall_handler;
 
   AgsLadspaPlugin *ladspa_plugin;
   
@@ -980,138 +980,7 @@ ags_effect_bulk_add_ladspa_effect(AgsEffectBulk *effect_bulk,
       channel_mutex = AGS_CHANNEL_GET_OBJ_MUTEX(current);
 
       /* ladspa play */
-      recall_container = ags_recall_container_new();
-      ags_audio_add_recall_container(effect_bulk->audio,
-				     (GObject *) recall_container);
-
-      recall_ladspa = ags_recall_ladspa_new(current,
-					    filename,
-					    effect,
-					    AGS_BASE_PLUGIN(ladspa_plugin)->effect_index);
-
-      ags_recall_set_flags((AgsRecall *) recall_ladspa,
-			   AGS_RECALL_TEMPLATE);
-      ags_recall_set_ability_flags((AgsRecall *) recall_ladspa,
-				   (AGS_SOUND_ABILITY_PLAYBACK |
-				    AGS_SOUND_ABILITY_NOTATION |
-				    AGS_SOUND_ABILITY_SEQUENCER));
-      ags_recall_set_behaviour_flags((AgsRecall *) recall_ladspa,
-				     (AGS_SOUND_BEHAVIOUR_BULK_MODE |
-				      AGS_SOUND_BEHAVIOUR_CHAINED_TO_INPUT));
-
-      g_object_set(G_OBJECT(recall_ladspa),
-		   "output-soundcard", output_soundcard,
-		   "recall-container", recall_container,
-		   NULL);
-
-      ags_recall_ladspa_load(recall_ladspa);
-
-      port = ags_recall_ladspa_load_ports(recall_ladspa);
-      
-      if(retport == NULL){
-	retport = port;
-      }else{
-	retport = g_list_concat(retport,
-				port);
-      }
-      
-      ags_channel_add_recall(current,
-			     (GObject *) recall_ladspa,
-			     TRUE);
-      ags_connectable_connect(AGS_CONNECTABLE(recall_ladspa));
-
-      /* generic */
-      generic_recall_channel_run = ags_generic_recall_channel_run_new(current,
-								      AGS_TYPE_GENERIC_RECALL_RECYCLING,
-								      AGS_TYPE_RECALL_LADSPA_RUN);
-
-      ags_recall_set_flags((AgsRecall *) generic_recall_channel_run,
-			   AGS_RECALL_TEMPLATE);
-      ags_recall_set_ability_flags((AgsRecall *) generic_recall_channel_run,
-				   (AGS_SOUND_ABILITY_PLAYBACK |
-				    AGS_SOUND_ABILITY_NOTATION |
-				    AGS_SOUND_ABILITY_SEQUENCER));
-      ags_recall_set_behaviour_flags((AgsRecall *) generic_recall_channel_run,
-				     (AGS_SOUND_BEHAVIOUR_BULK_MODE |
-				      AGS_SOUND_BEHAVIOUR_CHAINED_TO_INPUT));
-
-      g_object_set(G_OBJECT(generic_recall_channel_run),
-		   "output-soundcard", output_soundcard,
-		   "recall-container", recall_container,
-		   "recall-channel", recall_ladspa,
-		   NULL);
-
-      ags_channel_add_recall(current,
-			     (GObject *) generic_recall_channel_run,
-			     FALSE);
-      ags_connectable_connect(AGS_CONNECTABLE(generic_recall_channel_run));
-      
-      /* ladspa recall */
-      recall_container = ags_recall_container_new();
-      ags_audio_add_recall_container(effect_bulk->audio,
-				     (GObject *) recall_container);
-
-      recall_ladspa = ags_recall_ladspa_new(current,
-					    filename,
-					    effect,
-					    effect_index);
-
-      ags_recall_set_flags((AgsRecall *) recall_ladspa,
-			   AGS_RECALL_TEMPLATE);
-      ags_recall_set_ability_flags((AgsRecall *) recall_ladspa,
-				   (AGS_SOUND_ABILITY_PLAYBACK |
-				    AGS_SOUND_ABILITY_NOTATION |
-				    AGS_SOUND_ABILITY_SEQUENCER));
-      ags_recall_set_behaviour_flags((AgsRecall *) recall_ladspa,
-				     (AGS_SOUND_BEHAVIOUR_BULK_MODE |
-				      AGS_SOUND_BEHAVIOUR_CHAINED_TO_INPUT));
-
-      g_object_set(G_OBJECT(recall_ladspa),
-		   "output-soundcard", output_soundcard,
-		   "recall-container", recall_container,
-		   NULL);
-
-      ags_recall_ladspa_load(recall_ladspa);
-
-      recall_port = ags_recall_ladspa_load_ports(recall_ladspa);
-
-      if(retport == NULL){
-	retport = recall_port;
-      }else{
-	retport = g_list_concat(retport,
-				recall_port);
-      }
-
-      ags_channel_add_recall(current,
-			     (GObject *) recall_ladspa,
-			     FALSE);
-      ags_connectable_connect(AGS_CONNECTABLE(recall_ladspa));
-
-      /* generic */
-      generic_recall_channel_run = ags_generic_recall_channel_run_new(current,
-								      AGS_TYPE_GENERIC_RECALL_RECYCLING,
-								      AGS_TYPE_RECALL_LADSPA_RUN);
-
-      ags_recall_set_flags((AgsRecall *) generic_recall_channel_run,
-			   AGS_RECALL_TEMPLATE);
-      ags_recall_set_ability_flags((AgsRecall *) generic_recall_channel_run,
-				   (AGS_SOUND_ABILITY_PLAYBACK |
-				    AGS_SOUND_ABILITY_NOTATION |
-				    AGS_SOUND_ABILITY_SEQUENCER));
-      ags_recall_set_behaviour_flags((AgsRecall *) generic_recall_channel_run,
-				     (AGS_SOUND_BEHAVIOUR_BULK_MODE |
-				      AGS_SOUND_BEHAVIOUR_CHAINED_TO_INPUT));
-
-      g_object_set(G_OBJECT(generic_recall_channel_run),
-		   "output-soundcard", output_soundcard,
-		   "recall-container", recall_container,
-		   "recall-channel", recall_ladspa,
-		   NULL);
-
-      ags_channel_add_recall(current,
-			     (GObject *) generic_recall_channel_run,
-			     FALSE);
-      ags_connectable_connect(AGS_CONNECTABLE(generic_recall_channel_run));
+      //TODO:JK: implement me
       
       /* iterate */
       g_rec_mutex_lock(channel_mutex);
@@ -1449,10 +1318,9 @@ ags_effect_bulk_add_dssi_effect(AgsEffectBulk *effect_bulk,
   AgsEffectBulkPlugin *effect_bulk_plugin;
 
   AgsChannel *current;
-  AgsRecallContainer *recall_container;
-  AgsGenericRecallChannelRun *generic_recall_channel_run;
-  AgsRecallDssi *recall_dssi;
-  AgsRecallHandler *recall_handler;
+  //TODO:JK: backport ags-fx-dssi
+  //  AgsRecallDssi *recall_dssi;
+  //  AgsRecallHandler *recall_handler;
 
   AgsDssiPlugin *dssi_plugin;
   
@@ -1534,143 +1402,7 @@ ags_effect_bulk_add_dssi_effect(AgsEffectBulk *effect_bulk,
       channel_mutex = AGS_CHANNEL_GET_OBJ_MUTEX(current);
 
       /* dssi play */
-      recall_container = ags_recall_container_new();
-      ags_audio_add_recall_container(effect_bulk->audio,
-				     (GObject *) recall_container);
-
-      //      add_recall_container = ags_add_recall_container_new(current->audio,
-      //						  recall_container);
-      //      task = g_list_prepend(task,
-      //		    add_recall_container);
-
-      recall_dssi = ags_recall_dssi_new(current,
-					filename,
-					effect,
-					effect_index);
-
-      ags_recall_set_flags((AgsRecall *) recall_dssi,
-			   AGS_RECALL_TEMPLATE);
-      ags_recall_set_ability_flags((AgsRecall *) recall_dssi,
-				   (AGS_SOUND_ABILITY_PLAYBACK |
-				    AGS_SOUND_ABILITY_NOTATION |
-				    AGS_SOUND_ABILITY_SEQUENCER));
-      ags_recall_set_behaviour_flags((AgsRecall *) recall_dssi,
-				     (AGS_SOUND_BEHAVIOUR_BULK_MODE |
-				      AGS_SOUND_BEHAVIOUR_CHAINED_TO_INPUT));
-
-      g_object_set(G_OBJECT(recall_dssi),
-		   "output-soundcard", output_soundcard,
-		   "recall-container", recall_container,
-		   NULL);
-
-      ags_recall_dssi_load(recall_dssi);
-
-      port = ags_recall_dssi_load_ports(recall_dssi);
-
-      if(retport == NULL){
-	retport = port;
-      }else{
-	retport = g_list_concat(retport,
-				port);
-      }
-
-      ags_channel_add_recall(current,
-			     (GObject *) recall_dssi,
-			     TRUE);
-      ags_connectable_connect(AGS_CONNECTABLE(recall_dssi));
-
-      /* generic */
-      generic_recall_channel_run = ags_generic_recall_channel_run_new(current,
-								      AGS_TYPE_GENERIC_RECALL_RECYCLING,
-								      AGS_TYPE_RECALL_DSSI_RUN);
-
-      ags_recall_set_flags((AgsRecall *) generic_recall_channel_run,
-			   AGS_RECALL_TEMPLATE);
-      ags_recall_set_ability_flags((AgsRecall *) generic_recall_channel_run,
-				   (AGS_SOUND_ABILITY_PLAYBACK |
-				    AGS_SOUND_ABILITY_NOTATION |
-				    AGS_SOUND_ABILITY_SEQUENCER));
-      ags_recall_set_behaviour_flags((AgsRecall *) generic_recall_channel_run,
-				     (AGS_SOUND_BEHAVIOUR_BULK_MODE |
-				      AGS_SOUND_BEHAVIOUR_CHAINED_TO_INPUT));
-
-      g_object_set(G_OBJECT(generic_recall_channel_run),
-		   "output-soundcard", output_soundcard,
-		   "recall-container", recall_container,
-		   "recall-channel", recall_dssi,
-		   NULL);
-
-      ags_channel_add_recall(current,
-			     (GObject *) generic_recall_channel_run,
-			     FALSE);
-      ags_connectable_connect(AGS_CONNECTABLE(generic_recall_channel_run));
-
-      /* dssi recall */
-      recall_container = ags_recall_container_new();
-      ags_audio_add_recall_container(effect_bulk->audio,
-				     (GObject *) recall_container);
-
-      recall_dssi = ags_recall_dssi_new(current,
-					filename,
-					effect,
-					effect_index);
-
-      ags_recall_set_flags((AgsRecall *) recall_dssi,
-			   AGS_RECALL_TEMPLATE);
-      ags_recall_set_ability_flags((AgsRecall *) recall_dssi,
-				   (AGS_SOUND_ABILITY_PLAYBACK |
-				    AGS_SOUND_ABILITY_NOTATION |
-				    AGS_SOUND_ABILITY_SEQUENCER));
-      ags_recall_set_behaviour_flags((AgsRecall *) recall_dssi,
-				     (AGS_SOUND_BEHAVIOUR_BULK_MODE |
-				      AGS_SOUND_BEHAVIOUR_CHAINED_TO_INPUT));
-
-      g_object_set(G_OBJECT(recall_dssi),
-		   "output-soundcard", output_soundcard,
-		   "recall-container", recall_container,
-		   NULL);
-
-      ags_recall_dssi_load(recall_dssi);
-
-      recall_port = ags_recall_dssi_load_ports(recall_dssi);
-
-      if(retport == NULL){
-	retport = port;
-      }else{
-	retport = g_list_concat(retport,
-				recall_port);
-      }
-
-      ags_channel_add_recall(current,
-			     (GObject *) recall_dssi,
-			     FALSE);
-      ags_connectable_connect(AGS_CONNECTABLE(recall_dssi));
-
-      /* generic */
-      generic_recall_channel_run = ags_generic_recall_channel_run_new(current,
-								      AGS_TYPE_GENERIC_RECALL_RECYCLING,
-								      AGS_TYPE_RECALL_DSSI_RUN);
-
-      ags_recall_set_flags((AgsRecall *) generic_recall_channel_run,
-			   AGS_RECALL_TEMPLATE);
-      ags_recall_set_ability_flags((AgsRecall *) generic_recall_channel_run,
-				   (AGS_SOUND_ABILITY_PLAYBACK |
-				    AGS_SOUND_ABILITY_NOTATION |
-				    AGS_SOUND_ABILITY_SEQUENCER));
-      ags_recall_set_behaviour_flags((AgsRecall *) generic_recall_channel_run,
-				     (AGS_SOUND_BEHAVIOUR_BULK_MODE |
-				      AGS_SOUND_BEHAVIOUR_CHAINED_TO_INPUT));
-
-      g_object_set(G_OBJECT(generic_recall_channel_run),
-		   "output-soundcard", output_soundcard,
-		   "recall-container", recall_container,
-		   "recall-channel", recall_dssi,
-		   NULL);
-
-      ags_channel_add_recall(current,
-			     (GObject *) generic_recall_channel_run,
-			     FALSE);
-      ags_connectable_connect(AGS_CONNECTABLE(generic_recall_channel_run));
+      //TODO:JK: implement me
       
       /* iterate */
       g_rec_mutex_lock(channel_mutex);
@@ -1997,9 +1729,9 @@ ags_effect_bulk_add_lv2_effect(AgsEffectBulk *effect_bulk,
 
   AgsChannel *current;
   AgsRecallContainer *recall_container;
-  AgsGenericRecallChannelRun *generic_recall_channel_run;
-  AgsRecallLv2 *recall_lv2;
-  AgsRecallHandler *recall_handler;
+  //TODO:JK: backport ags-fx-lv2
+  //  AgsRecallLv2 *recall_lv2;
+  //  AgsRecallHandler *recall_handler;
 
   AgsLv2Plugin *lv2_plugin;
   
@@ -2088,142 +1820,7 @@ ags_effect_bulk_add_lv2_effect(AgsEffectBulk *effect_bulk,
       channel_mutex = AGS_CHANNEL_GET_OBJ_MUTEX(current);
 
       /* lv2 play */
-      recall_container = ags_recall_container_new();
-      ags_audio_add_recall_container(effect_bulk->audio,
-				     (GObject *) recall_container);
-
-      recall_lv2 = ags_recall_lv2_new(current,
-				      lv2_plugin->turtle,
-				      filename,
-				      effect,
-				      uri,
-				      effect_index);
-
-      ags_recall_set_flags((AgsRecall *) recall_lv2,
-			   AGS_RECALL_TEMPLATE);
-      ags_recall_set_ability_flags((AgsRecall *) recall_lv2,
-				   (AGS_SOUND_ABILITY_PLAYBACK |
-				    AGS_SOUND_ABILITY_NOTATION |
-				    AGS_SOUND_ABILITY_SEQUENCER));
-      ags_recall_set_behaviour_flags((AgsRecall *) recall_lv2,
-				     (AGS_SOUND_BEHAVIOUR_BULK_MODE |
-				      AGS_SOUND_BEHAVIOUR_CHAINED_TO_INPUT));
-
-      g_object_set(G_OBJECT(recall_lv2),
-		   "output-soundcard", output_soundcard,
-		   "recall-container", recall_container,
-		   NULL);
-
-      ags_recall_lv2_load(recall_lv2);
-
-      port = ags_recall_lv2_load_ports(recall_lv2);
-
-      if(retport == NULL){
-	retport = port;
-      }else{
-	retport = g_list_concat(retport,
-				port);
-      }
-      
-      ags_channel_add_recall(current,
-			     (GObject *) recall_lv2,
-			     TRUE);
-      ags_connectable_connect(AGS_CONNECTABLE(recall_lv2));
-
-      /* generic */
-      generic_recall_channel_run = ags_generic_recall_channel_run_new(current,
-								      AGS_TYPE_GENERIC_RECALL_RECYCLING,
-								      AGS_TYPE_RECALL_LV2_RUN);
-
-      ags_recall_set_flags((AgsRecall *) generic_recall_channel_run,
-			   AGS_RECALL_TEMPLATE);
-      ags_recall_set_ability_flags((AgsRecall *) generic_recall_channel_run,
-				   (AGS_SOUND_ABILITY_PLAYBACK |
-				    AGS_SOUND_ABILITY_NOTATION |
-				    AGS_SOUND_ABILITY_SEQUENCER));
-      ags_recall_set_behaviour_flags((AgsRecall *) generic_recall_channel_run,
-				     (AGS_SOUND_BEHAVIOUR_BULK_MODE |
-				      AGS_SOUND_BEHAVIOUR_CHAINED_TO_INPUT));
-
-      g_object_set(G_OBJECT(generic_recall_channel_run),
-		   "output-soundcard", output_soundcard,
-		   "recall-container", recall_container,
-		   "recall-channel", recall_lv2,
-		   NULL);
-
-      ags_channel_add_recall(current,
-			     (GObject *) generic_recall_channel_run,
-			     FALSE);
-      ags_connectable_connect(AGS_CONNECTABLE(generic_recall_channel_run));
-
-      /* lv2 recall */
-      recall_container = ags_recall_container_new();
-      ags_audio_add_recall_container(effect_bulk->audio,
-				     (GObject *) recall_container);
-
-      recall_lv2 = ags_recall_lv2_new(current,
-				      lv2_plugin->turtle,
-				      filename,
-				      effect,
-				      uri,
-				      effect_index);
-
-      ags_recall_set_flags((AgsRecall *) recall_lv2,
-			   AGS_RECALL_TEMPLATE);
-      ags_recall_set_ability_flags((AgsRecall *) recall_lv2,
-				   (AGS_SOUND_ABILITY_PLAYBACK |
-				    AGS_SOUND_ABILITY_NOTATION |
-				    AGS_SOUND_ABILITY_SEQUENCER));
-      ags_recall_set_behaviour_flags((AgsRecall *) recall_lv2,
-				     (AGS_SOUND_BEHAVIOUR_BULK_MODE |
-				      AGS_SOUND_BEHAVIOUR_CHAINED_TO_INPUT));
-
-      g_object_set(G_OBJECT(recall_lv2),
-		   "output-soundcard", output_soundcard,
-		   "recall-container", recall_container,
-		   NULL);
-
-      ags_recall_lv2_load(recall_lv2);
-
-      recall_port = ags_recall_lv2_load_ports(recall_lv2);
-
-      if(retport == NULL){
-	retport = port;
-      }else{
-	retport = g_list_concat(retport,
-				recall_port);
-      }
-
-      ags_channel_add_recall(current,
-			     (GObject *) recall_lv2,
-			     FALSE);
-      ags_connectable_connect(AGS_CONNECTABLE(recall_lv2));
-
-      /* generic */
-      generic_recall_channel_run = ags_generic_recall_channel_run_new(current,
-								      AGS_TYPE_GENERIC_RECALL_RECYCLING,
-								      AGS_TYPE_RECALL_LV2_RUN);
-
-      ags_recall_set_flags((AgsRecall *) generic_recall_channel_run,
-			   AGS_RECALL_TEMPLATE);
-      ags_recall_set_ability_flags((AgsRecall *) generic_recall_channel_run,
-				   (AGS_SOUND_ABILITY_PLAYBACK |
-				    AGS_SOUND_ABILITY_NOTATION |
-				    AGS_SOUND_ABILITY_SEQUENCER));
-      ags_recall_set_behaviour_flags((AgsRecall *) generic_recall_channel_run,
-				     (AGS_SOUND_BEHAVIOUR_BULK_MODE |
-				      AGS_SOUND_BEHAVIOUR_CHAINED_TO_INPUT));
-
-      g_object_set(G_OBJECT(generic_recall_channel_run),
-		   "output-soundcard", output_soundcard,
-		   "recall-container", recall_container,
-		   "recall-channel", recall_lv2,
-		   NULL);
-
-      ags_channel_add_recall(current,
-			     (GObject *) generic_recall_channel_run,
-			     FALSE);
-      ags_connectable_connect(AGS_CONNECTABLE(generic_recall_channel_run));
+      //TODO:JK: implement me
 
       /* iterate */
       g_rec_mutex_lock(channel_mutex);
@@ -2678,9 +2275,9 @@ ags_effect_bulk_real_remove_effect(AgsEffectBulk *effect_bulk,
     n_recall = 0;
   
     while((play = ags_recall_template_find_all_type(play,
-						    AGS_TYPE_RECALL_LADSPA,
-						    AGS_TYPE_RECALL_DSSI,
-						    AGS_TYPE_RECALL_LV2,
+						    AGS_TYPE_FX_LADSPA_CHANNEL,
+						    AGS_TYPE_FX_DSSI_CHANNEL,
+						    AGS_TYPE_FX_LV2_CHANNEL,
 						    G_TYPE_NONE)) != NULL){
       if(ags_recall_test_flags(play->data, AGS_RECALL_TEMPLATE)){
 	nth_effect++;

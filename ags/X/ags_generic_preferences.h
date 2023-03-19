@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2023 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -45,8 +45,6 @@ struct _AgsGenericPreferences
 
   guint flags;
   
-  GtkCheckButton *autosave_thread;
-
   GtkComboBox *audio_output_module;
 
   GtkComboBoxText *segmentation;

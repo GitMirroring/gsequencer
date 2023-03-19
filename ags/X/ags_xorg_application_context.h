@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2023 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -40,8 +40,8 @@
 #define AGS_IS_XORG_APPLICATION_CONTEXT_CLASS(class)     (G_TYPE_CHECK_CLASS_TYPE ((class), AGS_TYPE_XORG_APPLICATION_CONTEXT))
 #define AGS_XORG_APPLICATION_CONTEXT_GET_CLASS(obj)      (G_TYPE_INSTANCE_GET_CLASS(obj, AGS_TYPE_XORG_APPLICATION_CONTEXT, AgsXorgApplicationContextClass))
 
-#define AGS_XORG_VERSION "2.1.0"
-#define AGS_XORG_BUILD_ID "Fri Nov 30 07:15:57 UTC 2018"
+#define AGS_XORG_VERSION "2.5.0"
+#define AGS_XORG_BUILD_ID "Sun Mar 19 12:02:41 CET 2023"
 
 typedef struct _AgsXorgApplicationContext AgsXorgApplicationContext;
 typedef struct _AgsXorgApplicationContextClass AgsXorgApplicationContextClass;
@@ -62,8 +62,6 @@ struct _AgsXorgApplicationContext
   GList *task_completion;
   
   AgsThreadPool *thread_pool;
-
-  AgsPollingThread *polling_thread;
 
   GList *worker;
   

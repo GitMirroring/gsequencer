@@ -29,10 +29,6 @@
 
 void ags_line_group_clicked_callback(GtkWidget *widget, AgsLine *line);
 
-/* AgsLine */
-void ags_line_volume_callback(GtkRange *range,
-			      AgsLine *line);
-
 /* stop */
 void ags_line_stop_callback(AgsLine *line,
 			    GList *recall_id, gint sound_scope,

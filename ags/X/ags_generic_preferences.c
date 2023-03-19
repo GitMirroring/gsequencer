@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2023 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -140,12 +140,6 @@ ags_generic_preferences_init(AgsGenericPreferences *generic_preferences)
 {
   GtkHBox *hbox;
   GtkLabel *label;
-
-  generic_preferences->autosave_thread = (GtkCheckButton *) gtk_check_button_new_with_label(i18n("autosave thread"));
-  gtk_box_pack_start(GTK_BOX(generic_preferences),
-		     GTK_WIDGET(generic_preferences->autosave_thread),
-		     FALSE, FALSE,
-		     0);
 
   /* segmentation */
   hbox = (GtkHBox *) gtk_hbox_new(FALSE,
@@ -301,17 +295,10 @@ ags_generic_preferences_apply(AgsApplicable *applicable)
 		       "disable-feature",
 		       "experimental");
 
-  if(gtk_toggle_button_get_active((GtkToggleButton *) generic_preferences->autosave_thread)){
-    ags_config_set_value(config,
-			 AGS_CONFIG_GENERIC,
-			 "autosave-thread",
-			 "true");
-  }else{
-    ags_config_set_value(config,
-			 AGS_CONFIG_GENERIC,
-			 "autosave-thread",
-			 "false");
-  }
+  ags_config_set_value(config,
+		       AGS_CONFIG_GENERIC,
+		       "autosave-thread",
+		       "false");
 
   ags_config_set_value(config,
 		       AGS_CONFIG_GENERIC,
@@ -346,23 +333,6 @@ ags_generic_preferences_reset(AgsApplicable *applicable)
   generic_preferences = AGS_GENERIC_PREFERENCES(applicable);
 
   config = ags_config_get_instance();
-
-  /* auto-save thread */
-  str = ags_config_get_value(config,
-			     AGS_CONFIG_GENERIC,
-			     "autosave-thread");
-
-  if(str != NULL){
-    gtk_toggle_button_set_active((GtkToggleButton *) generic_preferences->autosave_thread,
-				 ((!g_ascii_strncasecmp(str,
-							"true",
-							5)) ? TRUE: FALSE));
-  }else{
-    gtk_toggle_button_set_active((GtkToggleButton *) generic_preferences->autosave_thread,
-				 FALSE);
-  }
-  
-  g_free(str);
 
   /* engine mode */
   str = ags_config_get_value(config,

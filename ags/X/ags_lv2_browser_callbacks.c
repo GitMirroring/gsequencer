@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2018 Joël Krähemann
+ * Copyright (C) 2005-2023 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -43,8 +43,8 @@ ags_lv2_browser_plugin_filename_callback(GtkComboBoxText *combo_box,
 
   GList *start_list, *list;
 
-  pthread_mutex_t *lv2_manager_mutex;
-  pthread_mutex_t *base_plugin_mutex;
+  GRecMutex *lv2_manager_mutex;
+  GRecMutex *base_plugin_mutex;
 
   list = gtk_container_get_children(GTK_CONTAINER(lv2_browser->plugin));
 
@@ -56,19 +56,15 @@ ags_lv2_browser_plugin_filename_callback(GtkComboBoxText *combo_box,
   lv2_manager = ags_lv2_manager_get_instance();
 
   /* get lv2 manager mutex */
-  pthread_mutex_lock(ags_lv2_manager_get_class_mutex());
-  
-  lv2_manager_mutex = lv2_manager->obj_mutex;
-  
-  pthread_mutex_unlock(ags_lv2_manager_get_class_mutex());
+  lv2_manager_mutex = AGS_LV2_MANAGER_GET_OBJ_MUTEX(lv2_manager);
 
   /* get lv2 plugin */
-  pthread_mutex_lock(lv2_manager_mutex);
+  g_rec_mutex_lock(lv2_manager_mutex);
 
   list =
     start_list = g_list_copy(lv2_manager->lv2_plugin);
 
-  pthread_mutex_unlock(lv2_manager_mutex);
+  g_rec_mutex_unlock(lv2_manager_mutex);
 
   while((list = ags_base_plugin_find_filename(list, gtk_combo_box_text_get_active_text(filename))) != NULL){
     gchar *str;
@@ -76,18 +72,14 @@ ags_lv2_browser_plugin_filename_callback(GtkComboBoxText *combo_box,
     lv2_plugin = list->data;
 
     /* get base plugin mutex */
-    pthread_mutex_lock(ags_base_plugin_get_class_mutex());
-  
-    base_plugin_mutex = AGS_BASE_PLUGIN(lv2_plugin)->obj_mutex;
-    
-    pthread_mutex_unlock(ags_base_plugin_get_class_mutex());
+    base_plugin_mutex = AGS_BASE_PLUGIN_GET_OBJ_MUTEX(lv2_plugin);
 
     /* set effect */
-    pthread_mutex_lock(base_plugin_mutex);
+    g_rec_mutex_lock(base_plugin_mutex);
 
     str = g_strdup(AGS_BASE_PLUGIN(lv2_plugin)->effect);
 
-    pthread_mutex_unlock(base_plugin_mutex);
+    g_rec_mutex_unlock(base_plugin_mutex);
     
     if(str != NULL){
       gtk_combo_box_text_append_text(effect,
@@ -123,8 +115,8 @@ ags_lv2_browser_plugin_uri_callback(GtkComboBoxText *combo_box,
   gchar *str;
   guint y;
 
-  pthread_mutex_t *base_plugin_mutex;
-  pthread_mutex_t *plugin_port_mutex;
+  GRecMutex *base_plugin_mutex;
+  GRecMutex *plugin_port_mutex;
 
   /* retrieve filename and uri */
   list_start = 
@@ -179,14 +171,10 @@ ags_lv2_browser_plugin_uri_callback(GtkComboBoxText *combo_box,
     GList *start_plugin_port, *plugin_port;
     
     /* get base plugin mutex */
-    pthread_mutex_lock(ags_base_plugin_get_class_mutex());
-  
-    base_plugin_mutex = AGS_BASE_PLUGIN(lv2_plugin)->obj_mutex;
-    
-    pthread_mutex_unlock(ags_base_plugin_get_class_mutex());
+    base_plugin_mutex = AGS_BASE_PLUGIN_GET_OBJ_MUTEX(lv2_plugin);
 
     /* update ui - empty */
-    pthread_mutex_lock(base_plugin_mutex);
+    g_rec_mutex_lock(base_plugin_mutex);
 
     label = GTK_LABEL(list->data);
     str = g_strdup_printf("%s: %s",
@@ -244,7 +232,7 @@ ags_lv2_browser_plugin_uri_callback(GtkComboBoxText *combo_box,
 
     start_plugin_port = g_list_copy(AGS_BASE_PLUGIN(lv2_plugin)->plugin_port);
 
-    pthread_mutex_unlock(base_plugin_mutex);
+    g_rec_mutex_unlock(base_plugin_mutex);
 
     plugin_port = start_plugin_port;
     y = 0;
@@ -257,18 +245,14 @@ ags_lv2_browser_plugin_uri_callback(GtkComboBoxText *combo_box,
       }
       
       /* get base plugin mutex */
-      pthread_mutex_lock(ags_plugin_port_get_class_mutex());
-  
-      plugin_port_mutex = AGS_PLUGIN_PORT(plugin_port->data)->obj_mutex;
-    
-      pthread_mutex_unlock(ags_plugin_port_get_class_mutex());
+      plugin_port_mutex = AGS_PLUGIN_PORT_GET_OBJ_MUTEX(plugin_port->data);
 
       /* get some fields */
-      pthread_mutex_lock(plugin_port_mutex);
+      g_rec_mutex_lock(plugin_port_mutex);
       
       str = g_strdup(AGS_PLUGIN_PORT(plugin_port->data)->port_name);
 
-      pthread_mutex_unlock(plugin_port_mutex);
+      g_rec_mutex_unlock(plugin_port_mutex);
 
       label = (GtkLabel *) g_object_new(GTK_TYPE_LABEL,
 					"xalign", 0.0,

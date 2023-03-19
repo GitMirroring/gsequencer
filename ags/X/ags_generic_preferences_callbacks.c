@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2023 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -24,33 +24,6 @@
 
 #include <ags/X/ags_window.h>
 #include <ags/X/ags_preferences_callbacks.h>
-
-void
-ags_generic_preferences_autosave_thread_clicked_callback(GtkWidget *check_button,
-							 AgsGenericPreferences *generic_preferences)
-{
-  AgsApplicationContext *application_context;
-  AgsAutosaveThread *autosave_thread;
-  AgsPreferences *preferences;
-
-  preferences = (AgsPreferences *) gtk_widget_get_ancestor(GTK_WIDGET(generic_preferences),
-							   AGS_TYPE_PREFERENCES);
-
-  application_context = (AgsApplicationContext *) AGS_WINDOW(preferences->window)->application_context;
-
-  g_object_get(application_context,
-	       "autosave-thread", &autosave_thread,
-	       NULL);
-
-  //FIXME:JK: defunct
-#if 0
-  if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(check_button))){
-    ags_thread_start((AgsThread *) autosave_thread);
-  }else{
-    ags_thread_stop((AgsThread *) autosave_thread);
-  }
-#endif
-}
 
 void
 ags_generic_preferences_rt_safe_callback(GtkWidget *check_button,

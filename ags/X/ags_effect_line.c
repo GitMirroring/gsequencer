@@ -2238,8 +2238,8 @@ ags_effect_line_real_remove_effect(AgsEffectLine *effect_line,
   n_bulk = 0;
   
   while((recall = ags_recall_template_find_all_type(recall,
-						    AGS_TYPE_RECALL_LADSPA,
-						    AGS_TYPE_RECALL_LV2,
+						    AGS_TYPE_FX_LADSPA_CHANNEL,
+						    AGS_TYPE_FX_LV2_CHANNEL,
 						    G_TYPE_NONE)) != NULL){
     if(ags_recall_test_flags(recall->data, AGS_RECALL_TEMPLATE)){
       nth_effect++;
@@ -2806,7 +2806,7 @@ ags_effect_line_message_monitor_timeout(AgsEffectLine *effect_line)
     }
     
     g_list_free_full(message_start,
-		     (GDestroyNotify) ags_message_envelope_free);
+		     (GDestroyNotify) g_object_unref);
     
     return(TRUE);
   }else{

@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2023 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -461,8 +461,6 @@ ags_xorg_application_context_init(AgsXorgApplicationContext *xorg_application_co
   
   xorg_application_context->thread_pool = NULL;
 
-  xorg_application_context->polling_thread = NULL;
-
   xorg_application_context->worker = NULL;
   
   xorg_application_context->default_soundcard = NULL;
@@ -564,13 +562,6 @@ ags_xorg_application_context_dispose(GObject *gobject)
     g_object_unref(xorg_application_context->thread_pool);
     
     xorg_application_context->thread_pool = NULL;
-  }
-
-  /* polling thread */
-  if(xorg_application_context->polling_thread != NULL){
-    g_object_unref(xorg_application_context->polling_thread);
-
-    xorg_application_context->polling_thread = NULL;
   }
 
   /* worker thread */
@@ -713,10 +704,6 @@ ags_xorg_application_context_finalize(GObject *gobject)
 
   if(xorg_application_context->thread_pool != NULL){
     g_object_unref(xorg_application_context->thread_pool);
-  }
-
-  if(xorg_application_context->polling_thread != NULL){
-    g_object_unref(xorg_application_context->polling_thread);
   }
 
   if(xorg_application_context->worker != NULL){
@@ -1645,7 +1632,7 @@ ags_xorg_application_context_prepare(AgsApplicationContext *application_context)
 {
   AgsXorgApplicationContext *xorg_application_context;
 
-  AgsThread *audio_loop, *polling_thread, *task_thread;
+  AgsThread *audio_loop, *task_thread;
   AgsThread *gui_thread;
   AgsThreadPool *thread_pool;
 
@@ -1668,14 +1655,6 @@ ags_xorg_application_context_prepare(AgsApplicationContext *application_context)
   
   audio_loop = (AgsThread *) application_context->main_loop;
   ags_connectable_connect(AGS_CONNECTABLE(audio_loop));
-
-  /* AgsPollingThread */
-  xorg_application_context->polling_thread = (AgsPollingThread *) ags_polling_thread_new();
-
-  polling_thread = (AgsThread *) xorg_application_context->polling_thread;
-  ags_thread_add_child_extended(AGS_THREAD(audio_loop),
-				(AgsThread *) polling_thread,
-				TRUE, TRUE);
   
   /* AgsTaskThread */
   application_context->task_thread = (GObject *) ags_task_thread_new();
@@ -1702,9 +1681,6 @@ ags_xorg_application_context_prepare(AgsApplicationContext *application_context)
   pthread_mutex_lock(audio_loop->start_mutex);
   
   start_queue = NULL;
-
-  start_queue = g_list_prepend(start_queue,
-			       polling_thread);
   
   start_queue = g_list_prepend(start_queue,
 			       task_thread);
