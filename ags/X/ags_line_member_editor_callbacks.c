@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2023 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -68,9 +68,12 @@ ags_line_member_editor_plugin_browser_response_callback(GtkDialog *dialog,
   
   GList *pad, *pad_start;
   GList *list, *list_start;
-
+  GList *control_type_name;
+  
+  gchar *plugin_name;
   gchar *filename, *effect;
 
+  gint position;
   gboolean has_bridge;
   gboolean is_output;
   
@@ -130,6 +133,80 @@ ags_line_member_editor_plugin_browser_response_callback(GtkDialog *dialog,
       }else{
 	has_bridge = FALSE;
       }
+
+      position = 0;
+
+      //NOTE:JK: related to ags-fx-buffer
+      if((AGS_MACHINE_IS_SEQUENCER & (machine->flags)) != 0 ||
+	 (AGS_MACHINE_IS_SYNTHESIZER & (machine->flags)) != 0 ||
+	 (AGS_MACHINE_IS_WAVE_PLAYER & (machine->flags)) != 0){
+	position = 1;
+      }
+      
+      plugin_name = NULL;
+
+      if(AGS_IS_LADSPA_BROWSER(AGS_PLUGIN_BROWSER(dialog)->active_browser)){
+	plugin_name = "ags-fx-ladspa";
+      }else if(AGS_IS_LV2_BROWSER(AGS_PLUGIN_BROWSER(dialog)->active_browser)){
+	plugin_name = "ags-fx-lv2";
+#if defined(AGS_WITH_VST3)
+      }else if(AGS_IS_VST3_BROWSER(AGS_PLUGIN_BROWSER(dialog)->active_browser)){
+	plugin_name = "ags-fx-vst3";
+#endif
+      }
+
+      /* get control type */
+      control_type_name = NULL;  
+
+      if(AGS_PLUGIN_BROWSER(dialog)->active_browser != NULL){
+	GList *start_port_editor, *port_editor;
+
+	/* get port editor */
+	start_port_editor = NULL;
+		
+	if(AGS_IS_LADSPA_BROWSER(AGS_PLUGIN_BROWSER(dialog)->active_browser)){
+	  port_editor =
+	    start_port_editor = ags_ladspa_browser_get_port_editor(AGS_PLUGIN_BROWSER(dialog)->active_browser);
+	}else if(AGS_IS_LV2_BROWSER(AGS_PLUGIN_BROWSER(dialog)->active_browser)){
+	  port_editor =
+	    start_port_editor = ags_lv2_browser_get_port_editor(AGS_PLUGIN_BROWSER(dialog)->active_browser);
+#if defined(AGS_WITH_VST3)
+	}else if(AGS_IS_VST3_BROWSER(AGS_PLUGIN_BROWSER(dialog)->active_browser)){
+	  port_editor =
+	    start_port_editor = ags_vst3_browser_get_port_editor(AGS_PLUGIN_BROWSER(dialog)->active_browser);
+#endif
+	}else{
+	  g_message("ags_line_member_editor_callbacks.c unsupported plugin browser");
+	}
+	  
+	while(port_editor != NULL){
+	  GtkTreeModel *model;
+	  
+	  GtkTreeIter iter;
+
+	  gchar *control;
+
+	  model = gtk_combo_box_get_model(AGS_PORT_EDITOR(port_editor->data)->port_control);
+
+	  gtk_combo_box_get_active_iter(AGS_PORT_EDITOR(port_editor->data)->port_control,
+					&iter);
+
+	  control = NULL;
+
+	  gtk_tree_model_get(model,
+			     &iter,
+			     0, &control,
+			     -1);
+	  
+	  control_type_name = g_list_prepend(control_type_name,
+					     control);
+	      
+	  port_editor = port_editor->next;
+	}
+
+	/* free lists */
+	g_list_free(start_port_editor);
+      }
       
       if(!has_bridge){	
 	AgsLine *line;
@@ -173,14 +250,16 @@ ags_line_member_editor_plugin_browser_response_callback(GtkDialog *dialog,
 	effect = ags_plugin_browser_get_plugin_effect(line_member_editor->plugin_browser);
 
 	if(line != NULL){
-	  AgsAddEffect *add_effect;
-
 	  GList *start_play, *start_recall;
 
-	  g_object_get(line->channel,
-		       "play", &start_play,
-		       "recall", &start_recall,
-		       NULL);
+	  guint audio_channel;
+	  guint pad;
+
+	  pad = ags_channel_get_pad(line->channel);
+	  audio_channel = ags_channel_get_audio_channel(line->channel);
+	  
+	  start_play = ags_channel_get_play(line->channel);
+	  start_recall = ags_channel_get_recall(line->channel);
 	  
 	  if(ags_recall_find_recall_id_with_effect(start_play,
 						   NULL,
@@ -193,11 +272,16 @@ ags_line_member_editor_plugin_browser_response_callback(GtkDialog *dialog,
 	    ags_line_member_editor_plugin_browser_response_create_entry();
 	    
 	    /* add effect */
-	    add_effect = ags_add_effect_new(line->channel,
-					    filename,
-					    effect);
-	    ags_xorg_application_context_schedule_task(application_context,
-						       (GObject *) add_effect);
+	    ags_line_add_plugin(line,
+				control_type_name,
+				ags_recall_container_new(), ags_recall_container_new(),
+				plugin_name,
+				filename,
+				effect,
+				audio_channel, audio_channel + 1,
+				pad, pad + 1,
+				position,
+				(AGS_FX_FACTORY_ADD | (is_output ? AGS_FX_FACTORY_OUTPUT: AGS_FX_FACTORY_INPUT)), 0);
 	  }
 
 	  g_list_free_full(start_play,
@@ -249,14 +333,16 @@ ags_line_member_editor_plugin_browser_response_callback(GtkDialog *dialog,
 	effect = ags_plugin_browser_get_plugin_effect(line_member_editor->plugin_browser);
 
 	if(effect_line != NULL){
-	  AgsAddEffect *add_effect;
-	  
 	  GList *start_play, *start_recall;
 
-	  g_object_get(effect_line->channel,
-		       "play", &start_play,
-		       "recall", &start_recall,
-		       NULL);
+	  guint audio_channel;
+	  guint pad;
+
+	  pad = ags_channel_get_pad(effect_line->channel);
+	  audio_channel = ags_channel_get_audio_channel(effect_line->channel);
+
+	  start_play = ags_channel_get_play(effect_line->channel);
+	  start_recall = ags_channel_get_recall(effect_line->channel);
 
 	  if(ags_recall_find_recall_id_with_effect(start_play,
 						   NULL,
@@ -269,11 +355,16 @@ ags_line_member_editor_plugin_browser_response_callback(GtkDialog *dialog,
 	    ags_line_member_editor_plugin_browser_response_create_entry();
 
 	    /* add effect */
-	    add_effect = ags_add_effect_new(effect_line->channel,
-					    filename,
-					    effect);
-	    ags_xorg_application_context_schedule_task(application_context,
-						       (GObject *) add_effect);
+	    ags_effect_line_add_plugin(effect_line,
+				       control_type_name,
+				       ags_recall_container_new(), ags_recall_container_new(),
+				       plugin_name,
+				       filename,
+				       effect,
+				       audio_channel, audio_channel + 1,
+				       pad, pad + 1,
+				       position,
+				       (AGS_FX_FACTORY_ADD | (is_output ? AGS_FX_FACTORY_OUTPUT: AGS_FX_FACTORY_INPUT)), 0);
 	  }
 
 	  g_list_free_full(start_play,

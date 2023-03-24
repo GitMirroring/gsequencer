@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2015 Joël Krähemann
+ * Copyright (C) 2005-2023 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -249,15 +249,13 @@ ags_line_member_editor_reset(AgsApplicable *applicable)
   line_editor = (AgsLineEditor *) gtk_widget_get_ancestor((GtkWidget *) line_member_editor,
 							  AGS_TYPE_LINE_EDITOR);
 
-  g_object_get(line_editor->channel,
-	       "recall", &start_recall,
-	       NULL);
+  start_recall = ags_channel_get_recall(line_editor->channel);
 
   recall = start_recall;
 
   while((recall = ags_recall_template_find_all_type(recall,
-						    AGS_TYPE_RECALL_LADSPA,
-						    AGS_TYPE_RECALL_LV2,
+						    AGS_TYPE_FX_LADSPA_CHANNEL,
+						    AGS_TYPE_FX_LV2_CHANNEL,
 						    G_TYPE_NONE)) != NULL){
     if(ags_recall_test_behaviour_flags(recall->data, AGS_SOUND_BEHAVIOUR_BULK_MODE)){
       recall = recall->next;

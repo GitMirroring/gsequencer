@@ -1,5 +1,5 @@
 /* GSequencer - Advanced GTK Sequencer
- * Copyright (C) 2005-2019 Joël Krähemann
+ * Copyright (C) 2005-2023 Joël Krähemann
  *
  * This file is part of GSequencer.
  *
@@ -1222,7 +1222,7 @@ ags_line_member_real_change_port(AgsLineMember *line_member,
   if((AGS_LINE_MEMBER_RESET_BY_ATOMIC & (line_member->flags)) != 0){
     AgsPort *port;
 
-    pthread_mutex_t *port_mutex;    
+    GRecMutex *port_mutex;    
 
     GValue value = {0,};
 
@@ -1234,14 +1234,10 @@ ags_line_member_real_change_port(AgsLineMember *line_member,
     }
 
     /* get port mutex */
-    pthread_mutex_lock(ags_port_get_class_mutex());
-
-    port_mutex = port->obj_mutex;
-      
-    pthread_mutex_unlock(ags_port_get_class_mutex());
+    port_mutex = AGS_PORT_GET_OBJ_MUTEX(port);
 
     /* change */
-    pthread_mutex_lock(port_mutex);
+    g_rec_mutex_lock(port_mutex);
 
     if(!port->port_value_is_pointer){
       if(port->port_value_type == G_TYPE_BOOLEAN){
@@ -1374,7 +1370,7 @@ ags_line_member_real_change_port(AgsLineMember *line_member,
       }
     }
 
-    pthread_mutex_unlock(port_mutex);
+    g_rec_mutex_unlock(port_mutex);
     
     ags_port_safe_write(line_member->port,
 			&value);
