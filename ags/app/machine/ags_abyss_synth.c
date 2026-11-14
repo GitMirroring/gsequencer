@@ -8203,8 +8203,8 @@ ags_abyss_synth_refresh_port(AgsMachine *machine)
       ags_port_safe_read(port,
 			 &value);
 
-      ags_dial_set_value(abyss_synth->ring_0_enabled,
-			 (gdouble) g_value_get_float(&value));
+      gtk_check_button_set_active(abyss_synth->ring_0_enabled,
+				  (gboolean) g_value_get_float(&value));
 
       g_object_unref(port);
     }
@@ -8313,8 +8313,8 @@ ags_abyss_synth_refresh_port(AgsMachine *machine)
       ags_port_safe_read(port,
 			 &value);
 
-      ags_dial_set_value(abyss_synth->ring_1_enabled,
-			 (gdouble) g_value_get_float(&value));
+      gtk_check_button_set_active(abyss_synth->ring_1_enabled,
+				  (gboolean) g_value_get_float(&value));
 
       g_object_unref(port);
     }
@@ -10007,8 +10007,8 @@ ags_abyss_synth_refresh_port(AgsMachine *machine)
       ags_port_safe_read(port,
 			 &value);
 
-      ags_dial_set_value(abyss_synth->seq_0_pingpong,
-			 (gdouble) g_value_get_float(&value));
+      gtk_check_button_set_active(abyss_synth->seq_0_pingpong,
+				  (gboolean) g_value_get_float(&value));
 
       g_object_unref(port);
     }
@@ -10029,8 +10029,8 @@ ags_abyss_synth_refresh_port(AgsMachine *machine)
       ags_port_safe_read(port,
 			 &value);
 
-      ags_dial_set_value(abyss_synth->seq_0_lfo_frequency,
-			 (gdouble) g_value_get_float(&value));
+      gtk_spin_button_set_value(abyss_synth->seq_0_lfo_frequency,
+				(gdouble) g_value_get_float(&value));
 
       g_object_unref(port);
     }
@@ -10403,8 +10403,8 @@ ags_abyss_synth_refresh_port(AgsMachine *machine)
       ags_port_safe_read(port,
 			 &value);
 
-      ags_dial_set_value(abyss_synth->seq_1_pingpong,
-			 (gdouble) g_value_get_float(&value));
+      gtk_check_button_set_active(abyss_synth->seq_1_pingpong,
+				  (gboolean) g_value_get_float(&value));
 
       g_object_unref(port);
     }
@@ -10425,8 +10425,8 @@ ags_abyss_synth_refresh_port(AgsMachine *machine)
       ags_port_safe_read(port,
 			 &value);
 
-      ags_dial_set_value(abyss_synth->seq_1_lfo_frequency,
-			 (gdouble) g_value_get_float(&value));
+      gtk_spin_button_set_value(abyss_synth->seq_1_lfo_frequency,
+				(gdouble) g_value_get_float(&value));
 
       g_object_unref(port);
     }
@@ -10799,8 +10799,8 @@ ags_abyss_synth_refresh_port(AgsMachine *machine)
       ags_port_safe_read(port,
 			 &value);
 
-      ags_dial_set_value(abyss_synth->seq_2_pingpong,
-			 (gdouble) g_value_get_float(&value));
+      gtk_check_button_set_active(abyss_synth->seq_2_pingpong,
+				  (gboolean) g_value_get_float(&value));
 
       g_object_unref(port);
     }
@@ -10821,8 +10821,8 @@ ags_abyss_synth_refresh_port(AgsMachine *machine)
       ags_port_safe_read(port,
 			 &value);
 
-      ags_dial_set_value(abyss_synth->seq_2_lfo_frequency,
-			 (gdouble) g_value_get_float(&value));
+      gtk_spin_button_set_value(abyss_synth->seq_2_lfo_frequency,
+				(gdouble) g_value_get_float(&value));
 
       g_object_unref(port);
     }
@@ -11195,8 +11195,8 @@ ags_abyss_synth_refresh_port(AgsMachine *machine)
       ags_port_safe_read(port,
 			 &value);
 
-      ags_dial_set_value(abyss_synth->seq_3_pingpong,
-			 (gdouble) g_value_get_float(&value));
+      gtk_check_button_set_active(abyss_synth->seq_3_pingpong,
+				  (gboolean) g_value_get_float(&value));
 
       g_object_unref(port);
     }
@@ -11217,8 +11217,8 @@ ags_abyss_synth_refresh_port(AgsMachine *machine)
       ags_port_safe_read(port,
 			 &value);
 
-      ags_dial_set_value(abyss_synth->seq_3_lfo_frequency,
-			 (gdouble) g_value_get_float(&value));
+      gtk_spin_button_set_value(abyss_synth->seq_3_lfo_frequency,
+				(gdouble) g_value_get_float(&value));
 
       g_object_unref(port);
     }
