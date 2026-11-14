@@ -7519,6 +7519,7 @@ ags_abyss_synth_refresh_port(AgsMachine *machine)
   
   GList *start_play, *start_recall, *recall;
 
+  gfloat low_pass_sends;
   guint nth_sends;
   guint i, j;
 
@@ -7531,7 +7532,12 @@ ags_abyss_synth_refresh_port(AgsMachine *machine)
     "synth-0-lfo-1-sends",
     "synth-0-lfo-2-sends",
     "synth-0-lfo-3-sends",
-    "synth-0-noise-sends",
+    "synth-0-seq-0-sends",
+    "synth-0-seq-1-sends",
+    "synth-0-seq-2-sends",
+    "synth-0-seq-3-sends",
+    "synth-0-pink-noise-0-sends",
+    "synth-0-pink-noise-1-sends",
     NULL
   };
   
@@ -7548,7 +7554,4187 @@ ags_abyss_synth_refresh_port(AgsMachine *machine)
   if((recall = ags_recall_find_type(recall, AGS_TYPE_FX_ABYSS_SYNTH_AUDIO)) != NULL){
     AgsPort *port;
 
-    //TODO:JK: implement me
+    gint64 sends[AGS_ABYSS_SYNTH_SENDS_COUNT];
+
+    /* synth-0 OSC-0 oscillator */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-osc-0-oscillator", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      gtk_drop_down_set_selected(abyss_synth->osc_0_oscillator,
+				 (gint) g_value_get_float(&value));
+
+
+      g_object_unref(port);
+    }
+
+    /* synth-0-osc-0 octave */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-osc-0-octave", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->osc_0_octave,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0-osc-0 key */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-osc-0-key", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->osc_0_key,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0-osc-0 phase */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-osc-0-phase", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->osc_0_phase,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0-osc-0 volume */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-osc-0-volume", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->osc_0_volume,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0-osc-0 low-pass-sends */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-osc-0-volume", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+      
+      low_pass_sends = (gdouble) g_value_get_float(&value);
+
+      if(low_pass_sends == (gfloat) AGS_ABYSS_SYNTH_OSC_LOW_PASS_0){
+	gtk_check_button_set_active(abyss_synth->osc_0_low_pass_0,
+				    TRUE);
+      }else if(low_pass_sends == (gfloat) AGS_ABYSS_SYNTH_OSC_LOW_PASS_1){
+	gtk_check_button_set_active(abyss_synth->osc_0_low_pass_1,
+				    TRUE);
+      }else{
+	gtk_check_button_set_active(abyss_synth->osc_0_no_low_pass,
+				    TRUE);
+      }
+      
+      g_object_unref(port);
+    }
+
+    /* synth-0 OSC-1 oscillator */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-osc-1-oscillator", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      gtk_drop_down_set_selected(abyss_synth->osc_1_oscillator,
+				 (gint) g_value_get_float(&value));
+
+
+      g_object_unref(port);
+    }
+
+    /* synth-0-osc-1 octave */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-osc-1-octave", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->osc_1_octave,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0-osc-1 key */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-osc-1-key", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->osc_1_key,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0-osc-1 phase */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-osc-1-phase", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->osc_1_phase,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0-osc-1 volume */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-osc-1-volume", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->osc_1_volume,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0-osc-1 low-pass-sends */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-osc-1-volume", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+      
+      low_pass_sends = (gdouble) g_value_get_float(&value);
+
+      if(low_pass_sends == (gfloat) AGS_ABYSS_SYNTH_OSC_LOW_PASS_0){
+	gtk_check_button_set_active(abyss_synth->osc_1_low_pass_0,
+				    TRUE);
+      }else if(low_pass_sends == (gfloat) AGS_ABYSS_SYNTH_OSC_LOW_PASS_1){
+	gtk_check_button_set_active(abyss_synth->osc_1_low_pass_1,
+				    TRUE);
+      }else{
+	gtk_check_button_set_active(abyss_synth->osc_1_no_low_pass,
+				    TRUE);
+      }
+      
+      g_object_unref(port);
+    }
+    
+    /* synth-0 OSC-2 oscillator */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-osc-2-oscillator", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      gtk_drop_down_set_selected(abyss_synth->osc_2_oscillator,
+				 (gint) g_value_get_float(&value));
+
+
+      g_object_unref(port);
+    }
+
+    /* synth-0-osc-2 octave */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-osc-2-octave", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->osc_2_octave,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0-osc-2 key */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-osc-2-key", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->osc_2_key,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0-osc-2 phase */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-osc-2-phase", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->osc_2_phase,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0-osc-2 volume */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-osc-2-volume", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->osc_2_volume,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0-osc-2 low-pass-sends */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-osc-2-volume", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+      
+      low_pass_sends = (gdouble) g_value_get_float(&value);
+
+      if(low_pass_sends == (gfloat) AGS_ABYSS_SYNTH_OSC_LOW_PASS_0){
+	gtk_check_button_set_active(abyss_synth->osc_2_low_pass_0,
+				    TRUE);
+      }else if(low_pass_sends == (gfloat) AGS_ABYSS_SYNTH_OSC_LOW_PASS_1){
+	gtk_check_button_set_active(abyss_synth->osc_2_low_pass_1,
+				    TRUE);
+      }else{
+	gtk_check_button_set_active(abyss_synth->osc_2_no_low_pass,
+				    TRUE);
+      }
+      
+      g_object_unref(port);
+    }
+    
+    /* synth-0 OSC-3 oscillator */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-osc-3-oscillator", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      gtk_drop_down_set_selected(abyss_synth->osc_3_oscillator,
+				 (gint) g_value_get_float(&value));
+
+
+      g_object_unref(port);
+    }
+
+    /* synth-0-osc-3 octave */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-osc-3-octave", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->osc_3_octave,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0-osc-3 key */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-osc-3-key", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->osc_3_key,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0-osc-3 phase */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-osc-3-phase", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->osc_3_phase,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0-osc-3 volume */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-osc-3-volume", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->osc_3_volume,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0-osc-3 low-pass-sends */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-osc-3-volume", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+      
+      low_pass_sends = (gdouble) g_value_get_float(&value);
+
+      if(low_pass_sends == (gfloat) AGS_ABYSS_SYNTH_OSC_LOW_PASS_0){
+	gtk_check_button_set_active(abyss_synth->osc_3_low_pass_0,
+				    TRUE);
+      }else if(low_pass_sends == (gfloat) AGS_ABYSS_SYNTH_OSC_LOW_PASS_1){
+	gtk_check_button_set_active(abyss_synth->osc_3_low_pass_1,
+				    TRUE);
+      }else{
+	gtk_check_button_set_active(abyss_synth->osc_3_no_low_pass,
+				    TRUE);
+      }
+      
+      g_object_unref(port);
+    }
+
+    /* modulation matrix */    
+    for(nth_sends = 0; nth_sends < 14; nth_sends++){
+      memset(&(sends[0]), 0, AGS_ABYSS_SYNTH_SENDS_COUNT * sizeof(gint64));
+
+      port = NULL;
+
+      g_object_get(recall->data,
+		   sends_strv[nth_sends], &port,
+		   NULL);
+
+      if(port != NULL){
+	GValue value = G_VALUE_INIT;
+
+	g_value_init(&value,
+		     G_TYPE_POINTER);
+
+	g_value_set_pointer(&value,
+			    (gpointer) &(sends));
+      
+	ags_port_safe_read(port,
+			   &value);
+
+	g_object_unref(port);
+      }
+
+      for(i = 0, j = 0; i < AGS_ABYSS_SYNTH_SENDS_COUNT; i++){
+	gboolean sends_is_enabled;
+	gboolean matrix_is_enabled;
+
+	sends_is_enabled = (((1L << i) & (sends[j])) != 0) ? TRUE: FALSE;
+	matrix_is_enabled = ags_modulation_matrix_get_enabled(abyss_synth->modulation_matrix,
+							      i, nth_sends);
+						     
+	if(sends_is_enabled){
+	  if(!matrix_is_enabled){
+	    ags_modulation_matrix_set_enabled(abyss_synth->modulation_matrix,
+					      i, nth_sends,
+					      TRUE);
+
+	    ags_modulation_matrix_toggled(abyss_synth->modulation_matrix,
+					  i, nth_sends);
+	  }
+	
+	  j++;
+	}else{
+	  if(matrix_is_enabled){
+	    ags_modulation_matrix_set_enabled(abyss_synth->modulation_matrix,
+					      i, nth_sends,
+					      FALSE);
+
+	    ags_modulation_matrix_toggled(abyss_synth->modulation_matrix,
+					  i, nth_sends);
+	  }
+	}
+      }
+    }
+
+    gtk_widget_queue_draw((GtkWidget *) abyss_synth->modulation_matrix->drawing_area);
+    
+    /* synth-0 ring-0 enabled */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-ring-0-enabled", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->ring_0_enabled,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+        
+    /* synth-0 ring-0 tuning */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-ring-0-tuning", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->ring_0_tuning,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+    
+    /* synth-0 ring-0 drive */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-ring-0-drive", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->ring_0_drive,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 ring-0 mix */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-ring-0-mix", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->ring_0_mix,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 ring-0 gain */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-ring-0-gain", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->ring_0_gain,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+    
+    /* synth-0 ring-1 enabled */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-ring-1-enabled", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->ring_1_enabled,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+        
+    /* synth-0 ring-1 tuning */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-ring-1-tuning", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->ring_1_tuning,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+    
+    /* synth-0 ring-1 drive */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-ring-1-drive", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->ring_1_drive,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 ring-1 mix */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-ring-1-mix", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->ring_1_mix,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 ring-1 gain */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-ring-1-gain", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->ring_1_gain,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 env-0 attack */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-env-0-attack", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->env_0_attack,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 env-0 decay */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-env-0-decay", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->env_0_decay,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 env-0 sustain */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-env-0-sustain", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->env_0_sustain,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 env-0 release */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-env-0-release", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->env_0_release,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 env-0 gain */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-env-0-gain", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->env_0_gain,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 env-0 frequency */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-env-0-frequency", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->env_0_frequency,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 env-1 attack */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-env-1-attack", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->env_1_attack,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 env-1 decay */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-env-1-decay", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->env_1_decay,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 env-1 sustain */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-env-1-sustain", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->env_1_sustain,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 env-1 release */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-env-1-release", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->env_1_release,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 env-1 gain */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-env-1-gain", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->env_1_gain,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 env-1 frequency */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-env-1-frequency", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->env_1_frequency,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 env-2 attack */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-env-2-attack", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->env_2_attack,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 env-2 decay */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-env-2-decay", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->env_2_decay,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 env-2 sustain */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-env-2-sustain", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->env_2_sustain,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 env-2 release */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-env-2-release", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->env_2_release,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 env-2 gain */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-env-2-gain", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->env_2_gain,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 env-2 frequency */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-env-2-frequency", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->env_2_frequency,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 env-3 attack */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-env-3-attack", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->env_3_attack,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 env-3 decay */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-env-3-decay", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->env_3_decay,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 env-3 sustain */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-env-3-sustain", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->env_3_sustain,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 env-3 release */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-env-3-release", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->env_3_release,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 env-3 gain */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-env-3-gain", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->env_3_gain,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 env-3 frequency */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-env-3-frequency", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->env_3_frequency,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 lfo-0 oscillator */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-lfo-0-oscillator", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      gtk_drop_down_set_selected(abyss_synth->lfo_0_oscillator,
+				 (gint) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 lfo-0 frequency */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-lfo-0-frequency", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->lfo_0_frequency,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 lfo-0 depth */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-lfo-0-depth", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->lfo_0_depth,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 lfo-0 tuning */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-lfo-0-tuning", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->lfo_0_tuning,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 lfo-1 oscillator */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-lfo-1-oscillator", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      gtk_drop_down_set_selected(abyss_synth->lfo_1_oscillator,
+				 (gint) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 lfo-1 frequency */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-lfo-1-frequency", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->lfo_1_frequency,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 lfo-1 depth */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-lfo-1-depth", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->lfo_1_depth,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 lfo-1 tuning */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-lfo-1-tuning", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->lfo_1_tuning,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 lfo-1 oscillator */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-lfo-1-oscillator", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      gtk_drop_down_set_selected(abyss_synth->lfo_1_oscillator,
+				 (gint) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 lfo-1 frequency */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-lfo-1-frequency", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->lfo_1_frequency,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 lfo-1 depth */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-lfo-1-depth", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->lfo_1_depth,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 lfo-1 tuning */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-lfo-1-tuning", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->lfo_1_tuning,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 lfo-1 oscillator */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-lfo-1-oscillator", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      gtk_drop_down_set_selected(abyss_synth->lfo_1_oscillator,
+				 (gint) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 lfo-1 frequency */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-lfo-1-frequency", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->lfo_1_frequency,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 lfo-1 depth */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-lfo-1-depth", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->lfo_1_depth,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 lfo-1 tuning */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-lfo-1-tuning", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->lfo_1_tuning,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 lfo-2 oscillator */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-lfo-2-oscillator", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      gtk_drop_down_set_selected(abyss_synth->lfo_2_oscillator,
+				 (gint) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 lfo-2 frequency */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-lfo-2-frequency", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->lfo_2_frequency,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 lfo-2 depth */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-lfo-2-depth", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->lfo_2_depth,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 lfo-2 tuning */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-lfo-2-tuning", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->lfo_2_tuning,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 lfo-1 oscillator */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-lfo-1-oscillator", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      gtk_drop_down_set_selected(abyss_synth->lfo_1_oscillator,
+				 (gint) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 lfo-1 frequency */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-lfo-1-frequency", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->lfo_1_frequency,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 lfo-1 depth */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-lfo-1-depth", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->lfo_1_depth,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 lfo-1 tuning */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-lfo-1-tuning", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->lfo_1_tuning,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 lfo-3 oscillator */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-lfo-3-oscillator", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      gtk_drop_down_set_selected(abyss_synth->lfo_3_oscillator,
+				 (gint) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 lfo-3 frequency */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-lfo-3-frequency", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->lfo_3_frequency,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 lfo-3 depth */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-lfo-3-depth", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->lfo_3_depth,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 lfo-3 tuning */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-lfo-3-tuning", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->lfo_3_tuning,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 lfo-1 oscillator */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-lfo-1-oscillator", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      gtk_drop_down_set_selected(abyss_synth->lfo_1_oscillator,
+				 (gint) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 lfo-1 frequency */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-lfo-1-frequency", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->lfo_1_frequency,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 lfo-1 depth */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-lfo-1-depth", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->lfo_1_depth,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 lfo-1 tuning */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-lfo-1-tuning", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->lfo_1_tuning,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-0 modulation-0 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-0-modulation-0", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_0_modulation_0,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-0 modulation-1 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-0-modulation-1", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_0_modulation_1,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-0 modulation-2 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-0-modulation-2", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_0_modulation_2,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-0 modulation-3 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-0-modulation-3", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_0_modulation_3,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-0 modulation-4 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-0-modulation-4", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_0_modulation_4,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-0 modulation-5 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-0-modulation-5", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_0_modulation_5,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-0 modulation-6 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-0-modulation-6", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_0_modulation_6,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-0 modulation-7 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-0-modulation-7", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_0_modulation_7,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-0 modulation-8 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-0-modulation-8", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_0_modulation_8,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-0 modulation-9 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-0-modulation-9", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_0_modulation_9,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-0 modulation-10 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-0-modulation-10", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_0_modulation_10,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-0 modulation-11 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-0-modulation-11", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_0_modulation_11,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-0 modulation-12 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-0-modulation-12", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_0_modulation_12,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-0 modulation-13 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-0-modulation-13", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_0_modulation_13,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-0 modulation-14 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-0-modulation-14", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_0_modulation_14,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-0 modulation-15 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-0-modulation-15", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_0_modulation_15,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+    
+    /* synth-0 seq-0 pingpong */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-0-pingpong", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_0_pingpong,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+    
+    /* synth-0 seq-0 LFO frequency */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-0-lfo-frequency", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_0_lfo_frequency,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-1 modulation-0 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-1-modulation-0", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_1_modulation_0,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-1 modulation-1 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-1-modulation-1", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_1_modulation_1,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-1 modulation-2 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-1-modulation-2", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_1_modulation_2,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-1 modulation-3 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-1-modulation-3", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_1_modulation_3,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-1 modulation-4 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-1-modulation-4", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_1_modulation_4,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-1 modulation-5 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-1-modulation-5", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_1_modulation_5,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-1 modulation-6 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-1-modulation-6", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_1_modulation_6,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-1 modulation-7 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-1-modulation-7", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_1_modulation_7,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-1 modulation-8 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-1-modulation-8", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_1_modulation_8,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-1 modulation-9 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-1-modulation-9", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_1_modulation_9,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-1 modulation-10 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-1-modulation-10", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_1_modulation_10,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-1 modulation-11 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-1-modulation-11", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_1_modulation_11,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-1 modulation-12 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-1-modulation-12", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_1_modulation_12,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-1 modulation-13 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-1-modulation-13", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_1_modulation_13,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-1 modulation-14 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-1-modulation-14", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_1_modulation_14,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-1 modulation-15 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-1-modulation-15", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_1_modulation_15,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+    
+    /* synth-0 seq-1 pingpong */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-1-pingpong", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_1_pingpong,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+    
+    /* synth-0 seq-1 LFO frequency */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-1-lfo-frequency", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_1_lfo_frequency,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-2 modulation-0 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-2-modulation-0", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_2_modulation_0,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-2 modulation-1 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-2-modulation-1", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_2_modulation_1,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-2 modulation-2 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-2-modulation-2", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_2_modulation_2,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-2 modulation-3 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-2-modulation-3", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_2_modulation_3,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-2 modulation-4 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-2-modulation-4", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_2_modulation_4,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-2 modulation-5 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-2-modulation-5", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_2_modulation_5,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-2 modulation-6 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-2-modulation-6", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_2_modulation_6,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-2 modulation-7 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-2-modulation-7", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_2_modulation_7,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-2 modulation-8 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-2-modulation-8", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_2_modulation_8,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-2 modulation-9 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-2-modulation-9", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_2_modulation_9,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-2 modulation-10 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-2-modulation-10", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_2_modulation_10,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-2 modulation-11 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-2-modulation-11", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_2_modulation_11,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-2 modulation-12 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-2-modulation-12", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_2_modulation_12,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-2 modulation-13 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-2-modulation-13", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_2_modulation_13,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-2 modulation-14 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-2-modulation-14", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_2_modulation_14,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-2 modulation-15 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-2-modulation-15", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_2_modulation_15,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+    
+    /* synth-0 seq-2 pingpong */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-2-pingpong", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_2_pingpong,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+    
+    /* synth-0 seq-2 LFO frequency */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-2-lfo-frequency", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_2_lfo_frequency,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-3 modulation-0 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-3-modulation-0", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_3_modulation_0,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-3 modulation-1 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-3-modulation-1", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_3_modulation_1,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-3 modulation-2 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-3-modulation-2", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_3_modulation_2,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-3 modulation-3 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-3-modulation-3", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_3_modulation_3,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-3 modulation-4 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-3-modulation-4", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_3_modulation_4,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-3 modulation-5 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-3-modulation-5", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_3_modulation_5,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-3 modulation-6 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-3-modulation-6", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_3_modulation_6,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-3 modulation-7 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-3-modulation-7", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_3_modulation_7,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-3 modulation-8 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-3-modulation-8", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_3_modulation_8,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-3 modulation-9 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-3-modulation-9", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_3_modulation_9,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-3 modulation-10 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-3-modulation-10", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_3_modulation_10,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-3 modulation-11 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-3-modulation-11", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_3_modulation_11,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-3 modulation-12 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-3-modulation-12", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_3_modulation_12,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-3 modulation-13 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-3-modulation-13", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_3_modulation_13,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-3 modulation-14 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-3-modulation-14", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_3_modulation_14,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 seq-3 modulation-15 */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-3-modulation-15", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_3_modulation_15,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+    
+    /* synth-0 seq-3 pingpong */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-3-pingpong", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_3_pingpong,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+    
+    /* synth-0 seq-3 LFO frequency */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-seq-3-lfo-frequency", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->seq_3_lfo_frequency,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+    
+    /* pink-noise-0 frequency */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-pink-noise-0-frequency", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->pink_noise_0_frequency,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* pink-noise-0 gain */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-pink-noise-0-gain", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->pink_noise_0_gain,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+    
+    /* pink-noise-1 frequency */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-pink-noise-1-frequency", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->pink_noise_1_frequency,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* pink-noise-1 gain */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-pink-noise-1-gain", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->pink_noise_1_gain,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 volume */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-volume", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->volume,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* synth-0 pitch tuning */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "synth-0-pitch-tuning", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->pitch_tuning,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* low-pass 0 cut off frequency */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "low-pass-0-cut-off-frequency", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->low_pass_0_cut_off_frequency,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+    
+    /* low-pass 0 filter gain */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "low-pass-0-filter-gain", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->low_pass_0_filter_gain,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+    
+    /* low-pass 0 no clip */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "low-pass-0-no-clip", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->low_pass_0_no_clip,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* low-pass 1 cut off frequency */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "low-pass-1-cut-off-frequency", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->low_pass_1_cut_off_frequency,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+    
+    /* low-pass 1 filter gain */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "low-pass-1-filter-gain", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->low_pass_1_filter_gain,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+    
+    /* low-pass 1 no-clip */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "low-pass-1-no-clip", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->low_pass_1_no_clip,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* amplifier 0 amp 0 gain */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "amplifier-0-amp-0-gain", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      gtk_range_set_value((GtkRange *) abyss_synth->amplifier_0_amp_0_gain,
+			  (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* amplifier 0 amp 1 gain */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "amplifier-0-amp-1-gain", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      gtk_range_set_value((GtkRange *) abyss_synth->amplifier_0_amp_1_gain,
+			  (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* amplifier 0 amp 2 gain */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "amplifier-0-amp-2-gain", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      gtk_range_set_value((GtkRange *) abyss_synth->amplifier_0_amp_2_gain,
+			  (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* amplifier 0 amp 3 gain */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "amplifier-0-amp-3-gain", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      gtk_range_set_value((GtkRange *) abyss_synth->amplifier_0_amp_3_gain,
+			  (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* amplifier 0 filter gain */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "amplifier-0-filter-gain", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      gtk_range_set_value((GtkRange *) abyss_synth->amplifier_0_filter_gain,
+			  (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* chorus enabled */
+#if 0
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "chorus-enabled", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      if(g_value_get_float(&value) != 0.0){
+	gtk_check_button_set_active(abyss_synth->chorus_enabled,
+				    TRUE);
+      }else{
+	gtk_check_button_set_active(abyss_synth->chorus_enabled,
+				    FALSE);
+      }
+
+      g_object_unref(port);
+    }
+#endif
+    
+    /* chorus LFO oscillator */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "chorus-lfo-oscillator", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      gtk_drop_down_set_selected(abyss_synth->chorus_lfo_oscillator,
+				 (gint) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* chorus LFO frequency */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "chorus-lfo-frequency", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      gtk_spin_button_set_value(abyss_synth->chorus_lfo_frequency,
+				(gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* chorus depth */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "chorus-depth", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->chorus_depth,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* chorus mix */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "chorus-mix", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->chorus_mix,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
+
+    /* chorus delay */
+    port = NULL;
+
+    g_object_get(recall->data,
+		 "chorus-delay", &port,
+		 NULL);
+
+    if(port != NULL){
+      GValue value = G_VALUE_INIT;
+
+      g_value_init(&value,
+		   G_TYPE_FLOAT);
+
+      ags_port_safe_read(port,
+			 &value);
+
+      ags_dial_set_value(abyss_synth->chorus_delay,
+			 (gdouble) g_value_get_float(&value));
+
+      g_object_unref(port);
+    }
   }
   
   machine->flags &= (~AGS_MACHINE_NO_UPDATE);
