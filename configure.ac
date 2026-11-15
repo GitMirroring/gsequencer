@@ -393,13 +393,13 @@ AS_IF([test "x$enable_w32api" != xno],
       AC_SUBST(DLL_VERSION)
       AC_MSG_NOTICE([w32api enabled])],
       [AC_MSG_NOTICE([w32api disabled])])
-AM_CONDITIONAL([WITH_W32API], [test "x$enable_w32api" == xyes])
+AM_CONDITIONAL([WITH_W32API], [test "x$enable_w32api" = xyes])
 
 AS_IF([test "x$enable_w32_exe_env" != xno],
       [AC_DEFINE([AGS_W32_EXE_ENV], [1], [w32 exe environment enabled])
       AC_MSG_NOTICE([w32 exe environment enabled])],
       [AC_MSG_NOTICE([w32 exe environment disabled])])
-AM_CONDITIONAL([WITH_W32_EXE_ENV], [test "x$enable_w32_exe_env" == xyes])
+AM_CONDITIONAL([WITH_W32_EXE_ENV], [test "x$enable_w32_exe_env" = xyes])
 
 AS_IF([test "x$enable_osxapi" != xno],
       [AC_DEFINE([AGS_OSXAPI], [1], [OS X api enabled])
@@ -407,31 +407,31 @@ AS_IF([test "x$enable_osxapi" != xno],
       AC_SUBST(OSXAPI_LIBS)
       AC_MSG_NOTICE([OS X api enabled])],
       [AC_MSG_NOTICE([OS X api disabled])])
-AM_CONDITIONAL([WITH_OSXAPI], [test "x$enable_osxapi" == xyes])
+AM_CONDITIONAL([WITH_OSXAPI], [test "x$enable_osxapi" = xyes])
 
 AS_IF([test "x$enable_osx_dmg_env" != xno],
       [AC_DEFINE([AGS_OSX_DMG_ENV], [1], [OS X DMG environment enabled])
       AC_MSG_NOTICE([OS X DMG environment enabled])],
       [AC_MSG_NOTICE([OS X DMG environment disabled])])
-AM_CONDITIONAL([WITH_OSX_DMG_ENV], [test "x$enable_osx_dmg_env" == xyes])
+AM_CONDITIONAL([WITH_OSX_DMG_ENV], [test "x$enable_osx_dmg_env" = xyes])
 
 AS_IF([test "x$enable_macos_sandbox" != xno],
       [AC_DEFINE([AGS_MACOS_SANDBOX], [1], [macos sandbox environment enabled])
       AC_MSG_NOTICE([macos sandbox environment enabled])],
       [AC_MSG_NOTICE([macos sandbox environment disabled])])
-AM_CONDITIONAL([WITH_MACOS_SANDBOX], [test "x$enable_macos_sandbox" == xyes])
+AM_CONDITIONAL([WITH_MACOS_SANDBOX], [test "x$enable_macos_sandbox" = xyes])
 
 AS_IF([test "x$enable_snap_sandbox" != xno],
       [AC_DEFINE([AGS_SNAP_SANDBOX], [1], [snap sandbox environment enabled])
       AC_MSG_NOTICE([snap sandbox environment enabled])],
       [AC_MSG_NOTICE([snap sandbox environment disabled])])
-AM_CONDITIONAL([WITH_SNAP_SANDBOX], [test "x$enable_snap_sandbox" == xyes])
+AM_CONDITIONAL([WITH_SNAP_SANDBOX], [test "x$enable_snap_sandbox" = xyes])
 
 AS_IF([test "x$enable_flatpak_sandbox" != xno],
       [AC_DEFINE([AGS_FLATPAK_SANDBOX], [1], [flatpak sandbox environment enabled])
       AC_MSG_NOTICE([flatpak sandbox environment enabled])],
       [AC_MSG_NOTICE([flatpak sandbox environment disabled])])
-AM_CONDITIONAL([WITH_FLATPAK_SANDBOX], [test "x$enable_flatpak_sandbox" == xyes])
+AM_CONDITIONAL([WITH_FLATPAK_SANDBOX], [test "x$enable_flatpak_sandbox" = xyes])
 
 AS_IF([test "x$enable_uuid" != xno],
       [PKG_CHECK_MODULES([UUID], [uuid >= 1.0.1])
@@ -488,7 +488,7 @@ AS_IF([test "x$enable_audio_toolbox" != xno],
        AC_MSG_NOTICE([AUDIO_TOOLBOX enabled])],
       [AC_MSG_NOTICE([AUDIO_TOOLBOX disabled])])
 
-AM_CONDITIONAL([WITH_AUDIO_TOOLBOX], [test "x$enable_audio_toolbox" == xyes])
+AM_CONDITIONAL([WITH_AUDIO_TOOLBOX], [test "x$enable_audio_toolbox" = xyes])
 
 AS_IF([test "x$enable_audio_unit" != xno],
       [AC_DEFINE([AGS_WITH_AUDIO_UNIT], [1], [audio-unit enabled])
@@ -579,7 +579,7 @@ AC_DEFINE([HAVE_GLIB_2_68], [0], [GLib 2.68 available])
 AS_IF([test "x$enable_introspection" != xno],
       [AC_MSG_NOTICE([introspection enabled])],
       [AC_MSG_NOTICE([introspection disabled])])
-AM_CONDITIONAL([HAVE_INTROSPECTION], [test "x$enable_introspection" == xyes])
+AM_CONDITIONAL([HAVE_INTROSPECTION], [test "x$enable_introspection" = xyes])
 # GOBJECT_INTROSPECTION_CHECK([1.30.0])
 
 PKG_CHECK_MODULES([GIO], [gio-2.0 >= 2.56.0])
@@ -601,35 +601,35 @@ AS_IF([test "x$enable_debug" != xno],
       
       AC_MSG_NOTICE([debug enabled])],
       [AC_MSG_NOTICE([debug disabled])])
-AM_CONDITIONAL([AGS_WITH_DEBUG], [test "x$enable_debug" == xyes])
+AM_CONDITIONAL([AGS_WITH_DEBUG], [test "x$enable_debug" = xyes])
 
 AS_IF([test "x$enable_devel" != xno],
       [AC_DEFINE([AGS_WITH_DEVEL], [1], [devel mode enabled])
       
       AC_MSG_NOTICE([devel enabled])],
       [AC_MSG_NOTICE([devel disabled])])
-AM_CONDITIONAL([AGS_WITH_DEVEL], [test "x$enable_devel" == xyes])
+AM_CONDITIONAL([AGS_WITH_DEVEL], [test "x$enable_devel" = xyes])
 
 AS_IF([test "x$enable_public_libgsequencer" != xno],
       [AC_DEFINE([AGS_WITH_PUBLIC_LIBGSEQUENCER], [1], [public libgsequencer enabled])
       
       AC_MSG_NOTICE([public libgsequencer enabled])],
       [AC_MSG_NOTICE([public libgsequencer disabled])])
-AM_CONDITIONAL([AGS_WITH_PUBLIC_LIBGSEQUENCER], [test "x$enable_public_libgsequencer" == xyes])
+AM_CONDITIONAL([AGS_WITH_PUBLIC_LIBGSEQUENCER], [test "x$enable_public_libgsequencer" = xyes])
 
 AS_IF([test "x$enable_upstream_gtk_doc" != xno],
       [AC_DEFINE([AGS_WITH_UPSTREAM_GTK_DOC], [1], [upstream API reference directory enabled])
       
       AC_MSG_NOTICE([upstream API reference directory enabled])],
       [AC_MSG_NOTICE([upstream API reference directory disabled])])
-AM_CONDITIONAL([AGS_WITH_UPSTREAM_GTK_DOC], [test "x$enable_upstream_gtk_doc" == xyes])
+AM_CONDITIONAL([AGS_WITH_UPSTREAM_GTK_DOC], [test "x$enable_upstream_gtk_doc" = xyes])
 
 AS_IF([test "x$enable_single_docdir" != xno],
       [AC_DEFINE([AGS_WITH_SINGLE_DOCDIR], [1], [single documentation directory enabled])
       
       AC_MSG_NOTICE([single documentation directory enabled])],
       [AC_MSG_NOTICE([single documentation directory disabled])])
-AM_CONDITIONAL([AGS_WITH_SINGLE_DOCDIR], [test "x$enable_single_docdir" == xyes])
+AM_CONDITIONAL([AGS_WITH_SINGLE_DOCDIR], [test "x$enable_single_docdir" = xyes])
 
 LIBAGS_AUDIO_LIBINSTPATCH_FILE_XINCLUDE="/dev/null"
 
@@ -670,7 +670,7 @@ AC_SUBST_FILE(LIBAGS_AUDIO_LIBINSTPATCH_FX_XINCLUDE)
 AC_SUBST_FILE(LIBAGS_AUDIO_LIBINSTPATCH_TASK_XINCLUDE)
 AC_SUBST_FILE(LIBGSEQUENCER_LIBINSTPATCH_MACHINE_XINCLUDE)
 
-AM_CONDITIONAL([WITH_LIBINSTPATCH], [test "x$enable_libinstpatch" == xyes])
+AM_CONDITIONAL([WITH_LIBINSTPATCH], [test "x$enable_libinstpatch" = xyes])
 
 WITH_VST3=0
 
@@ -726,7 +726,7 @@ AC_SUBST_FILE(LIBAGS_AUDIO_VST3_TASK_XINCLUDE)
 AC_SUBST_FILE(LIBGSEQUENCER_VST3_BROWSER_XINCLUDE)
 AC_SUBST_FILE(LIBGSEQUENCER_VST3_MACHINE_XINCLUDE)
 
-AM_CONDITIONAL([WITH_VST3], [test "x$enable_vst3" == xyes])
+AM_CONDITIONAL([WITH_VST3], [test "x$enable_vst3" = xyes])
 
 WITH_AUDIO_UNIT_PLUGINS=0
 
@@ -784,9 +784,9 @@ AC_SUBST_FILE(LIBAGS_AUDIO_AUDIO_UNIT_TASK_XINCLUDE)
 AC_SUBST_FILE(LIBGSEQUENCER_AUDIO_UNIT_BROWSER_XINCLUDE)
 AC_SUBST_FILE(LIBGSEQUENCER_AUDIO_UNIT_MACHINE_XINCLUDE)
 
-AM_CONDITIONAL([WITH_AUDIO_UNIT_PLUGINS], [test "x$enable_audio_unit_plugins" == xyes])
+AM_CONDITIONAL([WITH_AUDIO_UNIT_PLUGINS], [test "x$enable_audio_unit_plugins" = xyes])
 
-AM_CONDITIONAL([WITH_MIDI2], [test "x$enable_midi2" == xyes])
+AM_CONDITIONAL([WITH_MIDI2], [test "x$enable_midi2" = xyes])
 
 PKG_CHECK_MODULES([CAIRO], [cairo >= 1.12.0])
 AC_SUBST(CAIRO_CFLAGS)
@@ -819,7 +819,7 @@ AS_IF([test "x$with_gstreamer" != xno],
        AC_DEFINE([AGS_WITH_GSTREAMER], [1],
                  [Define if you have gstreamer])
       ])
-AM_CONDITIONAL([WITH_GSTREAMER], [test "x$with_gstreamer" == xyes])
+AM_CONDITIONAL([WITH_GSTREAMER], [test "x$with_gstreamer" = xyes])
 
 AS_IF([test "x$with_vte" != xno],
       [PKG_CHECK_MODULES([VTE], [vte-2.91-gtk4 >= 0.76.0])
@@ -834,15 +834,15 @@ AS_IF([test "x$with_tooltips" != xno],
                  [Define if you have tooltips])
       ])
 
-AS_IF([test "x$enable_run_functional_tests" == xyes],
+AS_IF([test "x$enable_run_functional_tests" = xyes],
       [AC_MSG_NOTICE([run functional tests enabled])],
       [AC_MSG_NOTICE([run functional tests disabled])])
-AM_CONDITIONAL([RUN_FUNCTIONAL_TESTS], [test "x$enable_run_functional_tests" == xyes])
+AM_CONDITIONAL([RUN_FUNCTIONAL_TESTS], [test "x$enable_run_functional_tests" = xyes])
 
-AS_IF([test "x$enable_fast_test_mode" == xyes],
+AS_IF([test "x$enable_fast_test_mode" = xyes],
       [AC_MSG_NOTICE([fast test mode enabled])],
       [AC_MSG_NOTICE([fast test mode disabled])])
-AM_CONDITIONAL([FAST_TEST_MODE], [test "x$enable_fast_test_mode" == xyes])
+AM_CONDITIONAL([FAST_TEST_MODE], [test "x$enable_fast_test_mode" = xyes])
 
 # Checks for library functions.
 # AM_GNU_GETTEXT
@@ -896,10 +896,10 @@ GTK_DOC_CHECK([1.14],[--flavour no-tmpl])
 AM_CONDITIONAL([ENABLE_GTK_DOC], false)
 ])
 
-AM_CONDITIONAL([WITH_SYSTEM_TESTS], [test "x$enable_run_system_tests" == xyes])
-AM_CONDITIONAL([WITH_VST3], [test "x$enable_vst3" == xyes])
-AM_CONDITIONAL([WITH_AUDIO_UNIT_PLUGINS], [test "x$enable_audio_unit_plugins" == xyes])
-AM_CONDITIONAL([WITH_EXPERIMENTAL], [test "x$enable_experimental" == xyes])
+AM_CONDITIONAL([WITH_SYSTEM_TESTS], [test "x$enable_run_system_tests" = xyes])
+AM_CONDITIONAL([WITH_VST3], [test "x$enable_vst3" = xyes])
+AM_CONDITIONAL([WITH_AUDIO_UNIT_PLUGINS], [test "x$enable_audio_unit_plugins" = xyes])
+AM_CONDITIONAL([WITH_EXPERIMENTAL], [test "x$enable_experimental" = xyes])
 
 AGS_POTFILES([])
 

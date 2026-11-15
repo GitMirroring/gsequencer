@@ -408,7 +408,7 @@ ags_recall_channel_dispose(GObject *gobject)
 
     recall_channel->destination = NULL;
 
-    g_object_unref(G_OBJECT(recall_channel->destination));
+    g_object_unref(G_OBJECT(tmp));
   }
 
   /* call parent */
@@ -441,7 +441,7 @@ ags_recall_channel_finalize(GObject *gobject)
 
     recall_channel->destination = NULL;
 
-    g_object_unref(G_OBJECT(recall_channel->destination));
+    g_object_unref(G_OBJECT(tmp));
   }
 
   /* call parent */

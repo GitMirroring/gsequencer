@@ -8,7 +8,7 @@
 project('gsequencer', 'c', 'cpp',
         license: 'GPL3',
         default_options: [ 'buildtype=release', 'c_std=gnu11'],
-        meson_version: '>=0.53.0',
+        meson_version: '>=0.56.0',
         version: '9.4.9')
 
 #note:jk: specify --buildtype=debug if needed
@@ -147,8 +147,8 @@ install_data(join_paths(meson.source_root(), 'ags-simple.xsl'),
 pkgconfig_conf_data = configuration_data()
 pkgconfig_conf_data.set('prefix', gsequencer_prefix)
 pkgconfig_conf_data.set('exec_prefix', '${prefix}')
-pkgconfig_conf_data.set('libdir', '${prefix}/lib')
-pkgconfig_conf_data.set('includedir', '${prefix}/include')
+pkgconfig_conf_data.set('libdir', gsequencer_libdir)
+pkgconfig_conf_data.set('includedir', gsequencer_includedir)
 pkgconfig_conf_data.set('PACKAGE_VERSION', meson.project_version())
 
 configure_file(input: 'libags.pc.in', output: 'libags.pc',
@@ -347,9 +347,20 @@ if get_option('online_help') and xsltproc.found() and python_exe.found()
     run_command(python_exe, listing_script, source, destination)
   endforeach
 
-  run_target('ags-user-docs', command: [ xsltproc, '--nonet', '--xinclude', '--stringparam', 'html.stylesheet', '"custom.css"', '--stringparam', 'htmlhelp.show.menu', '"1"', '--stringparam', 'suppress.navigation', '"0"', '-o', user_manual_dir,  'http://docbook.sourceforge.net/release/xsl/current/htmlhelp/htmlhelp.xsl', 'docs/usersBook.xml' ])
-  run_target('ags-developer-docs', command: [ xsltproc, '--nonet', '--xinclude', '--stringparam', 'html.stylesheet', '"custom.css"', '--stringparam', 'htmlhelp.show.menu', '"1"', '--stringparam', 'suppress.navigation', '"0"', '-o', developer_manual_dir, 'http://docbook.sourceforge.net/release/xsl/current/htmlhelp/htmlhelp.xsl', 'docs/developersBook.xml' ])
-  run_target('ags-osc-docs', command: [ xsltproc, '--nonet', '--xinclude', '--stringparam', 'html.stylesheet', '"custom.css"', '--stringparam', 'htmlhelp.show.menu', '"1"', '--stringparam', 'suppress.navigation', '"0"', '-o', osc_manual_dir, 'http://docbook.sourceforge.net/release/xsl/current/htmlhelp/htmlhelp.xsl', 'docs/oscBook.xml' ])
+  custom_target('ags-user-docs',
+		output: 'ags-user-docs.stamp',
+		command: [ xsltproc, '--nonet', '--xinclude', '--stringparam', 'html.stylesheet', '"custom.css"', '--stringparam', 'htmlhelp.show.menu', '"1"', '--stringparam', 'suppress.navigation', '"0"', '-o', user_manual_dir, 'http://docbook.sourceforge.net/release/xsl/current/htmlhelp/htmlhelp.xsl', 'docs/usersBook.xml' ],
+		build_by_default: true)
+
+  custom_target('ags-developer-docs',
+		output: 'ags-developer-docs.stamp',
+		command: [ xsltproc, '--nonet', '--xinclude', '--stringparam', 'html.stylesheet', '"custom.css"', '--stringparam', 'htmlhelp.show.menu', '"1"', '--stringparam', 'suppress.navigation', '"0"', '-o', developer_manual_dir, 'http://docbook.sourceforge.net/release/xsl/current/htmlhelp/htmlhelp.xsl', 'docs/developersBook.xml' ],
+		build_by_default: true)
+
+  custom_target('ags-osc-docs',
+		output: 'ags-osc-docs.stamp',
+		command: [ xsltproc, '--nonet', '--xinclude', '--stringparam', 'html.stylesheet', '"custom.css"', '--stringparam', 'htmlhelp.show.menu', '"1"', '--stringparam', 'suppress.navigation', '"0"', '-o', osc_manual_dir, 'http://docbook.sourceforge.net/release/xsl/current/htmlhelp/htmlhelp.xsl', 'docs/oscBook.xml' ],
+		build_by_default: true)
 
   install_subdir(meson.project_build_root() / 'html/user-manual', install_dir: gsequencer_docdir)
   install_subdir(meson.project_build_root() / 'html/developer-manual', install_dir: gsequencer_docdir)
