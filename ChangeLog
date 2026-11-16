@@ -1,3 +1,8 @@
+ags (9.4.10)
+
+	[ Joël Krähemann (Maintainer of Advanced Gtk+ Sequencer) ]
+	* fixed wrong synth-osc-low-pass-sends in ags_abys_synth_refresh_port()
+
 ags (9.4.9)
 
 	[ Joël Krähemann (Maintainer of Advanced Gtk+ Sequencer) ]
