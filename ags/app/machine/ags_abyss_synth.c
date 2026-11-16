@@ -7667,11 +7667,11 @@ ags_abyss_synth_refresh_port(AgsMachine *machine)
       g_object_unref(port);
     }
 
-    /* synth-0-osc-0 low-pass-sends */
+    /* synth-0-osc-0 low-pass sends */
     port = NULL;
 
     g_object_get(recall->data,
-		 "synth-0-osc-0-volume", &port,
+		 "synth-0-osc-0-low-pass-sends", &port,
 		 NULL);
 
     if(port != NULL){
@@ -7810,11 +7810,11 @@ ags_abyss_synth_refresh_port(AgsMachine *machine)
       g_object_unref(port);
     }
 
-    /* synth-0-osc-1 low-pass-sends */
+    /* synth-0-osc-1 low-pass sends */
     port = NULL;
 
     g_object_get(recall->data,
-		 "synth-0-osc-1-volume", &port,
+		 "synth-0-osc-1-low-pass-sends", &port,
 		 NULL);
 
     if(port != NULL){
@@ -7953,11 +7953,11 @@ ags_abyss_synth_refresh_port(AgsMachine *machine)
       g_object_unref(port);
     }
 
-    /* synth-0-osc-2 low-pass-sends */
+    /* synth-0-osc-2 low-pass sends */
     port = NULL;
 
     g_object_get(recall->data,
-		 "synth-0-osc-2-volume", &port,
+		 "synth-0-osc-2-low-pass-sends", &port,
 		 NULL);
 
     if(port != NULL){
@@ -8096,11 +8096,11 @@ ags_abyss_synth_refresh_port(AgsMachine *machine)
       g_object_unref(port);
     }
 
-    /* synth-0-osc-3 low-pass-sends */
+    /* synth-0-osc-3 low-pass sends */
     port = NULL;
 
     g_object_get(recall->data,
-		 "synth-0-osc-3-volume", &port,
+		 "synth-0-osc-3-low-pass-sends", &port,
 		 NULL);
 
     if(port != NULL){
