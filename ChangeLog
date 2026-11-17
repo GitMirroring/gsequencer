@@ -1,7 +1,13 @@
+ags (9.4.12)
+
+	[ Joël Krähemann (Maintainer of Advanced Gtk+ Sequencer) ]
+	* changelog
+
 ags (9.4.11)
 
 	[ Joël Krähemann (Maintainer of Advanced Gtk+ Sequencer) ]
-	* updated user manual docbook XML
+	* updated user manual docbook XML with section of Abyss Synth
+	* added docs/images/ags_abyss_synth.png
 
 ags (9.4.10)
 
