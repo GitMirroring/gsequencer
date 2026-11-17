@@ -578,6 +578,7 @@ userdocimages = \
 	docs/images/ags_quantum_synth.png \
 	docs/images/ags_raven_synth.png \
 	docs/images/ags_modular_synth.png \
+	docs/images/ags_abyss_synth.png \
 	docs/images/ags_machine_properties-input.png \
 	docs/images/ags_machine_properties-resize_channels.png \
 	docs/images/ags_navigation.png \

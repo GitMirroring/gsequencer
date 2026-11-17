@@ -1389,6 +1389,39 @@
     </para>
   </sect1>
 
+  <sect1>
+    <title>Abyss Synth</title>
+    <mediaobject>
+      <imageobject>
+	<imagedata width="100%" scalefit="1" contentdepth="100%"  fileref="../&images;/ags_abyss_synth.png" format="PNG" />
+      </imageobject>
+      <caption>
+	<para>
+	  The abyss synth screenshot
+	</para>
+      </caption>
+    </mediaobject>
+
+    <para>
+      Produce audio data using 4 oscillators and 2 ring modulators, those controls and pitch tuning and volume control can be varied
+      by 4 envelope, 4 LFOs, 4 sequencers and 2 pink noise. The sends are assigned by a boolean matrix to receivers. Pitch
+      tuning and main volume. 2 low-pass filters and amplifier. It has additional controls to modify chorus effect
+      processor.
+    </para>
+    
+    <para>
+      The low-pass filter cut-off frequency is given in Hertz.
+    </para>
+
+    <para>
+      The amplifier gives you control over 4 bands and filter gain.
+    </para>
+
+    <para>
+      There is a chorus, which provides additional controls.
+    </para>
+  </sect1>
+
   
   <sect1>
     <title>Audiorec</title>
