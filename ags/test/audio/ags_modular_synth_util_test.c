@@ -131,18 +131,17 @@ ags_modular_synth_util_test_alloc()
 void
 ags_modular_synth_util_test_copy()
 {
-  AgsModularSynthUtil modular_synth_util;
+  AgsModularSynthUtil modular_synth_util = {0,};
   AgsModularSynthUtil *copy_modular_synth_util;
 
-  modular_synth_util = (AgsModularSynthUtil) {
-    .source = ags_stream_alloc(AGS_MODULAR_SYNTH_UTIL_TEST_AUDIO_CHANNELS * AGS_MODULAR_SYNTH_UTIL_TEST_BUFFER_SIZE,
-			       AGS_MODULAR_SYNTH_UTIL_TEST_FORMAT),
-    .source_stride = AGS_MODULAR_SYNTH_UTIL_TEST_AUDIO_CHANNELS,
-    .buffer_length = AGS_MODULAR_SYNTH_UTIL_TEST_BUFFER_SIZE,
-    .pitch_tuning = 0.0,
-    .volume = 0.5
-  };
+  modular_synth_util = AGS_MODULAR_SYNTH_UTIL_INITIALIZER;
 
+  modular_synth_util.source = ags_stream_alloc(AGS_MODULAR_SYNTH_UTIL_TEST_AUDIO_CHANNELS * AGS_MODULAR_SYNTH_UTIL_TEST_BUFFER_SIZE,
+					       AGS_MODULAR_SYNTH_UTIL_TEST_FORMAT);
+  
+  ags_modular_synth_util_set_buffer_length(&modular_synth_util,
+					   AGS_MODULAR_SYNTH_UTIL_TEST_BUFFER_SIZE);
+  
   copy_modular_synth_util = ags_modular_synth_util_copy(&modular_synth_util);
   
   CU_ASSERT(copy_modular_synth_util != NULL);
@@ -166,6 +165,8 @@ ags_modular_synth_util_test_free()
   modular_synth_util = (AgsModularSynthUtil *) g_new(AgsModularSynthUtil,
 						     1);
 
+  modular_synth_util[0] = AGS_MODULAR_SYNTH_UTIL_INITIALIZER;
+  
   CU_ASSERT(modular_synth_util != NULL);
 
   modular_synth_util->source = NULL;
@@ -182,7 +183,7 @@ ags_modular_synth_util_test_free()
 void
 ags_modular_synth_util_test_get_source()
 {
-  AgsModularSynthUtil modular_synth_util;
+  AgsModularSynthUtil modular_synth_util = {0,};
 
   modular_synth_util.source = NULL;
 
@@ -197,7 +198,7 @@ ags_modular_synth_util_test_get_source()
 void
 ags_modular_synth_util_test_set_source()
 {
-  AgsModularSynthUtil modular_synth_util;
+  AgsModularSynthUtil modular_synth_util = {0,};
 
   gpointer source;
   
@@ -215,7 +216,7 @@ ags_modular_synth_util_test_set_source()
 void
 ags_modular_synth_util_test_get_source_stride()
 {
-  AgsModularSynthUtil modular_synth_util;
+  AgsModularSynthUtil modular_synth_util = {0,};
 
   modular_synth_util.source_stride = 0;
 
@@ -229,7 +230,7 @@ ags_modular_synth_util_test_get_source_stride()
 void
 ags_modular_synth_util_test_set_source_stride()
 {
-  AgsModularSynthUtil modular_synth_util;
+  AgsModularSynthUtil modular_synth_util = {0,};
   
   modular_synth_util.source_stride = 0;
 
@@ -242,7 +243,7 @@ ags_modular_synth_util_test_set_source_stride()
 void
 ags_modular_synth_util_test_get_buffer_length()
 {
-  AgsModularSynthUtil modular_synth_util;
+  AgsModularSynthUtil modular_synth_util = {0,};
 
   modular_synth_util.buffer_length = 0;
 
@@ -256,7 +257,7 @@ ags_modular_synth_util_test_get_buffer_length()
 void
 ags_modular_synth_util_test_set_buffer_length()
 {
-  AgsModularSynthUtil modular_synth_util;
+  AgsModularSynthUtil modular_synth_util = {0,};
   
   modular_synth_util.buffer_length = 0;
 
@@ -269,7 +270,7 @@ ags_modular_synth_util_test_set_buffer_length()
 void
 ags_modular_synth_util_test_get_format()
 {
-  AgsModularSynthUtil modular_synth_util;
+  AgsModularSynthUtil modular_synth_util = {0,};
 
   modular_synth_util.format = AGS_SOUNDCARD_SIGNED_16_BIT;
 
@@ -283,7 +284,7 @@ ags_modular_synth_util_test_get_format()
 void
 ags_modular_synth_util_test_set_format()
 {
-  AgsModularSynthUtil modular_synth_util;
+  AgsModularSynthUtil modular_synth_util = {0,};
   
   modular_synth_util.format = AGS_SOUNDCARD_SIGNED_16_BIT;
 
@@ -296,7 +297,7 @@ ags_modular_synth_util_test_set_format()
 void
 ags_modular_synth_util_test_get_samplerate()
 {
-  AgsModularSynthUtil modular_synth_util;
+  AgsModularSynthUtil modular_synth_util = {0,};
 
   modular_synth_util.samplerate = 44100;
 
@@ -310,7 +311,7 @@ ags_modular_synth_util_test_get_samplerate()
 void
 ags_modular_synth_util_test_set_samplerate()
 {
-  AgsModularSynthUtil modular_synth_util;
+  AgsModularSynthUtil modular_synth_util = {0,};
   
   modular_synth_util.samplerate = 44100;
 
@@ -323,7 +324,7 @@ ags_modular_synth_util_test_set_samplerate()
 void
 ags_modular_synth_util_test_get_osc_0_oscillator()
 {
-  AgsModularSynthUtil modular_synth_util;
+  AgsModularSynthUtil modular_synth_util = {0,};
 
   modular_synth_util.osc_0_oscillator = AGS_SYNTH_OSCILLATOR_SAWTOOTH;
 
@@ -337,7 +338,7 @@ ags_modular_synth_util_test_get_osc_0_oscillator()
 void
 ags_modular_synth_util_test_set_osc_0_oscillator()
 {
-  AgsModularSynthUtil modular_synth_util;
+  AgsModularSynthUtil modular_synth_util = {0,};
   
   modular_synth_util.osc_0_oscillator = AGS_SYNTH_OSCILLATOR_SQUARE;
 
@@ -350,7 +351,7 @@ ags_modular_synth_util_test_set_osc_0_oscillator()
 void
 ags_modular_synth_util_test_get_osc_0_frequency()
 {
-  AgsModularSynthUtil modular_synth_util;
+  AgsModularSynthUtil modular_synth_util = {0,};
 
   modular_synth_util.osc_0_frequency = 1;
 
@@ -364,7 +365,7 @@ ags_modular_synth_util_test_get_osc_0_frequency()
 void
 ags_modular_synth_util_test_set_osc_0_frequency()
 {
-  AgsModularSynthUtil modular_synth_util;
+  AgsModularSynthUtil modular_synth_util = {0,};
   
   modular_synth_util.osc_0_frequency = 1.0;
 
@@ -377,7 +378,7 @@ ags_modular_synth_util_test_set_osc_0_frequency()
 void
 ags_modular_synth_util_test_get_osc_0_phase()
 {
-  AgsModularSynthUtil modular_synth_util;
+  AgsModularSynthUtil modular_synth_util = {0,};
 
   modular_synth_util.osc_0_phase = 1;
 
@@ -391,7 +392,7 @@ ags_modular_synth_util_test_get_osc_0_phase()
 void
 ags_modular_synth_util_test_set_osc_0_phase()
 {
-  AgsModularSynthUtil modular_synth_util;
+  AgsModularSynthUtil modular_synth_util = {0,};
   
   modular_synth_util.osc_0_phase = 1.0;
 
@@ -404,7 +405,7 @@ ags_modular_synth_util_test_set_osc_0_phase()
 void
 ags_modular_synth_util_test_get_osc_0_volume()
 {
-  AgsModularSynthUtil modular_synth_util;
+  AgsModularSynthUtil modular_synth_util = {0,};
 
   modular_synth_util.osc_0_volume = 0.5;
 
@@ -418,7 +419,7 @@ ags_modular_synth_util_test_get_osc_0_volume()
 void
 ags_modular_synth_util_test_set_osc_0_volume()
 {
-  AgsModularSynthUtil modular_synth_util;
+  AgsModularSynthUtil modular_synth_util = {0,};
   
   modular_synth_util.osc_0_volume = 1.0;
 
@@ -431,7 +432,7 @@ ags_modular_synth_util_test_set_osc_0_volume()
 void
 ags_modular_synth_util_test_get_osc_1_oscillator()
 {
-  AgsModularSynthUtil modular_synth_util;
+  AgsModularSynthUtil modular_synth_util = {0,};
 
   modular_synth_util.osc_1_oscillator = AGS_SYNTH_OSCILLATOR_SAWTOOTH;
 
@@ -445,7 +446,7 @@ ags_modular_synth_util_test_get_osc_1_oscillator()
 void
 ags_modular_synth_util_test_set_osc_1_oscillator()
 {
-  AgsModularSynthUtil modular_synth_util;
+  AgsModularSynthUtil modular_synth_util = {0,};
   
   modular_synth_util.osc_1_oscillator = AGS_SYNTH_OSCILLATOR_SQUARE;
 
@@ -458,7 +459,7 @@ ags_modular_synth_util_test_set_osc_1_oscillator()
 void
 ags_modular_synth_util_test_get_osc_1_frequency()
 {
-  AgsModularSynthUtil modular_synth_util;
+  AgsModularSynthUtil modular_synth_util = {0,};
 
   modular_synth_util.osc_1_frequency = 1;
 
@@ -472,7 +473,7 @@ ags_modular_synth_util_test_get_osc_1_frequency()
 void
 ags_modular_synth_util_test_set_osc_1_frequency()
 {
-  AgsModularSynthUtil modular_synth_util;
+  AgsModularSynthUtil modular_synth_util = {0,};
   
   modular_synth_util.osc_1_frequency = 1.0;
 
@@ -485,7 +486,7 @@ ags_modular_synth_util_test_set_osc_1_frequency()
 void
 ags_modular_synth_util_test_get_osc_1_phase()
 {
-  AgsModularSynthUtil modular_synth_util;
+  AgsModularSynthUtil modular_synth_util = {0,};
 
   modular_synth_util.osc_1_phase = 1;
 
@@ -499,7 +500,7 @@ ags_modular_synth_util_test_get_osc_1_phase()
 void
 ags_modular_synth_util_test_set_osc_1_phase()
 {
-  AgsModularSynthUtil modular_synth_util;
+  AgsModularSynthUtil modular_synth_util = {0,};
   
   modular_synth_util.osc_1_phase = 1.0;
 
@@ -512,7 +513,7 @@ ags_modular_synth_util_test_set_osc_1_phase()
 void
 ags_modular_synth_util_test_get_osc_1_volume()
 {
-  AgsModularSynthUtil modular_synth_util;
+  AgsModularSynthUtil modular_synth_util = {0,};
 
   modular_synth_util.osc_1_volume = 0.5;
 
@@ -526,7 +527,7 @@ ags_modular_synth_util_test_get_osc_1_volume()
 void
 ags_modular_synth_util_test_set_osc_1_volume()
 {
-  AgsModularSynthUtil modular_synth_util;
+  AgsModularSynthUtil modular_synth_util = {0,};
   
   modular_synth_util.osc_1_volume = 1.0;
 
@@ -539,7 +540,7 @@ ags_modular_synth_util_test_set_osc_1_volume()
 void
 ags_modular_synth_util_test_get_volume()
 {
-  AgsModularSynthUtil modular_synth_util;
+  AgsModularSynthUtil modular_synth_util = {0,};
 
   modular_synth_util.volume = 0.5;
 
@@ -553,7 +554,7 @@ ags_modular_synth_util_test_get_volume()
 void
 ags_modular_synth_util_test_set_volume()
 {
-  AgsModularSynthUtil modular_synth_util;
+  AgsModularSynthUtil modular_synth_util = {0,};
   
   modular_synth_util.volume = 1.0;
 
@@ -566,7 +567,7 @@ ags_modular_synth_util_test_set_volume()
 void
 ags_modular_synth_util_test_get_pitch_tuning()
 {
-  AgsModularSynthUtil modular_synth_util;
+  AgsModularSynthUtil modular_synth_util = {0,};
 
   modular_synth_util.pitch_tuning = 1200.0;
 
@@ -580,7 +581,7 @@ ags_modular_synth_util_test_get_pitch_tuning()
 void
 ags_modular_synth_util_test_set_pitch_tuning()
 {
-  AgsModularSynthUtil modular_synth_util;
+  AgsModularSynthUtil modular_synth_util = {0,};
   
   modular_synth_util.pitch_tuning = 0.0;
 
@@ -593,192 +594,216 @@ ags_modular_synth_util_test_set_pitch_tuning()
 void
 ags_modular_synth_util_test_compute_s8()
 {
-  AgsModularSynthUtil modular_synth_util;
+  AgsModularSynthUtil *modular_synth_util;
 
   gpointer source;
 
   source = ags_stream_alloc(1024,
 			    AGS_SOUNDCARD_SIGNED_8_BIT);
 
-  modular_synth_util = AGS_MODULAR_SYNTH_UTIL_INITIALIZER;
+  modular_synth_util = ags_modular_synth_util_alloc();
 
-  modular_synth_util = (AgsModularSynthUtil) {
-    .source = source,
-    .source_stride = 1,
-    .buffer_length = 1024,
-    .format = AGS_SOUNDCARD_SIGNED_8_BIT,
-    .volume = 0.5
-  };
+  modular_synth_util->source = source;
+
+  ags_modular_synth_util_set_buffer_length(modular_synth_util,
+					   1024);
   
-  ags_modular_synth_util_compute_s8(&modular_synth_util);
+  modular_synth_util->format = AGS_SOUNDCARD_SIGNED_8_BIT;
+  
+  modular_synth_util->volume = 0.5;
+  
+  ags_modular_synth_util_compute_s8(modular_synth_util);
 }
 
 void
 ags_modular_synth_util_test_compute_s16()
 {
-  AgsModularSynthUtil modular_synth_util;
+  AgsModularSynthUtil *modular_synth_util;
 
   gpointer source;
 
   source = ags_stream_alloc(1024,
 			    AGS_SOUNDCARD_SIGNED_16_BIT);
 
-  modular_synth_util = (AgsModularSynthUtil) {
-    .source = source,
-    .source_stride = 1,
-    .buffer_length = 1024,
-    .format = AGS_SOUNDCARD_SIGNED_16_BIT,
-    .volume = 0.5
-  };
+  modular_synth_util = ags_modular_synth_util_alloc();
+
+  modular_synth_util->source = source;
+
+  ags_modular_synth_util_set_buffer_length(modular_synth_util,
+					   1024);
   
-  ags_modular_synth_util_compute_s16(&modular_synth_util);
+  modular_synth_util->format = AGS_SOUNDCARD_SIGNED_16_BIT;
+  
+  modular_synth_util->volume = 0.5;
+  
+  ags_modular_synth_util_compute_s16(modular_synth_util);
 }
 
 void
 ags_modular_synth_util_test_compute_s24()
 {
-  AgsModularSynthUtil modular_synth_util;
+  AgsModularSynthUtil *modular_synth_util;
 
   gpointer source;
 
   source = ags_stream_alloc(1024,
 			    AGS_SOUNDCARD_SIGNED_24_BIT);
 
-  modular_synth_util = (AgsModularSynthUtil) {
-    .source = source,
-    .source_stride = 1,
-    .buffer_length = 1024,
-    .format = AGS_SOUNDCARD_SIGNED_24_BIT,
-    .volume = 0.5
-  };
+  modular_synth_util = ags_modular_synth_util_alloc();
+
+  modular_synth_util->source = source;
+
+  ags_modular_synth_util_set_buffer_length(modular_synth_util,
+					   1024);
   
-  ags_modular_synth_util_compute_s24(&modular_synth_util);
+  modular_synth_util->format = AGS_SOUNDCARD_SIGNED_24_BIT;
+  
+  modular_synth_util->volume = 0.5;
+  
+  ags_modular_synth_util_compute_s24(modular_synth_util);
 }
 
 void
 ags_modular_synth_util_test_compute_s32()
 {
-  AgsModularSynthUtil modular_synth_util;
+  AgsModularSynthUtil *modular_synth_util;
 
   gpointer source;
 
   source = ags_stream_alloc(1024,
 			    AGS_SOUNDCARD_SIGNED_32_BIT);
 
-  modular_synth_util = (AgsModularSynthUtil) {
-    .source = source,
-    .source_stride = 1,
-    .buffer_length = 1024,
-    .format = AGS_SOUNDCARD_SIGNED_32_BIT,
-    .volume = 0.5
-  };
+  modular_synth_util = ags_modular_synth_util_alloc();
+  modular_synth_util->source = source;
+
+  ags_modular_synth_util_set_buffer_length(modular_synth_util,
+					   1024);
   
-  ags_modular_synth_util_compute_s32(&modular_synth_util);
+  modular_synth_util->format = AGS_SOUNDCARD_SIGNED_32_BIT;
+  
+  modular_synth_util->volume = 0.5;
+  
+  ags_modular_synth_util_compute_s32(modular_synth_util);
 }
 
 void
 ags_modular_synth_util_test_compute_s64()
 {
-  AgsModularSynthUtil modular_synth_util;
+  AgsModularSynthUtil *modular_synth_util;
 
   gpointer source;
 
   source = ags_stream_alloc(1024,
 			    AGS_SOUNDCARD_SIGNED_64_BIT);
 
-  modular_synth_util = (AgsModularSynthUtil) {
-    .source = source,
-    .source_stride = 1,
-    .buffer_length = 1024,
-    .format = AGS_SOUNDCARD_SIGNED_64_BIT,
-    .volume = 0.5
-  };
+  modular_synth_util = ags_modular_synth_util_alloc();
+
+  modular_synth_util->source = source;
+
+  ags_modular_synth_util_set_buffer_length(modular_synth_util,
+					   1024);
   
-  ags_modular_synth_util_compute_s64(&modular_synth_util);
+  modular_synth_util->format = AGS_SOUNDCARD_SIGNED_64_BIT;
+  
+  modular_synth_util->volume = 0.5;
+  
+  ags_modular_synth_util_compute_s64(modular_synth_util);
 }
 
 void
 ags_modular_synth_util_test_compute_float()
 {
-  AgsModularSynthUtil modular_synth_util;
+  AgsModularSynthUtil *modular_synth_util;
 
   gpointer source;
 
   source = ags_stream_alloc(1024,
 			    AGS_SOUNDCARD_FLOAT);
 
-  modular_synth_util = (AgsModularSynthUtil) {
-    .source = source,
-    .source_stride = 1,
-    .buffer_length = 1024,
-    .format = AGS_SOUNDCARD_FLOAT,
-    .volume = 0.5
-  };
+  modular_synth_util = ags_modular_synth_util_alloc();
+
+  modular_synth_util->source = source;
+
+  ags_modular_synth_util_set_buffer_length(modular_synth_util,
+					   1024);
   
-  ags_modular_synth_util_compute_float(&modular_synth_util);
+  modular_synth_util->format = AGS_SOUNDCARD_FLOAT;
+  
+  modular_synth_util->volume = 0.5;
+  
+  ags_modular_synth_util_compute_float(modular_synth_util);
 }
 
 void
 ags_modular_synth_util_test_compute_double()
 {
-  AgsModularSynthUtil modular_synth_util;
+  AgsModularSynthUtil *modular_synth_util;
 
   gpointer source;
 
   source = ags_stream_alloc(1024,
 			    AGS_SOUNDCARD_DOUBLE);
 
-  modular_synth_util = (AgsModularSynthUtil) {
-    .source = source,
-    .source_stride = 1,
-    .buffer_length = 1024,
-    .format = AGS_SOUNDCARD_DOUBLE,
-    .volume = 0.5
-  };
+  modular_synth_util = ags_modular_synth_util_alloc();
+
+  modular_synth_util->source = source;
+
+  ags_modular_synth_util_set_buffer_length(modular_synth_util,
+					   1024);
   
-  ags_modular_synth_util_compute_double(&modular_synth_util);
+  modular_synth_util->format = AGS_SOUNDCARD_DOUBLE;
+  
+  modular_synth_util->volume = 0.5;
+  
+  ags_modular_synth_util_compute_double(modular_synth_util);
 }
 
 void
 ags_modular_synth_util_test_compute_complex()
 {
-  AgsModularSynthUtil modular_synth_util;
+  AgsModularSynthUtil *modular_synth_util;
 
   gpointer source;
 
   source = ags_stream_alloc(1024,
 			    AGS_SOUNDCARD_COMPLEX);
 
-  modular_synth_util = (AgsModularSynthUtil) {
-    .source = source,
-    .source_stride = 1,
-    .buffer_length = 1024,
-    .format = AGS_SOUNDCARD_COMPLEX,
-    .volume = 0.5
-  };
+  modular_synth_util = ags_modular_synth_util_alloc();
+
+  modular_synth_util->source = source;
+
+  ags_modular_synth_util_set_buffer_length(modular_synth_util,
+					   1024);
   
-  ags_modular_synth_util_compute_complex(&modular_synth_util);
+  modular_synth_util->format = AGS_SOUNDCARD_COMPLEX;
+  
+  modular_synth_util->volume = 0.5;
+
+  ags_modular_synth_util_compute_complex(modular_synth_util);
 }
 
 void
 ags_modular_synth_util_test_compute()
 {
-  AgsModularSynthUtil modular_synth_util;
+  AgsModularSynthUtil *modular_synth_util;
 
   gpointer source;
 
   source = ags_stream_alloc(1024,
 			    AGS_SOUNDCARD_SIGNED_16_BIT);
 
-  modular_synth_util = (AgsModularSynthUtil) {
-    .source = source,
-    .source_stride = 1,
-    .buffer_length = 1024,
-    .format = AGS_SOUNDCARD_SIGNED_16_BIT,
-    .volume = 0.5
-  };
+  modular_synth_util = ags_modular_synth_util_alloc();
+
+  modular_synth_util->source = source;
+
+  ags_modular_synth_util_set_buffer_length(modular_synth_util,
+					   1024);
   
-  ags_modular_synth_util_compute(&modular_synth_util);
+  modular_synth_util->format = AGS_SOUNDCARD_SIGNED_16_BIT;
+  
+  modular_synth_util->volume = 0.5;
+  
+  ags_modular_synth_util_compute(modular_synth_util);
 }
 
 int
