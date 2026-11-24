@@ -27,6 +27,8 @@
 #include <ags/libags.h>
 #include <ags/libags-audio.h>
 
+#include <string.h>
+
 int ags_modular_synth_util_test_init_suite();
 int ags_modular_synth_util_test_clean_suite();
 
@@ -63,6 +65,60 @@ void ags_modular_synth_util_test_get_pitch_tuning();
 void ags_modular_synth_util_test_set_pitch_tuning();
 void ags_modular_synth_util_test_get_volume();
 void ags_modular_synth_util_test_set_volume();
+void ags_modular_synth_util_test_get_env_0_attack();
+void ags_modular_synth_util_test_set_env_0_attack();
+void ags_modular_synth_util_test_get_env_0_decay();
+void ags_modular_synth_util_test_set_env_0_decay();
+void ags_modular_synth_util_test_get_env_0_sustain();
+void ags_modular_synth_util_test_set_env_0_sustain();
+void ags_modular_synth_util_test_get_env_0_release();
+void ags_modular_synth_util_test_set_env_0_release();
+void ags_modular_synth_util_test_get_env_0_gain();
+void ags_modular_synth_util_test_set_env_0_gain();
+void ags_modular_synth_util_test_get_env_0_sends();
+void ags_modular_synth_util_test_set_env_0_sends();
+void ags_modular_synth_util_test_get_env_0_frequency();
+void ags_modular_synth_util_test_set_env_0_frequency();
+void ags_modular_synth_util_test_get_env_1_attack();
+void ags_modular_synth_util_test_set_env_1_attack();
+void ags_modular_synth_util_test_get_env_1_decay();
+void ags_modular_synth_util_test_set_env_1_decay();
+void ags_modular_synth_util_test_get_env_1_sustain();
+void ags_modular_synth_util_test_set_env_1_sustain();
+void ags_modular_synth_util_test_get_env_1_release();
+void ags_modular_synth_util_test_set_env_1_release();
+void ags_modular_synth_util_test_get_env_1_gain();
+void ags_modular_synth_util_test_set_env_1_gain();
+void ags_modular_synth_util_test_get_env_1_frequency();
+void ags_modular_synth_util_test_set_env_1_frequency();
+void ags_modular_synth_util_test_get_env_1_sends();
+void ags_modular_synth_util_test_set_env_1_sends();
+void ags_modular_synth_util_test_get_lfo_0_oscillator();
+void ags_modular_synth_util_test_set_lfo_0_oscillator();
+void ags_modular_synth_util_test_get_lfo_0_frequency();
+void ags_modular_synth_util_test_set_lfo_0_frequency();
+void ags_modular_synth_util_test_get_lfo_0_depth();
+void ags_modular_synth_util_test_set_lfo_0_depth();
+void ags_modular_synth_util_test_get_lfo_0_tuning();
+void ags_modular_synth_util_test_set_lfo_0_tuning();
+void ags_modular_synth_util_test_get_lfo_0_sends();
+void ags_modular_synth_util_test_set_lfo_0_sends();
+void ags_modular_synth_util_test_get_lfo_1_oscillator();
+void ags_modular_synth_util_test_set_lfo_1_oscillator();
+void ags_modular_synth_util_test_get_lfo_1_frequency();
+void ags_modular_synth_util_test_set_lfo_1_frequency();
+void ags_modular_synth_util_test_get_lfo_1_depth();
+void ags_modular_synth_util_test_set_lfo_1_depth();
+void ags_modular_synth_util_test_get_lfo_1_tuning();
+void ags_modular_synth_util_test_set_lfo_1_tuning();
+void ags_modular_synth_util_test_get_lfo_1_sends();
+void ags_modular_synth_util_test_set_lfo_1_sends();
+void ags_modular_synth_util_test_get_noise_frequency();
+void ags_modular_synth_util_test_set_noise_frequency();
+void ags_modular_synth_util_test_get_noise_gain();
+void ags_modular_synth_util_test_set_noise_gain();
+void ags_modular_synth_util_test_get_noise_sends();
+void ags_modular_synth_util_test_set_noise_sends();
 void ags_modular_synth_util_test_compute_s8();
 void ags_modular_synth_util_test_compute_s16();
 void ags_modular_synth_util_test_compute_s24();
@@ -592,6 +648,821 @@ ags_modular_synth_util_test_set_pitch_tuning()
 }
 
 void
+ags_modular_synth_util_test_get_env_0_attack()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.env_0_attack = 0.5;
+
+  CU_ASSERT(ags_modular_synth_util_get_env_0_attack(&modular_synth_util) == 0.5);
+
+  modular_synth_util.env_0_attack = 0.75;
+
+  CU_ASSERT(ags_modular_synth_util_get_env_0_attack(&modular_synth_util) == 0.75);
+}
+
+void
+ags_modular_synth_util_test_set_env_0_attack()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.env_0_attack = 0.0;
+
+  ags_modular_synth_util_set_env_0_attack(&modular_synth_util,
+					  1.0);
+  
+  CU_ASSERT(modular_synth_util.env_0_attack == 1.0);
+}
+
+void
+ags_modular_synth_util_test_get_env_0_decay()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.env_0_decay = 0.5;
+
+  CU_ASSERT(ags_modular_synth_util_get_env_0_decay(&modular_synth_util) == 0.5);
+
+  modular_synth_util.env_0_decay = 0.75;
+
+  CU_ASSERT(ags_modular_synth_util_get_env_0_decay(&modular_synth_util) == 0.75);
+}
+
+void
+ags_modular_synth_util_test_set_env_0_decay()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.env_0_decay = 0.0;
+
+  ags_modular_synth_util_set_env_0_decay(&modular_synth_util,
+					 1.0);
+  
+  CU_ASSERT(modular_synth_util.env_0_decay == 1.0);
+}
+
+void
+ags_modular_synth_util_test_get_env_0_sustain()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.env_0_sustain = 0.5;
+
+  CU_ASSERT(ags_modular_synth_util_get_env_0_sustain(&modular_synth_util) == 0.5);
+
+  modular_synth_util.env_0_sustain = 0.75;
+
+  CU_ASSERT(ags_modular_synth_util_get_env_0_sustain(&modular_synth_util) == 0.75);
+}
+
+void
+ags_modular_synth_util_test_set_env_0_sustain()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.env_0_sustain = 0.0;
+
+  ags_modular_synth_util_set_env_0_sustain(&modular_synth_util,
+					   1.0);
+  
+  CU_ASSERT(modular_synth_util.env_0_sustain == 1.0);
+}
+
+void
+ags_modular_synth_util_test_get_env_0_release()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.env_0_release = 0.5;
+
+  CU_ASSERT(ags_modular_synth_util_get_env_0_release(&modular_synth_util) == 0.5);
+
+  modular_synth_util.env_0_release = 0.75;
+
+  CU_ASSERT(ags_modular_synth_util_get_env_0_release(&modular_synth_util) == 0.75);
+}
+
+void
+ags_modular_synth_util_test_set_env_0_release()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.env_0_release = 0.0;
+
+  ags_modular_synth_util_set_env_0_release(&modular_synth_util,
+					   1.0);
+  
+  CU_ASSERT(modular_synth_util.env_0_release == 1.0);
+}
+
+void
+ags_modular_synth_util_test_get_env_0_gain()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.env_0_gain = 0.5;
+
+  CU_ASSERT(ags_modular_synth_util_get_env_0_gain(&modular_synth_util) == 0.5);
+
+  modular_synth_util.env_0_gain = 0.75;
+
+  CU_ASSERT(ags_modular_synth_util_get_env_0_gain(&modular_synth_util) == 0.75);
+}
+
+void
+ags_modular_synth_util_test_set_env_0_gain()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.env_0_gain = 0.0;
+
+  ags_modular_synth_util_set_env_0_gain(&modular_synth_util,
+					1.0);
+  
+  CU_ASSERT(modular_synth_util.env_0_gain == 1.0);
+}
+
+void
+ags_modular_synth_util_test_get_env_0_frequency()
+{
+
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.env_0_frequency = 6.0;
+
+  CU_ASSERT(ags_modular_synth_util_get_env_0_frequency(&modular_synth_util) == 6.0);
+
+  modular_synth_util.env_0_frequency = 8.0;
+
+  CU_ASSERT(ags_modular_synth_util_get_env_0_frequency(&modular_synth_util) == 8.0);
+}
+
+void
+ags_modular_synth_util_test_set_env_0_frequency()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.env_0_frequency = 0.0;
+
+  ags_modular_synth_util_set_env_0_frequency(&modular_synth_util,
+					     6.0);
+  
+  CU_ASSERT(modular_synth_util.env_0_frequency == 6.0);
+}
+
+void
+ags_modular_synth_util_test_get_env_0_sends()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  gint64 *env_0_sends;
+  gint64 local_env_0_sends[AGS_MODULAR_SYNTH_SENDS_COUNT] = {0,};
+
+  guint env_0_sends_count;
+
+  modular_synth_util.env_0_sends[0] = AGS_MODULAR_SYNTH_SENDS_OSC_0_VOLUME;
+
+  env_0_sends_count = 0;
+
+  env_0_sends = ags_modular_synth_util_get_env_0_sends(&modular_synth_util,
+						       &env_0_sends_count);
+
+  CU_ASSERT(env_0_sends_count == AGS_MODULAR_SYNTH_SENDS_COUNT);
+
+  local_env_0_sends[0] = AGS_MODULAR_SYNTH_SENDS_OSC_0_VOLUME;
+
+  CU_ASSERT(memcmp(env_0_sends, local_env_0_sends, AGS_MODULAR_SYNTH_SENDS_COUNT * sizeof(gint64)) == 0);
+}
+
+void
+ags_modular_synth_util_test_set_env_0_sends()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  gint64 env_0_sends[AGS_MODULAR_SYNTH_SENDS_COUNT] = {0,};
+
+  guint env_0_sends_count;
+
+  env_0_sends[0] = AGS_MODULAR_SYNTH_SENDS_OSC_0_VOLUME;
+
+  env_0_sends_count = 1;
+
+  ags_modular_synth_util_set_env_0_sends(&modular_synth_util,
+					 &(env_0_sends[0]),
+					 env_0_sends_count);
+
+  CU_ASSERT(memcmp(env_0_sends, modular_synth_util.env_0_sends, AGS_MODULAR_SYNTH_SENDS_COUNT * sizeof(gint64)) == 0);
+}
+
+void
+ags_modular_synth_util_test_get_env_1_attack()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.env_1_attack = 0.5;
+
+  CU_ASSERT(ags_modular_synth_util_get_env_1_attack(&modular_synth_util) == 0.5);
+
+  modular_synth_util.env_1_attack = 0.75;
+
+  CU_ASSERT(ags_modular_synth_util_get_env_1_attack(&modular_synth_util) == 0.75);
+}
+
+void
+ags_modular_synth_util_test_set_env_1_attack()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.env_1_attack = 0.0;
+
+  ags_modular_synth_util_set_env_1_attack(&modular_synth_util,
+					  1.0);
+  
+  CU_ASSERT(modular_synth_util.env_1_attack == 1.0);
+}
+
+void
+ags_modular_synth_util_test_get_env_1_decay()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.env_1_decay = 0.5;
+
+  CU_ASSERT(ags_modular_synth_util_get_env_1_decay(&modular_synth_util) == 0.5);
+
+  modular_synth_util.env_1_decay = 0.75;
+
+  CU_ASSERT(ags_modular_synth_util_get_env_1_decay(&modular_synth_util) == 0.75);
+}
+
+void
+ags_modular_synth_util_test_set_env_1_decay()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.env_1_decay = 0.0;
+
+  ags_modular_synth_util_set_env_1_decay(&modular_synth_util,
+					 1.0);
+  
+  CU_ASSERT(modular_synth_util.env_1_decay == 1.0);
+}
+
+void
+ags_modular_synth_util_test_get_env_1_sustain()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.env_1_sustain = 0.5;
+
+  CU_ASSERT(ags_modular_synth_util_get_env_1_sustain(&modular_synth_util) == 0.5);
+
+  modular_synth_util.env_1_sustain = 0.75;
+
+  CU_ASSERT(ags_modular_synth_util_get_env_1_sustain(&modular_synth_util) == 0.75);
+}
+
+void
+ags_modular_synth_util_test_set_env_1_sustain()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.env_1_sustain = 0.0;
+
+  ags_modular_synth_util_set_env_1_sustain(&modular_synth_util,
+					   1.0);
+  
+  CU_ASSERT(modular_synth_util.env_1_sustain == 1.0);
+}
+
+void
+ags_modular_synth_util_test_get_env_1_release()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.env_1_release = 0.5;
+
+  CU_ASSERT(ags_modular_synth_util_get_env_1_release(&modular_synth_util) == 0.5);
+
+  modular_synth_util.env_1_release = 0.75;
+
+  CU_ASSERT(ags_modular_synth_util_get_env_1_release(&modular_synth_util) == 0.75);
+}
+
+void
+ags_modular_synth_util_test_set_env_1_release()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.env_1_release = 0.0;
+
+  ags_modular_synth_util_set_env_1_release(&modular_synth_util,
+					   1.0);
+  
+  CU_ASSERT(modular_synth_util.env_1_release == 1.0);
+}
+
+void
+ags_modular_synth_util_test_get_env_1_gain()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.env_1_gain = 0.5;
+
+  CU_ASSERT(ags_modular_synth_util_get_env_1_gain(&modular_synth_util) == 0.5);
+
+  modular_synth_util.env_1_gain = 0.75;
+
+  CU_ASSERT(ags_modular_synth_util_get_env_1_gain(&modular_synth_util) == 0.75);
+}
+
+void
+ags_modular_synth_util_test_set_env_1_gain()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.env_1_gain = 0.0;
+
+  ags_modular_synth_util_set_env_1_gain(&modular_synth_util,
+					1.0);
+  
+  CU_ASSERT(modular_synth_util.env_1_gain == 1.0);
+}
+
+void
+ags_modular_synth_util_test_get_env_1_frequency()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.env_1_frequency = 6.0;
+
+  CU_ASSERT(ags_modular_synth_util_get_env_1_frequency(&modular_synth_util) == 6.0);
+
+  modular_synth_util.env_1_frequency = 8.0;
+
+  CU_ASSERT(ags_modular_synth_util_get_env_1_frequency(&modular_synth_util) == 8.0);
+}
+
+void
+ags_modular_synth_util_test_set_env_1_frequency()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.env_1_frequency = 0.0;
+
+  ags_modular_synth_util_set_env_1_frequency(&modular_synth_util,
+					     6.0);
+  
+  CU_ASSERT(modular_synth_util.env_1_frequency == 6.0);
+}
+
+void
+ags_modular_synth_util_test_get_env_1_sends()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  gint64 *env_1_sends;
+  gint64 local_env_1_sends[AGS_MODULAR_SYNTH_SENDS_COUNT] = {0,};
+
+  guint env_1_sends_count;
+
+  modular_synth_util.env_1_sends[0] = AGS_MODULAR_SYNTH_SENDS_OSC_0_VOLUME;
+
+  env_1_sends_count = 0;
+
+  env_1_sends = ags_modular_synth_util_get_env_1_sends(&modular_synth_util,
+						       &env_1_sends_count);
+
+  CU_ASSERT(env_1_sends_count == AGS_MODULAR_SYNTH_SENDS_COUNT);
+
+  local_env_1_sends[0] = AGS_MODULAR_SYNTH_SENDS_OSC_0_VOLUME;
+
+  CU_ASSERT(memcmp(env_1_sends, local_env_1_sends, AGS_MODULAR_SYNTH_SENDS_COUNT * sizeof(gint64)) == 0);
+}
+
+void
+ags_modular_synth_util_test_set_env_1_sends()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  gint64 env_1_sends[AGS_MODULAR_SYNTH_SENDS_COUNT] = {0,};
+
+  guint env_1_sends_count;
+
+  env_1_sends[0] = AGS_MODULAR_SYNTH_SENDS_OSC_0_VOLUME;
+
+  env_1_sends_count = 1;
+
+  ags_modular_synth_util_set_env_1_sends(&modular_synth_util,
+					 &(env_1_sends[0]),
+					 env_1_sends_count);
+
+  CU_ASSERT(memcmp(env_1_sends, modular_synth_util.env_1_sends, AGS_MODULAR_SYNTH_SENDS_COUNT * sizeof(gint64)) == 0);
+}
+
+void
+ags_modular_synth_util_test_get_lfo_0_oscillator()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.lfo_0_oscillator = AGS_SYNTH_OSCILLATOR_SIN;
+
+  CU_ASSERT(ags_modular_synth_util_get_lfo_0_oscillator(&modular_synth_util) == AGS_SYNTH_OSCILLATOR_SIN);
+
+  modular_synth_util.lfo_0_oscillator = AGS_SYNTH_OSCILLATOR_SAWTOOTH;
+
+  CU_ASSERT(ags_modular_synth_util_get_lfo_0_oscillator(&modular_synth_util) == AGS_SYNTH_OSCILLATOR_SAWTOOTH);
+}
+
+void
+ags_modular_synth_util_test_set_lfo_0_oscillator()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.lfo_0_oscillator = AGS_SYNTH_OSCILLATOR_SIN;
+
+  ags_modular_synth_util_set_lfo_0_oscillator(&modular_synth_util,
+					      AGS_SYNTH_OSCILLATOR_SAWTOOTH);
+  
+  CU_ASSERT(modular_synth_util.lfo_0_oscillator == AGS_SYNTH_OSCILLATOR_SAWTOOTH);
+}
+
+void
+ags_modular_synth_util_test_get_lfo_0_frequency()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.lfo_0_frequency = 6.0;
+
+  CU_ASSERT(ags_modular_synth_util_get_lfo_0_frequency(&modular_synth_util) == 6.0);
+
+  modular_synth_util.lfo_0_frequency = 8.0;
+
+  CU_ASSERT(ags_modular_synth_util_get_lfo_0_frequency(&modular_synth_util) == 8.0);
+}
+
+void
+ags_modular_synth_util_test_set_lfo_0_frequency()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.lfo_0_frequency = 0.0;
+
+  ags_modular_synth_util_set_lfo_0_frequency(&modular_synth_util,
+					     6.0);
+  
+  CU_ASSERT(modular_synth_util.lfo_0_frequency == 6.0);
+}
+
+void
+ags_modular_synth_util_test_get_lfo_0_depth()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.lfo_0_depth = 1.0;
+
+  CU_ASSERT(ags_modular_synth_util_get_lfo_0_depth(&modular_synth_util) == 1.0);
+
+  modular_synth_util.lfo_0_depth = 0.25;
+
+  CU_ASSERT(ags_modular_synth_util_get_lfo_0_depth(&modular_synth_util) == 0.25);
+}
+
+void
+ags_modular_synth_util_test_set_lfo_0_depth()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.lfo_0_depth = 0.0;
+
+  ags_modular_synth_util_set_lfo_0_depth(&modular_synth_util,
+					 1.0);
+  
+  CU_ASSERT(modular_synth_util.lfo_0_depth == 1.0);
+}
+
+void
+ags_modular_synth_util_test_get_lfo_0_tuning()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.lfo_0_tuning = 1200.0;
+
+  CU_ASSERT(ags_modular_synth_util_get_lfo_0_tuning(&modular_synth_util) == 1200.0);
+
+  modular_synth_util.lfo_0_tuning = 200.0;
+
+  CU_ASSERT(ags_modular_synth_util_get_lfo_0_tuning(&modular_synth_util) == 200.0);
+}
+
+void
+ags_modular_synth_util_test_set_lfo_0_tuning()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.lfo_0_tuning = 0.0;
+
+  ags_modular_synth_util_set_lfo_0_tuning(&modular_synth_util,
+					  200.0);
+  
+  CU_ASSERT(modular_synth_util.lfo_0_tuning == 200.0);
+}
+
+void
+ags_modular_synth_util_test_get_lfo_0_sends()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  gint64 *lfo_0_sends;
+  gint64 local_lfo_0_sends[AGS_MODULAR_SYNTH_SENDS_COUNT] = {0,};
+
+  guint lfo_0_sends_count;
+
+  modular_synth_util.lfo_0_sends[0] = AGS_MODULAR_SYNTH_SENDS_OSC_0_VOLUME;
+
+  lfo_0_sends_count = 0;
+
+  lfo_0_sends = ags_modular_synth_util_get_lfo_0_sends(&modular_synth_util,
+						       &lfo_0_sends_count);
+
+  CU_ASSERT(lfo_0_sends_count == AGS_MODULAR_SYNTH_SENDS_COUNT);
+
+  local_lfo_0_sends[0] = AGS_MODULAR_SYNTH_SENDS_OSC_0_VOLUME;
+
+  CU_ASSERT(memcmp(lfo_0_sends, local_lfo_0_sends, AGS_MODULAR_SYNTH_SENDS_COUNT * sizeof(gint64)) == 0);
+}
+
+void
+ags_modular_synth_util_test_set_lfo_0_sends()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  gint64 lfo_0_sends[AGS_MODULAR_SYNTH_SENDS_COUNT] = {0,};
+
+  guint lfo_0_sends_count;
+
+  lfo_0_sends[0] = AGS_MODULAR_SYNTH_SENDS_OSC_0_VOLUME;
+
+  lfo_0_sends_count = 1;
+
+  ags_modular_synth_util_set_lfo_0_sends(&modular_synth_util,
+					 &(lfo_0_sends[0]),
+					 lfo_0_sends_count);
+
+  CU_ASSERT(memcmp(lfo_0_sends, modular_synth_util.lfo_0_sends, AGS_MODULAR_SYNTH_SENDS_COUNT * sizeof(gint64)) == 0);
+}
+
+void
+ags_modular_synth_util_test_get_lfo_1_oscillator()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.lfo_1_oscillator = AGS_SYNTH_OSCILLATOR_SIN;
+
+  CU_ASSERT(ags_modular_synth_util_get_lfo_1_oscillator(&modular_synth_util) == AGS_SYNTH_OSCILLATOR_SIN);
+
+  modular_synth_util.lfo_1_oscillator = AGS_SYNTH_OSCILLATOR_SAWTOOTH;
+
+  CU_ASSERT(ags_modular_synth_util_get_lfo_1_oscillator(&modular_synth_util) == AGS_SYNTH_OSCILLATOR_SAWTOOTH);
+}
+
+void
+ags_modular_synth_util_test_set_lfo_1_oscillator()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.lfo_1_oscillator = AGS_SYNTH_OSCILLATOR_SIN;
+
+  ags_modular_synth_util_set_lfo_1_oscillator(&modular_synth_util,
+					      AGS_SYNTH_OSCILLATOR_SAWTOOTH);
+  
+  CU_ASSERT(modular_synth_util.lfo_1_oscillator == AGS_SYNTH_OSCILLATOR_SAWTOOTH);
+}
+
+void
+ags_modular_synth_util_test_get_lfo_1_frequency()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.lfo_1_frequency = 6.0;
+
+  CU_ASSERT(ags_modular_synth_util_get_lfo_1_frequency(&modular_synth_util) == 6.0);
+
+  modular_synth_util.lfo_1_frequency = 8.0;
+
+  CU_ASSERT(ags_modular_synth_util_get_lfo_1_frequency(&modular_synth_util) == 8.0);
+}
+
+void
+ags_modular_synth_util_test_set_lfo_1_frequency()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.lfo_1_frequency = 0.0;
+
+  ags_modular_synth_util_set_lfo_1_frequency(&modular_synth_util,
+					     6.0);
+  
+  CU_ASSERT(modular_synth_util.lfo_1_frequency == 6.0);
+}
+
+void
+ags_modular_synth_util_test_get_lfo_1_depth()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.lfo_1_depth = 1.0;
+
+  CU_ASSERT(ags_modular_synth_util_get_lfo_1_depth(&modular_synth_util) == 1.0);
+
+  modular_synth_util.lfo_1_depth = 0.25;
+
+  CU_ASSERT(ags_modular_synth_util_get_lfo_1_depth(&modular_synth_util) == 0.25);
+}
+
+void
+ags_modular_synth_util_test_set_lfo_1_depth()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.lfo_1_depth = 0.0;
+
+  ags_modular_synth_util_set_lfo_1_depth(&modular_synth_util,
+					 1.0);
+  
+  CU_ASSERT(modular_synth_util.lfo_1_depth == 1.0);
+}
+
+void
+ags_modular_synth_util_test_get_lfo_1_tuning()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.lfo_1_tuning = 1200.0;
+
+  CU_ASSERT(ags_modular_synth_util_get_lfo_1_tuning(&modular_synth_util) == 1200.0);
+
+  modular_synth_util.lfo_1_tuning = 200.0;
+
+  CU_ASSERT(ags_modular_synth_util_get_lfo_1_tuning(&modular_synth_util) == 200.0);
+}
+
+void
+ags_modular_synth_util_test_set_lfo_1_tuning()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.lfo_1_tuning = 0.0;
+
+  ags_modular_synth_util_set_lfo_1_tuning(&modular_synth_util,
+					  200.0);
+  
+  CU_ASSERT(modular_synth_util.lfo_1_tuning == 200.0);
+}
+
+void
+ags_modular_synth_util_test_get_lfo_1_sends()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  gint64 *lfo_1_sends;
+  gint64 local_lfo_1_sends[AGS_MODULAR_SYNTH_SENDS_COUNT] = {0,};
+
+  guint lfo_1_sends_count;
+
+  modular_synth_util.lfo_1_sends[0] = AGS_MODULAR_SYNTH_SENDS_OSC_0_VOLUME;
+
+  lfo_1_sends_count = 0;
+
+  lfo_1_sends = ags_modular_synth_util_get_lfo_1_sends(&modular_synth_util,
+						       &lfo_1_sends_count);
+
+  CU_ASSERT(lfo_1_sends_count == AGS_MODULAR_SYNTH_SENDS_COUNT);
+
+  local_lfo_1_sends[0] = AGS_MODULAR_SYNTH_SENDS_OSC_0_VOLUME;
+
+  CU_ASSERT(memcmp(lfo_1_sends, local_lfo_1_sends, AGS_MODULAR_SYNTH_SENDS_COUNT * sizeof(gint64)) == 0);
+}
+
+void
+ags_modular_synth_util_test_set_lfo_1_sends()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  gint64 lfo_1_sends[AGS_MODULAR_SYNTH_SENDS_COUNT] = {0,};
+
+  guint lfo_1_sends_count;
+
+  lfo_1_sends[0] = AGS_MODULAR_SYNTH_SENDS_OSC_0_VOLUME;
+
+  lfo_1_sends_count = 1;
+
+  ags_modular_synth_util_set_lfo_1_sends(&modular_synth_util,
+					 &(lfo_1_sends[0]),
+					 lfo_1_sends_count);
+
+  CU_ASSERT(memcmp(lfo_1_sends, modular_synth_util.lfo_1_sends, AGS_MODULAR_SYNTH_SENDS_COUNT * sizeof(gint64)) == 0);
+}
+
+void
+ags_modular_synth_util_test_get_noise_frequency()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.noise_frequency = 6.0;
+
+  CU_ASSERT(ags_modular_synth_util_get_noise_frequency(&modular_synth_util) == 6.0);
+
+  modular_synth_util.noise_frequency = 8.0;
+
+  CU_ASSERT(ags_modular_synth_util_get_noise_frequency(&modular_synth_util) == 8.0);
+}
+
+void
+ags_modular_synth_util_test_set_noise_frequency()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.noise_frequency = 0.0;
+
+  ags_modular_synth_util_set_noise_frequency(&modular_synth_util,
+					     6.0);
+  
+  CU_ASSERT(modular_synth_util.noise_frequency == 6.0);
+}
+
+void
+ags_modular_synth_util_test_get_noise_gain()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.noise_gain = 1.0;
+
+  CU_ASSERT(ags_modular_synth_util_get_noise_gain(&modular_synth_util) == 1.0);
+
+  modular_synth_util.noise_gain = 0.25;
+
+  CU_ASSERT(ags_modular_synth_util_get_noise_gain(&modular_synth_util) == 0.25);
+}
+
+void
+ags_modular_synth_util_test_set_noise_gain()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  modular_synth_util.noise_gain = 0.0;
+
+  ags_modular_synth_util_set_noise_gain(&modular_synth_util,
+					1.0);
+  
+  CU_ASSERT(modular_synth_util.noise_gain == 1.0);
+}
+
+void
+ags_modular_synth_util_test_get_noise_sends()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  gint64 *noise_sends;
+  gint64 local_noise_sends[AGS_MODULAR_SYNTH_SENDS_COUNT] = {0,};
+
+  guint noise_sends_count;
+
+  modular_synth_util.noise_sends[0] = AGS_MODULAR_SYNTH_SENDS_OSC_0_VOLUME;
+
+  noise_sends_count = 0;
+
+  noise_sends = ags_modular_synth_util_get_noise_sends(&modular_synth_util,
+						       &noise_sends_count);
+
+  CU_ASSERT(noise_sends_count == AGS_MODULAR_SYNTH_SENDS_COUNT);
+
+  local_noise_sends[0] = AGS_MODULAR_SYNTH_SENDS_OSC_0_VOLUME;
+
+  CU_ASSERT(memcmp(noise_sends, local_noise_sends, AGS_MODULAR_SYNTH_SENDS_COUNT * sizeof(gint64)) == 0);
+}
+
+void
+ags_modular_synth_util_test_set_noise_sends()
+{
+  AgsModularSynthUtil modular_synth_util = {0,};
+
+  gint64 noise_sends[AGS_MODULAR_SYNTH_SENDS_COUNT] = {0,};
+
+  guint noise_sends_count;
+
+  noise_sends[0] = AGS_MODULAR_SYNTH_SENDS_OSC_0_VOLUME;
+
+  noise_sends_count = 1;
+
+  ags_modular_synth_util_set_noise_sends(&modular_synth_util,
+					 &(noise_sends[0]),
+					 noise_sends_count);
+
+  CU_ASSERT(memcmp(noise_sends, modular_synth_util.noise_sends, AGS_MODULAR_SYNTH_SENDS_COUNT * sizeof(gint64)) == 0);
+}
+
+void
 ags_modular_synth_util_test_compute_s8()
 {
   AgsModularSynthUtil *modular_synth_util;
@@ -859,6 +1730,56 @@ main(int argc, char **argv)
      (CU_add_test(pSuite, "test of AgsModularSynthUtil set pitch tuning", ags_modular_synth_util_test_set_pitch_tuning) == NULL) ||
      (CU_add_test(pSuite, "test of AgsModularSynthUtil get volume", ags_modular_synth_util_test_get_volume) == NULL) ||
      (CU_add_test(pSuite, "test of AgsModularSynthUtil set volume", ags_modular_synth_util_test_set_volume) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil get env-0 attack", ags_modular_synth_util_test_get_env_0_attack) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil set env-0 attack", ags_modular_synth_util_test_set_env_0_attack) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil get env-0 decay", ags_modular_synth_util_test_get_env_0_decay) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil set env-0 decay", ags_modular_synth_util_test_set_env_0_decay) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil get env-0 sustain", ags_modular_synth_util_test_get_env_0_sustain) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil set env-0 sustain", ags_modular_synth_util_test_set_env_0_sustain) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil get env-0 release", ags_modular_synth_util_test_get_env_0_release) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil set env-0 release", ags_modular_synth_util_test_set_env_0_release) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil get env-0 gain", ags_modular_synth_util_test_get_env_0_gain) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil set env-0 gain", ags_modular_synth_util_test_set_env_0_gain) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil get env-0 sends", ags_modular_synth_util_test_get_env_0_sends) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil set env-0 sends", ags_modular_synth_util_test_set_env_0_sends) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil get env-0 frequency", ags_modular_synth_util_test_get_env_0_frequency) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil set env-1 frequency", ags_modular_synth_util_test_set_env_1_frequency) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil get env-1 attack", ags_modular_synth_util_test_get_env_1_attack) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil set env-1 attack", ags_modular_synth_util_test_set_env_1_attack) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil get env-1 decay", ags_modular_synth_util_test_get_env_1_decay) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil set env-1 decay", ags_modular_synth_util_test_set_env_1_decay) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil get env-1 sustain", ags_modular_synth_util_test_get_env_1_sustain) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil set env-1 sustain", ags_modular_synth_util_test_set_env_1_sustain) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil get env-1 release", ags_modular_synth_util_test_get_env_1_release) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil set env-1 release", ags_modular_synth_util_test_set_env_1_release) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil get env-1 gain", ags_modular_synth_util_test_get_env_1_gain) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil set env-1 gain", ags_modular_synth_util_test_set_env_1_gain) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil get env-1 sends", ags_modular_synth_util_test_get_env_1_sends) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil set env-1 sends", ags_modular_synth_util_test_set_env_1_sends) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil get env-1 frequency", ags_modular_synth_util_test_get_env_1_frequency) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil set env-1 frequency", ags_modular_synth_util_test_set_env_1_frequency) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil get lfo-0 oscillator", ags_modular_synth_util_test_get_lfo_0_oscillator) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil set lfo-0 oscillator", ags_modular_synth_util_test_set_lfo_0_oscillator) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil get lfo-0 frequency", ags_modular_synth_util_test_get_lfo_0_frequency) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil set lfo-0 frequency", ags_modular_synth_util_test_set_lfo_0_frequency) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil get lfo-0 depth", ags_modular_synth_util_test_get_lfo_0_depth) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil set lfo-0 depth", ags_modular_synth_util_test_set_lfo_0_depth) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil get lfo-0 tuning", ags_modular_synth_util_test_get_lfo_0_tuning) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil set lfo-0 tuning", ags_modular_synth_util_test_set_lfo_0_tuning) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil get lfo-1 oscillator", ags_modular_synth_util_test_get_lfo_1_oscillator) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil set lfo-1 oscillator", ags_modular_synth_util_test_set_lfo_1_oscillator) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil get lfo-1 frequency", ags_modular_synth_util_test_get_lfo_1_frequency) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil set lfo-1 frequency", ags_modular_synth_util_test_set_lfo_1_frequency) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil get lfo-1 depth", ags_modular_synth_util_test_get_lfo_1_depth) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil set lfo-1 depth", ags_modular_synth_util_test_set_lfo_1_depth) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil get lfo-1 tuning", ags_modular_synth_util_test_get_lfo_1_tuning) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil set lfo-1 tuning", ags_modular_synth_util_test_set_lfo_1_tuning) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil get noise frequency", ags_modular_synth_util_test_get_noise_frequency) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil set noise frequency", ags_modular_synth_util_test_set_noise_frequency) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil get noise gain", ags_modular_synth_util_test_get_noise_gain) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil set noise gain", ags_modular_synth_util_test_set_noise_gain) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil get noise sends", ags_modular_synth_util_test_get_noise_sends) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil set noise sends", ags_modular_synth_util_test_set_noise_sends) == NULL) ||
      (CU_add_test(pSuite, "test of AgsModularSynthUtil compute s8", ags_modular_synth_util_test_compute_s8) == NULL) ||
      (CU_add_test(pSuite, "test of AgsModularSynthUtil compute s16", ags_modular_synth_util_test_compute_s16) == NULL) ||
      (CU_add_test(pSuite, "test of AgsModularSynthUtil compute s24", ags_modular_synth_util_test_compute_s24) == NULL) ||

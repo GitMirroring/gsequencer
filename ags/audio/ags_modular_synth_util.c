@@ -155,6 +155,8 @@ ags_modular_synth_util_copy(AgsModularSynthUtil *ptr)
 
   new_ptr = (AgsModularSynthUtil *) g_new(AgsModularSynthUtil,
 					  1);
+
+  new_ptr[0] = AGS_MODULAR_SYNTH_UTIL_INITIALIZER;
   
   new_ptr->source = ptr->source;
   new_ptr->source_stride = ptr->source_stride;
@@ -175,6 +177,9 @@ ags_modular_synth_util_copy(AgsModularSynthUtil *ptr)
   new_ptr->osc_1_phase = ptr->osc_1_phase;
   new_ptr->osc_1_volume = ptr->osc_1_volume;
 
+  new_ptr->pitch_tuning = ptr->pitch_tuning;
+  new_ptr->volume = ptr->volume;
+  
   new_ptr->env_0_attack = ptr->env_0_attack;
   new_ptr->env_0_decay = ptr->env_0_decay;
   new_ptr->env_0_sustain = ptr->env_0_sustain;

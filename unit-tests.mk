@@ -110,6 +110,7 @@ check_PROGRAMS += \
 	ags_fm_synth_util_test \
 	ags_sf2_synth_util_test \
 	ags_sfz_synth_util_test \
+	ags_modular_synth_util_test \
 	ags_fourier_transform_util_test \
 	ags_recall_test \
 	ags_recall_channel_test \
@@ -884,6 +885,12 @@ ags_sfz_synth_util_test_SOURCES = ags/test/audio/ags_sfz_synth_util_test.c
 ags_sfz_synth_util_test_CFLAGS = $(CFLAGS) $(UNIT_TEST_CFLAGS) $(LIBAO_CFLAGS) $(LIBASOUND2_CFLAGS) $(LIBDSSIALSACOMPAT_CFLAGS) $(LIBXML2_CFLAGS) $(SNDFILE_CFLAGS) $(LIBINSTPATCH_CFLAGS) $(JSON_GLIB_CFLAGS) $(GOBJECT_CFLAGS) $(LIBSOUP_CFLAGS) $(JACK_CFLAGS) $(GSTREAMER_CFLAGS)
 ags_sfz_synth_util_test_LDFLAGS = -pthread $(LDFLAGS)
 ags_sfz_synth_util_test_LDADD = libags_audio.la libags_server.la libags_thread.la libags.la libags_thread.la -lcunit  -lm $(LIBAO_LIBS) $(LIBASOUND2_LIBS) $(LIBXML2_LIBS) $(SNDFILE_LIBS) $(LIBINSTPATCH_LIBS) $(JSON_GLIB_LIBS) $(GOBJECT_LIBS) $(LIBSOUP_LIBS) $(JACK_LIBS) $(GSTREAMER_LIBS)
+
+# modular synth util unit test
+ags_modular_synth_util_test_SOURCES = ags/test/audio/ags_modular_synth_util_test.c
+ags_modular_synth_util_test_CFLAGS = $(CFLAGS) $(UNIT_TEST_CFLAGS) $(LIBAO_CFLAGS) $(LIBASOUND2_CFLAGS) $(LIBDSSIALSACOMPAT_CFLAGS) $(LIBXML2_CFLAGS) $(SNDFILE_CFLAGS) $(LIBINSTPATCH_CFLAGS) $(JSON_GLIB_CFLAGS) $(GOBJECT_CFLAGS) $(LIBSOUP_CFLAGS) $(JACK_CFLAGS) $(GSTREAMER_CFLAGS)
+ags_modular_synth_util_test_LDFLAGS = -pthread $(LDFLAGS)
+ags_modular_synth_util_test_LDADD = libags_audio.la libags_server.la libags_thread.la libags.la libags_thread.la -lcunit  -lm $(LIBAO_LIBS) $(LIBASOUND2_LIBS) $(LIBXML2_LIBS) $(SNDFILE_LIBS) $(LIBINSTPATCH_LIBS) $(JSON_GLIB_LIBS) $(GOBJECT_LIBS) $(LIBSOUP_LIBS) $(JACK_LIBS) $(GSTREAMER_LIBS)
 
 # fourier transform util unit test
 ags_fourier_transform_util_test_SOURCES = ags/test/audio/ags_fourier_transform_util_test.c
