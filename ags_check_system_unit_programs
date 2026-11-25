@@ -93,6 +93,7 @@
 ./ags_check_system_fm_synth_util_test
 ./ags_check_system_sf2_synth_util_test
 ./ags_check_system_sfz_synth_util_test
+./ags_check_system_raven_synth_util_test
 ./ags_check_system_modular_synth_util_test
 ./ags_check_system_fourier_transform_util_test
 ./ags_check_system_recall_test

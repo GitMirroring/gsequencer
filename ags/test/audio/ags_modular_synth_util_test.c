@@ -35,6 +35,7 @@ int ags_modular_synth_util_test_clean_suite();
 void ags_modular_synth_util_test_alloc();
 void ags_modular_synth_util_test_copy();
 void ags_modular_synth_util_test_free();
+
 void ags_modular_synth_util_test_get_source();
 void ags_modular_synth_util_test_set_source();
 void ags_modular_synth_util_test_get_source_stride();
@@ -45,6 +46,7 @@ void ags_modular_synth_util_test_get_format();
 void ags_modular_synth_util_test_set_format();
 void ags_modular_synth_util_test_get_samplerate();
 void ags_modular_synth_util_test_set_samplerate();
+
 void ags_modular_synth_util_test_get_osc_0_oscillator();
 void ags_modular_synth_util_test_set_osc_0_oscillator();
 void ags_modular_synth_util_test_get_osc_0_frequency();
@@ -53,6 +55,7 @@ void ags_modular_synth_util_test_get_osc_0_phase();
 void ags_modular_synth_util_test_set_osc_0_phase();
 void ags_modular_synth_util_test_get_osc_0_volume();
 void ags_modular_synth_util_test_set_osc_0_volume();
+
 void ags_modular_synth_util_test_get_osc_1_oscillator();
 void ags_modular_synth_util_test_set_osc_1_oscillator();
 void ags_modular_synth_util_test_get_osc_1_frequency();
@@ -61,10 +64,12 @@ void ags_modular_synth_util_test_get_osc_1_phase();
 void ags_modular_synth_util_test_set_osc_1_phase();
 void ags_modular_synth_util_test_get_osc_1_volume();
 void ags_modular_synth_util_test_set_osc_1_volume();
+
 void ags_modular_synth_util_test_get_pitch_tuning();
 void ags_modular_synth_util_test_set_pitch_tuning();
 void ags_modular_synth_util_test_get_volume();
 void ags_modular_synth_util_test_set_volume();
+
 void ags_modular_synth_util_test_get_env_0_attack();
 void ags_modular_synth_util_test_set_env_0_attack();
 void ags_modular_synth_util_test_get_env_0_decay();
@@ -79,6 +84,7 @@ void ags_modular_synth_util_test_get_env_0_sends();
 void ags_modular_synth_util_test_set_env_0_sends();
 void ags_modular_synth_util_test_get_env_0_frequency();
 void ags_modular_synth_util_test_set_env_0_frequency();
+
 void ags_modular_synth_util_test_get_env_1_attack();
 void ags_modular_synth_util_test_set_env_1_attack();
 void ags_modular_synth_util_test_get_env_1_decay();
@@ -93,6 +99,7 @@ void ags_modular_synth_util_test_get_env_1_frequency();
 void ags_modular_synth_util_test_set_env_1_frequency();
 void ags_modular_synth_util_test_get_env_1_sends();
 void ags_modular_synth_util_test_set_env_1_sends();
+
 void ags_modular_synth_util_test_get_lfo_0_oscillator();
 void ags_modular_synth_util_test_set_lfo_0_oscillator();
 void ags_modular_synth_util_test_get_lfo_0_frequency();
@@ -103,6 +110,7 @@ void ags_modular_synth_util_test_get_lfo_0_tuning();
 void ags_modular_synth_util_test_set_lfo_0_tuning();
 void ags_modular_synth_util_test_get_lfo_0_sends();
 void ags_modular_synth_util_test_set_lfo_0_sends();
+
 void ags_modular_synth_util_test_get_lfo_1_oscillator();
 void ags_modular_synth_util_test_set_lfo_1_oscillator();
 void ags_modular_synth_util_test_get_lfo_1_frequency();
@@ -113,12 +121,23 @@ void ags_modular_synth_util_test_get_lfo_1_tuning();
 void ags_modular_synth_util_test_set_lfo_1_tuning();
 void ags_modular_synth_util_test_get_lfo_1_sends();
 void ags_modular_synth_util_test_set_lfo_1_sends();
+
 void ags_modular_synth_util_test_get_noise_frequency();
 void ags_modular_synth_util_test_set_noise_frequency();
 void ags_modular_synth_util_test_get_noise_gain();
 void ags_modular_synth_util_test_set_noise_gain();
 void ags_modular_synth_util_test_get_noise_sends();
 void ags_modular_synth_util_test_set_noise_sends();
+
+void ags_modular_synth_util_test_get_frame_count();
+void ags_modular_synth_util_test_set_frame_count();
+void ags_modular_synth_util_test_get_offset();
+void ags_modular_synth_util_test_set_offset();
+void ags_modular_synth_util_test_get_note_256th_mode();
+void ags_modular_synth_util_test_set_note_256th_mode();
+void ags_modular_synth_util_test_get_offset_256th();
+void ags_modular_synth_util_test_set_offset_256th();
+
 void ags_modular_synth_util_test_compute_s8();
 void ags_modular_synth_util_test_compute_s16();
 void ags_modular_synth_util_test_compute_s24();
@@ -409,13 +428,13 @@ ags_modular_synth_util_test_get_osc_0_frequency()
 {
   AgsModularSynthUtil modular_synth_util = {0,};
 
-  modular_synth_util.osc_0_frequency = 1;
+  modular_synth_util.osc_0_frequency = 440.0;
 
-  CU_ASSERT(ags_modular_synth_util_get_osc_0_frequency(&modular_synth_util) == 1.0);
+  CU_ASSERT(ags_modular_synth_util_get_osc_0_frequency(&modular_synth_util) == 440.0);
   
-  modular_synth_util.osc_0_frequency = 0.25;
+  modular_synth_util.osc_0_frequency = 220.0;
 
-  CU_ASSERT(ags_modular_synth_util_get_osc_0_frequency(&modular_synth_util) == 0.25);
+  CU_ASSERT(ags_modular_synth_util_get_osc_0_frequency(&modular_synth_util) == 220.0);
 }
 
 void
@@ -423,12 +442,12 @@ ags_modular_synth_util_test_set_osc_0_frequency()
 {
   AgsModularSynthUtil modular_synth_util = {0,};
   
-  modular_synth_util.osc_0_frequency = 1.0;
+  modular_synth_util.osc_0_frequency = 440.0;
 
   ags_modular_synth_util_set_osc_0_frequency(&modular_synth_util,
-					     0.35);
+					     440.0);
   
-  CU_ASSERT(modular_synth_util.osc_0_frequency == 0.35);
+  CU_ASSERT(modular_synth_util.osc_0_frequency == 440.0);
 }
 
 void
@@ -436,7 +455,7 @@ ags_modular_synth_util_test_get_osc_0_phase()
 {
   AgsModularSynthUtil modular_synth_util = {0,};
 
-  modular_synth_util.osc_0_phase = 1;
+  modular_synth_util.osc_0_phase = 1.0;
 
   CU_ASSERT(ags_modular_synth_util_get_osc_0_phase(&modular_synth_util) == 1.0);
   
@@ -1463,6 +1482,54 @@ ags_modular_synth_util_test_set_noise_sends()
 }
 
 void
+ags_modular_synth_util_test_get_frame_count()
+{
+  //TODO:JK: implement me
+}
+
+void
+ags_modular_synth_util_test_set_frame_count()
+{
+  //TODO:JK: implement me
+}
+
+void
+ags_modular_synth_util_test_get_offset()
+{
+  //TODO:JK: implement me
+}
+
+void
+ags_modular_synth_util_test_set_offset()
+{
+  //TODO:JK: implement me
+}
+
+void
+ags_modular_synth_util_test_get_note_256th_mode()
+{
+  //TODO:JK: implement me
+}
+
+void
+ags_modular_synth_util_test_set_note_256th_mode()
+{
+  //TODO:JK: implement me
+}
+
+void
+ags_modular_synth_util_test_get_offset_256th()
+{
+  //TODO:JK: implement me
+}
+
+void
+ags_modular_synth_util_test_set_offset_256th()
+{
+  //TODO:JK: implement me
+}
+
+void
 ags_modular_synth_util_test_compute_s8()
 {
   AgsModularSynthUtil *modular_synth_util;
@@ -1780,6 +1847,14 @@ main(int argc, char **argv)
      (CU_add_test(pSuite, "test of AgsModularSynthUtil set noise gain", ags_modular_synth_util_test_set_noise_gain) == NULL) ||
      (CU_add_test(pSuite, "test of AgsModularSynthUtil get noise sends", ags_modular_synth_util_test_get_noise_sends) == NULL) ||
      (CU_add_test(pSuite, "test of AgsModularSynthUtil set noise sends", ags_modular_synth_util_test_set_noise_sends) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil get frame count", ags_modular_synth_util_test_get_frame_count) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil set frame count", ags_modular_synth_util_test_set_frame_count) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil get offset", ags_modular_synth_util_test_get_offset) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil set offset", ags_modular_synth_util_test_set_offset) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil get note 256th mode", ags_modular_synth_util_test_get_note_256th_mode) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil set note 256th mode", ags_modular_synth_util_test_set_note_256th_mode) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil get offset 256th", ags_modular_synth_util_test_get_offset_256th) == NULL) ||
+     (CU_add_test(pSuite, "test of AgsModularSynthUtil set offset 256th", ags_modular_synth_util_test_set_offset_256th) == NULL) ||
      (CU_add_test(pSuite, "test of AgsModularSynthUtil compute s8", ags_modular_synth_util_test_compute_s8) == NULL) ||
      (CU_add_test(pSuite, "test of AgsModularSynthUtil compute s16", ags_modular_synth_util_test_compute_s16) == NULL) ||
      (CU_add_test(pSuite, "test of AgsModularSynthUtil compute s24", ags_modular_synth_util_test_compute_s24) == NULL) ||

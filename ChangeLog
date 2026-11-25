@@ -2,6 +2,7 @@ ags (9.4.13)
 
 	[ Joël Krähemann (Maintainer of Advanced Gtk+ Sequencer) ]
 	* added unit-test ags_modular_synth_util_test.c
+	* added unit-test ags_raven_synth_util_test.c
 
 ags (9.4.12)
 
